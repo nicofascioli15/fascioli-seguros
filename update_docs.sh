@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo 'Actualizando documentos...'
+
+cat > app/documentos/page.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X } from 'lucide-react'
@@ -291,3 +296,11 @@ export default function DocumentosPage() {
   )
 }
 
+FILEEOF
+echo '✅ app/documentos/page.tsx'
+
+echo ''
+echo '🎉 Listo. Ahora:'
+echo '   git add .'
+echo '   git commit -m "feat: subida real de archivos a Supabase Storage"'
+echo '   git push'
