@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Shield, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -39,18 +39,14 @@ export default function LoginPage() {
         boxShadow: '0 24px 80px rgba(0,0,0,0.3)'
       }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
-            width: '56px', height: '56px', borderRadius: '14px',
-            background: 'var(--navy)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px'
+            background: 'rgb(27,67,95)', borderRadius: 14,
+            padding: '16px 24px', display: 'inline-block', marginBottom: 16
           }}>
-            <Shield size={28} color="var(--gold)" />
+            <img src="/logo-fascioli.svg" alt="Fascioli Seguros" style={{ height: 48, display: 'block' }} />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '700', color: 'var(--navy)' }}>
-            Fascioli Seguros
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--slate)', marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--slate)' }}>
             Acceso al sistema interno
           </div>
         </div>
@@ -112,3 +108,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

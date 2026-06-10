@@ -62,12 +62,8 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="logo-icon">🛡️</div>
-        <div className="logo-text">
-          <div className="brand">Fascioli</div>
-          <div className="sub">Seguros</div>
-        </div>
+      <div className="sidebar-logo" style={{ justifyContent: 'center', padding: '20px 16px' }}>
+        <img src="/logo-fascioli.svg" alt="Fascioli Seguros" style={{ width: '100%', maxWidth: 160, height: 'auto', display: 'block' }} />
       </div>
 
       <nav style={{ flex: 1, padding: '10px 0' }}>
