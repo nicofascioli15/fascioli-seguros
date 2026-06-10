@@ -27,9 +27,6 @@ type Poliza = {
 
 type Props = { id: string; nombre: string; onBack: () => void }
 
-const RAMOS     = ['Incendio', 'Multirriesgo', 'Ascensores', 'Cristales', 'Inmuebles', 'Vehículos', 'RC', 'Vida', 'Otros']
-const COMPANIAS = ['BSE', 'SURA', 'Mapfre', 'HDI', 'BERKLEY', 'BARBUSS', 'PORTO/SEG', 'SBI', 'Otra']
-const METODOS   = ['Transferencia', 'Efectivo', 'Débito automático', 'Cheque', 'Pago online']
 const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -508,7 +505,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Ramo *</label>
                 <select value={polizaForm.ramo} onChange={e => setPolizaForm({ ...polizaForm, ramo: e.target.value })}>
-                  {RAMOS.map(r => <option key={r}>{r}</option>)}
+                  {catalogos.ramos.map((r: string) => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div className="fgroup">
@@ -518,15 +515,28 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Compañía</label>
                 <select value={polizaForm.compania} onChange={e => setPolizaForm({ ...polizaForm, compania: e.target.value })}>
-                  {COMPANIAS.map(c => <option key={c}>{c}</option>)}
+                  {catalogos.companias.map((c: string) => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div className="fgroup">
                 <label>Corredor</label>
-                <select value={polizaForm.corredor} onChange={e => setPolizaForm({ ...polizaForm, corredor: e.target.value })}>
-                  <option value="Fascioli">Fascioli</option>
-                  <option value="ELLOS">ELLOS (externo)</option>
-                </select>
+                {showNuevoCorreder ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={nuevoCorreder} onChange={e => setNuevoCorreder(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && crearCorredor()}
+                      placeholder="Nombre del corredor" autoFocus
+                      style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)' }} />
+                    <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
+                    <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorreder(false); setNuevoCorreder('') }} style={{ padding: '8px 12px' }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select value={polizaForm.corredor} onChange={e => setPolizaForm({ ...polizaForm, corredor: e.target.value })} style={{ flex: 1 }}>
+                      {catalogos.corredores.map((c: string) => <option key={c}>{c}</option>)}
+                    </select>
+                    <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorreder(true)} title="Crear corredor" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
+                  </div>
+                )}
               </div>
               <div className="fgroup">
                 <label>Vencimiento</label>
@@ -582,7 +592,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             <div className="fgroup">
               <label>Método de pago</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
-                {(catalogos.metodos.length > 0 ? catalogos.metodos : METODOS).map(m => <option key={m}>{m}</option>)}
+                {catalogos.metodos.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div className="fgroup"><label>Referencia / Comprobante</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Nro. de comprobante (opcional)" /></div>

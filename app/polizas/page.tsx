@@ -3,9 +3,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-const RAMOS     = ['Incendio', 'Multirriesgo', 'Ascensores', 'Cristales', 'Inmuebles', 'Vehículos', 'RC', 'Vida', 'Otros']
-const COMPANIAS = ['BSE', 'SURA', 'Mapfre', 'HDI', 'BERKLEY', 'BARBUSS', 'PORTO/SEG', 'SBI', 'Otra']
-const METODOS_PAGO = ['Transferencia', 'Efectivo', 'Débito automático', 'Cheque', 'Pago online']
+// Catalogs loaded from Supabase
 const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 function mesesACuotaMes(idx: number[]) {
@@ -83,6 +81,7 @@ type Paso = 'cliente' | 'poliza'
 export default function PolizasPage() {
   const supabase = createClient()
 
+  const [catalogos, setCatalogos] = useState<{ramos:string[];companias:string[];corredores:string[]}>({ramos:[],companias:[],corredores:[]})
   const [polizas, setPolizas]         = useState<Poliza[]>([])
   const [clientes, setClientes]       = useState<Cliente[]>([])
   const [loading, setLoading]         = useState(true)
@@ -103,6 +102,7 @@ export default function PolizasPage() {
   useEffect(() => {
     fetchPolizas()
     fetchClientes()
+    fetchCatalogos()
   }, [])
 
   async function fetchPolizas() {
@@ -118,6 +118,19 @@ export default function PolizasPage() {
   async function fetchClientes() {
     const { data } = await supabase.from('clientes').select('id, nombre, direccion').order('nombre')
     if (data) setClientes(data)
+  }
+
+  async function fetchCatalogos() {
+    const [r, c, co] = await Promise.all([
+      supabase.from('ramos').select('nombre').order('nombre'),
+      supabase.from('companias').select('nombre').order('nombre'),
+      supabase.from('corredores').select('nombre').order('nombre'),
+    ])
+    setCatalogos({
+      ramos:     (r.data || []).map((x:any) => x.nombre),
+      companias: (c.data || []).map((x:any) => x.nombre),
+      corredores:(co.data || []).map((x:any) => x.nombre),
+    })
   }
 
   async function guardarPoliza() {
@@ -155,7 +168,7 @@ export default function PolizasPage() {
     setPaso('cliente')
   }
 
-  const RAMOS_FILTRO = ['Todos', ...RAMOS]
+  const RAMOS_FILTRO = ['Todos', ...catalogos.ramos]
   const filtradas = polizas.filter(p => {
     const q = search.toLowerCase()
     const nombre = p.clientes?.nombre || ''
@@ -317,7 +330,7 @@ export default function PolizasPage() {
                   <div className="fgroup">
                     <label>Ramo *</label>
                     <select value={form.ramo} onChange={e => setForm({ ...form, ramo: e.target.value })}>
-                      {RAMOS.map(r => <option key={r}>{r}</option>)}
+                      {catalogos.ramos.map(r => <option key={r}>{r}</option>)}
                     </select>
                   </div>
                   <div className="fgroup">
@@ -327,14 +340,13 @@ export default function PolizasPage() {
                   <div className="fgroup">
                     <label>Compañía</label>
                     <select value={form.compania} onChange={e => setForm({ ...form, compania: e.target.value })}>
-                      {COMPANIAS.map(c => <option key={c}>{c}</option>)}
+                      {catalogos.companias.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="fgroup">
                     <label>Corredor</label>
                     <select value={form.corredor} onChange={e => setForm({ ...form, corredor: e.target.value })}>
-                      <option value="Fascioli">Fascioli</option>
-                      <option value="ELLOS">ELLOS (externo)</option>
+                      {catalogos.corredores.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="fgroup">

@@ -9,7 +9,7 @@ const estadoColor: Record<string, string> = {
   'Vencido':   'badge-danger',
 }
 
-const METODOS = ['Transferencia', 'Efectivo', 'Débito automático', 'Cheque', 'Pago online']
+// Metodos loaded from Supabase
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -41,6 +41,7 @@ type Cuota = {
 
 export default function PagosPage() {
   const supabase = createClient()
+  const [metodos, setMetodos] = useState<string[]>([])
   const [cuotas, setCuotas]     = useState<Cuota[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -49,7 +50,11 @@ export default function PagosPage() {
   const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
   const [saving, setSaving]     = useState(false)
 
-  useEffect(() => { fetchCuotas() }, [])
+  useEffect(() => {
+    fetchCuotas()
+    supabase.from('metodos_pago').select('nombre').order('nombre')
+      .then(({ data }) => { if (data) setMetodos(data.map((x:any) => x.nombre)) })
+  }, [])
 
   async function fetchCuotas() {
     setLoading(true)
@@ -240,7 +245,7 @@ export default function PagosPage() {
             <div className="fgroup">
               <label>Método</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
-                {METODOS.map(m => <option key={m}>{m}</option>)}
+                {metodos.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div className="fgroup"><label>Referencia</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Comprobante (opcional)" /></div>
