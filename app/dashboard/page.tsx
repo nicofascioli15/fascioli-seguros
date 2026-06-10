@@ -12,17 +12,18 @@ function diasHasta(iso: string | null) {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const [stats, setStats] = useState({ polizas: 0, venc30: 0, cuotasPend: 0, siniestros: 0 })
+  const [stats, setStats] = useState({ polizas: 0, venc30: 0, cuotasPend: 0, siniestros: 0, clientes: 0 })
   const [loading, setLoading] = useState(true)
   const [vencProximas, setVencProximas] = useState<any[]>([])
 
   useEffect(() => { fetchStats() }, [])
 
   async function fetchStats() {
-    const [{ count: polizas }, { data: polizasData }, { count: siniestros }] = await Promise.all([
+    const [{ count: polizas }, { data: polizasData }, { count: siniestros }, { count: clientes }] = await Promise.all([
       supabase.from('polizas').select('*', { count: 'exact', head: true }),
       supabase.from('polizas').select('id, numero, ramo, vencimiento, clientes(nombre)'),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
+      supabase.from('clientes').select('*', { count: 'exact', head: true }),
     ])
 
     const venc30 = (polizasData || []).filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
@@ -31,7 +32,7 @@ export default function DashboardPage() {
       .sort((a, b) => (diasHasta(a.vencimiento) || 0) - (diasHasta(b.vencimiento) || 0))
       .slice(0, 6)
 
-    setStats({ polizas: polizas || 0, venc30, cuotasPend: 0, siniestros: siniestros || 0 })
+    setStats({ polizas: polizas || 0, venc30, cuotasPend: 0, siniestros: siniestros || 0, clientes: clientes || 0 })
     setVencProximas(proximas)
     setLoading(false)
   }
@@ -46,7 +47,7 @@ export default function DashboardPage() {
     { label: 'Pólizas activas',     value: loading ? '—' : stats.polizas,    sub: 'En cartera',          icon: FileText,      bg: '#EEF2F8', iconColor: '#2456B0' },
     { label: 'Vencen en 30 días',   value: loading ? '—' : stats.venc30,     sub: 'Requieren atención',  icon: Bell,          bg: '#FEF3C7', iconColor: '#D97706' },
     { label: 'Siniestros abiertos', value: loading ? '—' : stats.siniestros, sub: 'En gestión',          icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F' },
-    { label: 'Clientes',            value: loading ? '—' : '—',              sub: 'Cargando...',         icon: CreditCard,    bg: '#E6F5EF', iconColor: '#2A7A56' },
+    { label: 'Clientes',            value: loading ? '—' : stats.clientes,   sub: 'Registrados',         icon: Users,         bg: '#E6F5EF', iconColor: '#2A7A56' },
   ]
 
   return (
