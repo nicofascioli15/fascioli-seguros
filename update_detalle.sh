@@ -1,7 +1,5 @@
 #!/bin/bash
 set -e
-echo 'Actualizando ClienteDetalle...'
-
 cat > app/clientes/ClienteDetalle.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
@@ -260,6 +258,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  async function eliminarDocumento(doc: Documento, polizaNombre: string) {
+    if (!confirm(`¿Eliminar "${doc.nombre}"?`)) return
+    await supabase.storage.from('documentos').remove([doc.storage_path])
+    await supabase.from('documentos').delete().eq('id', doc.id)
+    await fetchPolizas()
+    showToast(`🗑 "${doc.nombre}" eliminado`)
+  }
+
   async function subirDocumento(file: File, poliza: { id: string; ramo: string; numero: string }) {
     setUploadingDoc(poliza.id)
     const path = `${id}/${poliza.id}/${Date.now()}_${file.name.replace(/\s/g, '_')}`
@@ -424,9 +430,19 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                             <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
                             <div style={{ fontSize: 11, color: 'var(--slate)' }}>{doc.tipo}</div>
                           </div>
-                          <button className="btn-primary btn-sm" onClick={() => abrirDocumento(doc)}>
-                            📄 Abrir
-                          </button>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn-primary btn-sm" onClick={() => abrirDocumento(doc)}>
+                              📄 Abrir
+                            </button>
+                            <button
+                              className="btn-outline btn-sm"
+                              style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }}
+                              onClick={() => eliminarDocumento(doc, pol.numero)}
+                              title="Eliminar documento"
+                            >
+                              🗑
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -588,10 +604,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 }
 
 FILEEOF
-echo '✅ app/clientes/ClienteDetalle.tsx'
-
-echo ''
-echo '🎉 Listo:'
+echo '✅ Listo'
 echo '   git add .'
-echo '   git commit -m "feat: toast confirmacion, lista de docs por poliza, abrir archivos"'
+echo '   git commit -m "feat: eliminar documentos desde poliza"'
 echo '   git push'
