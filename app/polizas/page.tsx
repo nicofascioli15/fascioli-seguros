@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
 
 // Catalogs loaded from Supabase
 const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -353,7 +354,7 @@ export default function PolizasPage() {
                   </div>
                   <div className="fgroup">
                     <label>Vencimiento</label>
-                    <input type="date" value={form.vencimiento} onChange={e => setForm({ ...form, vencimiento: e.target.value })} />
+                    <DatePicker value={form.vencimiento} onChange={v => setForm({ ...form, vencimiento: v })} placeholder="Seleccionar fecha" />
                   </div>
                   <div className="fgroup">
                     <label>Moneda</label>

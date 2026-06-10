@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
 
 const estadoColor: Record<string, string> = {
   'Cobrado':   'badge-success',
@@ -241,7 +242,7 @@ export default function PagosPage() {
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {showModal.cliente_nombre} · {showModal.ramo} · Cuota {showModal.cuota_num}
             </div>
-            <div className="fgroup"><label>Fecha de cobro</label><input type="date" value={pagoForm.fecha} onChange={e => setPagoForm({ ...pagoForm, fecha: e.target.value })} /></div>
+            <div className="fgroup"><label>Fecha de cobro</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
             <div className="fgroup">
               <label>Método</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>

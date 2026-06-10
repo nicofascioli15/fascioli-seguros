@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
 
 type Documento = {
   id: string
@@ -589,7 +590,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {nombre} · {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}
             </div>
-            <div className="fgroup"><label>Fecha de pago</label><input type="date" value={pagoForm.fecha} onChange={e => setPagoForm({ ...pagoForm, fecha: e.target.value })} /></div>
+            <div className="fgroup"><label>Fecha de pago</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
             <div className="fgroup">
               <label>Método de pago</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>

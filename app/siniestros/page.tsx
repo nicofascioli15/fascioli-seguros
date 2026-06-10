@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
 
 const ESTADOS   = ['En gestión', 'Documentación', 'Pericial', 'Cerrado']
 // TIPOS_SIN stays hardcoded - siniestro types are not in catalogs
@@ -316,7 +317,7 @@ export default function SiniestrosPage() {
                   </div>
                   <div className="fgroup">
                     <label>Fecha de ocurrencia</label>
-                    <input type="date" value={form.fecha_ocurrencia} onChange={e => setForm({ ...form, fecha_ocurrencia: e.target.value })} />
+                    <DatePicker value={form.fecha_ocurrencia} onChange={v => setForm({ ...form, fecha_ocurrencia: v })} />
                   </div>
                   <div className="fgroup">
                     <label>Estado inicial</label>
