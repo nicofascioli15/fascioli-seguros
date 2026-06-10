@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+cat > app/dashboard/page.tsx << 'FILEEOF'
 'use client'
 import { useEffect, useState } from 'react'
 import { FileText, CreditCard, Bell, AlertTriangle, Users } from 'lucide-react'
@@ -128,3 +131,8 @@ export default function DashboardPage() {
   )
 }
 
+FILEEOF
+echo 'Listo'
+echo '   git add .'
+echo '   git commit -m "fix: accesos rapidos con iconos Lucide"'
+echo '   git push'
