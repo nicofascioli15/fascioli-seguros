@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+cat > app/clientes/ClientesList.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle } from 'lucide-react'
@@ -245,3 +248,9 @@ export default function ClientesList({ onSelect }: Props) {
   )
 }
 
+FILEEOF
+echo '✅ ClientesList.tsx'
+echo ''
+echo '   git add .'
+echo '   git commit -m "feat: importacion masiva de clientes desde CSV"'
+echo '   git push'
