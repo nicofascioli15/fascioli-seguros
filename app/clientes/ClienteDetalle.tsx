@@ -145,6 +145,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [loading, setLoading]         = useState(true)
   const [openCards, setOpenCards]     = useState<Record<string, boolean>>({})
   const [showPolizaModal, setShowPolizaModal] = useState(false)
+  const [showTipoDocModal, setShowTipoDocModal] = useState(false)
   const [showPagoModal, setShowPagoModal]     = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
   const [savingPoliza, setSavingPoliza] = useState(false)
   const [savingPago, setSavingPago]    = useState(false)
@@ -157,6 +158,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [nuevoCorreder, setNuevoCorreder] = useState('')
   const [showNuevoCorreder, setShowNuevoCorreder] = useState(false)
   const fileInputRef                  = useRef<HTMLInputElement>(null)
+  const [tiposDoc, setTiposDoc]       = useState<string[]>([])
+  const [tipoDocSel, setTipoDocSel]   = useState('Póliza')
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null) // poliza id being uploaded
   const [uploadPolizaSel, setUploadPolizaSel] = useState<{ id: string; ramo: string; numero: string } | null>(null)
   const [toast, setToast]             = useState<string | null>(null)
@@ -205,6 +208,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       supabase.from('corredores').select('nombre').order('nombre'),
       supabase.from('metodos_pago').select('nombre').order('nombre'),
       supabase.from('monedas').select('nombre').order('nombre'),
+      supabase.from('tipos_documento').select('nombre').order('nombre'),
     ])
     setCatalogos({
       ramos:     (r.data || []).map((x: any) => x.nombre),
@@ -213,6 +217,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       metodos:   (m.data || []).map((x: any) => x.nombre),
       monedas:   (mon.data || []).map((x: any) => x.nombre),
     })
+    // Also load tipos doc separately for upload
+    const td = await supabase.from('tipos_documento').select('nombre').order('nombre')
+    if (td.data) setTiposDoc(td.data.map((x: any) => x.nombre))
   }
 
   async function crearCorredor() {
@@ -310,7 +317,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
     await supabase.from('documentos').insert([{
       nombre:        file.name,
-      tipo:          'Póliza',
+      tipo:          tipoDocSel,
       storage_path:  path,
       tamanio_bytes: file.size,
       cliente_id:    id,
@@ -481,7 +488,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <button
                     className="btn-outline btn-sm"
                     disabled={uploadingDoc === pol.id}
-                    onClick={() => { setUploadPolizaSel({ id: pol.id, ramo: pol.ramo, numero: pol.numero }); fileInputRef.current?.click() }}
+                    onClick={() => { setUploadPolizaSel({ id: pol.id, ramo: pol.ramo, numero: pol.numero }); setTipoDocSel('Póliza'); setShowTipoDocModal(true) }}
                   >
                     {uploadingDoc === pol.id
                       ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Subiendo...</>
@@ -602,6 +609,33 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <button className="btn-outline" onClick={() => setShowPagoModal(null)}>Cancelar</button>
               <button className="btn-primary" onClick={registrarPago} disabled={savingPago}>
                 {savingPago ? <><Loader2 size={14} /> Guardando...</> : '✓ Confirmar pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal selector de tipo de documento */}
+      {showTipoDocModal && uploadPolizaSel && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowTipoDocModal(false) }}>
+          <div className="pago-modal" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>📎 Subir documento</h3>
+              <button onClick={() => setShowTipoDocModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {uploadPolizaSel.ramo} · {uploadPolizaSel.numero}
+            </div>
+            <div className="fgroup">
+              <label>Tipo de documento</label>
+              <select value={tipoDocSel} onChange={e => setTipoDocSel(e.target.value)}>
+                {tiposDoc.map((t: string) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowTipoDocModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={() => { setShowTipoDocModal(false); fileInputRef.current?.click() }}>
+                <Upload size={14} /> Seleccionar archivo
               </button>
             </div>
           </div>

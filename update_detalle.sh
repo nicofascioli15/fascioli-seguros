@@ -5,6 +5,7 @@ cat > app/clientes/ClienteDetalle.tsx << 'FILEEOF'
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
 
 type Documento = {
   id: string
@@ -30,9 +31,6 @@ type Poliza = {
 
 type Props = { id: string; nombre: string; onBack: () => void }
 
-const RAMOS     = ['Incendio', 'Multirriesgo', 'Ascensores', 'Cristales', 'Inmuebles', 'Vehículos', 'RC', 'Vida', 'Otros']
-const COMPANIAS = ['BSE', 'SURA', 'Mapfre', 'HDI', 'BERKLEY', 'BARBUSS', 'PORTO/SEG', 'SBI', 'Otra']
-const METODOS   = ['Transferencia', 'Efectivo', 'Débito automático', 'Cheque', 'Pago online']
 const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -150,18 +148,26 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [loading, setLoading]         = useState(true)
   const [openCards, setOpenCards]     = useState<Record<string, boolean>>({})
   const [showPolizaModal, setShowPolizaModal] = useState(false)
+  const [showTipoDocModal, setShowTipoDocModal] = useState(false)
   const [showPagoModal, setShowPagoModal]     = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
   const [savingPoliza, setSavingPoliza] = useState(false)
   const [savingPago, setSavingPago]    = useState(false)
   const [polizaForm, setPolizaForm]   = useState({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', mesesIdx: [] as number[] })
   const [pagoForm, setPagoForm]       = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
   const supabase                      = createClient()
+  const [catalogos, setCatalogos]     = useState<{
+    ramos: string[]; companias: string[]; corredores: string[]; metodos: string[]; monedas: string[]
+  }>({ ramos: [], companias: [], corredores: [], metodos: [], monedas: [] })
+  const [nuevoCorreder, setNuevoCorreder] = useState('')
+  const [showNuevoCorreder, setShowNuevoCorreder] = useState(false)
   const fileInputRef                  = useRef<HTMLInputElement>(null)
+  const [tiposDoc, setTiposDoc]       = useState<string[]>([])
+  const [tipoDocSel, setTipoDocSel]   = useState('Póliza')
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null) // poliza id being uploaded
   const [uploadPolizaSel, setUploadPolizaSel] = useState<{ id: string; ramo: string; numero: string } | null>(null)
   const [toast, setToast]             = useState<string | null>(null)
 
-  useEffect(() => { fetchPolizas() }, [id])
+  useEffect(() => { fetchPolizas(); fetchCatalogos() }, [id])
 
   async function fetchPolizas() {
     setLoading(true)
@@ -196,6 +202,38 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
     setPolizas(polizasConPagos)
     setLoading(false)
+  }
+
+  async function fetchCatalogos() {
+    const [r, c, co, m, mon] = await Promise.all([
+      supabase.from('ramos').select('nombre').order('nombre'),
+      supabase.from('companias').select('nombre').order('nombre'),
+      supabase.from('corredores').select('nombre').order('nombre'),
+      supabase.from('metodos_pago').select('nombre').order('nombre'),
+      supabase.from('monedas').select('nombre').order('nombre'),
+      supabase.from('tipos_documento').select('nombre').order('nombre'),
+    ])
+    setCatalogos({
+      ramos:     (r.data || []).map((x: any) => x.nombre),
+      companias: (c.data || []).map((x: any) => x.nombre),
+      corredores:(co.data || []).map((x: any) => x.nombre),
+      metodos:   (m.data || []).map((x: any) => x.nombre),
+      monedas:   (mon.data || []).map((x: any) => x.nombre),
+    })
+    // Also load tipos doc separately for upload
+    const td = await supabase.from('tipos_documento').select('nombre').order('nombre')
+    if (td.data) setTiposDoc(td.data.map((x: any) => x.nombre))
+  }
+
+  async function crearCorredor() {
+    const nombre = nuevoCorreder.trim()
+    if (!nombre) return
+    await supabase.from('corredores').insert([{ nombre }])
+    setNuevoCorreder('')
+    setShowNuevoCorreder(false)
+    await fetchCatalogos()
+    setPolizaForm(prev => ({ ...prev, corredor: nombre }))
+    showToast(`✓ Corredor "${nombre}" creado`)
   }
 
   async function guardarPoliza() {
@@ -282,7 +320,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
     await supabase.from('documentos').insert([{
       nombre:        file.name,
-      tipo:          'Póliza',
+      tipo:          tipoDocSel,
       storage_path:  path,
       tamanio_bytes: file.size,
       cliente_id:    id,
@@ -453,7 +491,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <button
                     className="btn-outline btn-sm"
                     disabled={uploadingDoc === pol.id}
-                    onClick={() => { setUploadPolizaSel({ id: pol.id, ramo: pol.ramo, numero: pol.numero }); fileInputRef.current?.click() }}
+                    onClick={() => { setUploadPolizaSel({ id: pol.id, ramo: pol.ramo, numero: pol.numero }); setTipoDocSel('Póliza'); setShowTipoDocModal(true) }}
                   >
                     {uploadingDoc === pol.id
                       ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Subiendo...</>
@@ -480,7 +518,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Ramo *</label>
                 <select value={polizaForm.ramo} onChange={e => setPolizaForm({ ...polizaForm, ramo: e.target.value })}>
-                  {RAMOS.map(r => <option key={r}>{r}</option>)}
+                  {catalogos.ramos.map((r: string) => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div className="fgroup">
@@ -490,15 +528,28 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Compañía</label>
                 <select value={polizaForm.compania} onChange={e => setPolizaForm({ ...polizaForm, compania: e.target.value })}>
-                  {COMPANIAS.map(c => <option key={c}>{c}</option>)}
+                  {catalogos.companias.map((c: string) => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div className="fgroup">
                 <label>Corredor</label>
-                <select value={polizaForm.corredor} onChange={e => setPolizaForm({ ...polizaForm, corredor: e.target.value })}>
-                  <option value="Fascioli">Fascioli</option>
-                  <option value="ELLOS">ELLOS (externo)</option>
-                </select>
+                {showNuevoCorreder ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={nuevoCorreder} onChange={e => setNuevoCorreder(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && crearCorredor()}
+                      placeholder="Nombre del corredor" autoFocus
+                      style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)' }} />
+                    <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
+                    <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorreder(false); setNuevoCorreder('') }} style={{ padding: '8px 12px' }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select value={polizaForm.corredor} onChange={e => setPolizaForm({ ...polizaForm, corredor: e.target.value })} style={{ flex: 1 }}>
+                      {catalogos.corredores.map((c: string) => <option key={c}>{c}</option>)}
+                    </select>
+                    <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorreder(true)} title="Crear corredor" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
+                  </div>
+                )}
               </div>
               <div className="fgroup">
                 <label>Vencimiento</label>
@@ -507,8 +558,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Moneda</label>
                 <select value={polizaForm.moneda} onChange={e => setPolizaForm({ ...polizaForm, moneda: e.target.value })}>
-                  <option value="U$S">U$S (dólares)</option>
-                  <option value="$">$ (pesos)</option>
+                  {(catalogos.monedas || []).map((m: string) => <option key={m}>{m}</option>)}
                 </select>
               </div>
               <div className="fgroup">
@@ -550,11 +600,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {nombre} · {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}
             </div>
-            <div className="fgroup"><label>Fecha de pago</label><input type="date" value={pagoForm.fecha} onChange={e => setPagoForm({ ...pagoForm, fecha: e.target.value })} /></div>
+            <div className="fgroup"><label>Fecha de pago</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
             <div className="fgroup">
               <label>Método de pago</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
-                {METODOS.map(m => <option key={m}>{m}</option>)}
+                {catalogos.metodos.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div className="fgroup"><label>Referencia / Comprobante</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Nro. de comprobante (opcional)" /></div>
@@ -562,6 +612,33 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <button className="btn-outline" onClick={() => setShowPagoModal(null)}>Cancelar</button>
               <button className="btn-primary" onClick={registrarPago} disabled={savingPago}>
                 {savingPago ? <><Loader2 size={14} /> Guardando...</> : '✓ Confirmar pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal selector de tipo de documento */}
+      {showTipoDocModal && uploadPolizaSel && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowTipoDocModal(false) }}>
+          <div className="pago-modal" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>📎 Subir documento</h3>
+              <button onClick={() => setShowTipoDocModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {uploadPolizaSel.ramo} · {uploadPolizaSel.numero}
+            </div>
+            <div className="fgroup">
+              <label>Tipo de documento</label>
+              <select value={tipoDocSel} onChange={e => setTipoDocSel(e.target.value)}>
+                {tiposDoc.map((t: string) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowTipoDocModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={() => { setShowTipoDocModal(false); fileInputRef.current?.click() }}>
+                <Upload size={14} /> Seleccionar archivo
               </button>
             </div>
           </div>
@@ -604,7 +681,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 }
 
 FILEEOF
-echo '✅ Listo'
+echo '✅ ClienteDetalle.tsx'
+echo ''
 echo '   git add .'
-echo '   git commit -m "feat: eliminar documentos desde poliza"'
+echo '   git commit -m "feat: selector de tipo al subir documento desde poliza"'
 echo '   git push'
