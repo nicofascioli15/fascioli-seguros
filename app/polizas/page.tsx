@@ -252,6 +252,25 @@ export default function PolizasPage() {
             })}
           </tbody>
         </table>
+        {/* Mobile card list */}
+        <div className="mobile-list" style={{ display: 'none' }}>
+          {filtradas.map(p => {
+            const { label, cls } = estadoBadge(p.vencimiento)
+            return (
+              <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--navy)' }}>{p.clientes?.nombre || '—'}</div>
+                  <span className={`badge ${cls}`}>{label}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                  <span className="badge badge-neutral">{p.ramo}</span>
+                  <span style={{ fontSize: 12, color: 'var(--slate)', fontFamily: 'monospace', alignSelf: 'center' }}>{p.numero}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--slate)' }}>{p.compania} · {p.moneda} · Vence {formatFecha(p.vencimiento)}</div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── MODAL NUEVA PÓLIZA (2 pasos) ─────────────────────────────────── */}

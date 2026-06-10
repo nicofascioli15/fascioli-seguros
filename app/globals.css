@@ -21,9 +21,7 @@
 * { box-sizing: border-box; }
 body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); color: var(--navy); }
 
-.app-shell { display: flex; min-height: 100vh; }
-.main-content { flex: 1; padding: 32px; min-width: 0; }
-
+/* ── SIDEBAR ── */
 .sidebar { background: var(--navy); width: 240px; min-height: 100vh; display: flex; flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .sidebar-logo { padding: 24px 20px 18px; border-bottom: 1px solid rgba(201,168,76,.18); display: flex; align-items: center; gap: 10px; }
 .logo-icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(201,168,76,.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; }
@@ -34,34 +32,49 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .nav-item:hover { background: rgba(201,168,76,.1); color: var(--gold-light); }
 .nav-item.active { background: rgba(201,168,76,.16); color: var(--gold); border-left: 2px solid var(--gold); margin-left: 6px; padding-left: 12px; }
 
+/* ── LAYOUT ── */
+.app-shell { display: flex; min-height: 100vh; }
+.main-content { flex: 1; padding: 32px; min-width: 0; }
+
+/* ── PAGE HEADER ── */
 .page-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
 .page-header h1 { font-size: 22px; font-weight: 800; color: var(--navy); }
 .page-header p  { font-size: 13px; color: var(--slate); margin-top: 3px; }
 
+/* ── STATS ── */
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
 .stat-card { background: white; border-radius: 12px; padding: 18px 20px; border: 1px solid var(--border); }
 .stat-card .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); margin-bottom: 6px; }
 .stat-card .value { font-size: 26px; font-weight: 800; color: var(--navy); line-height: 1; }
 .stat-card .sub   { font-size: 11.5px; color: var(--slate); margin-top: 4px; }
 
+/* ── BUTTONS ── */
 .btn-primary { background: var(--gold); color: var(--navy); font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; transition: all .14s; display: inline-flex; align-items: center; gap: 5px; }
 .btn-primary:hover { background: var(--gold-light); }
 .btn-outline { background: white; color: var(--navy); font-weight: 600; font-size: 13px; padding: 9px 16px; border-radius: 8px; border: 1.5px solid var(--border); cursor: pointer; transition: all .14s; display: inline-flex; align-items: center; gap: 5px; }
 .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
-.btn-sm { padding: 5px 12px !important; font-size: 12px !important; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
 
+/* ── SEARCH / FILTERS ── */
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+.search-wrap { position: relative; }
+.search-wrap input { padding: 9px 14px 9px 36px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13.5px; color: var(--navy); background: white; width: 280px; outline: none; font-family: inherit; transition: border-color .14s; }
+.search-wrap input:focus { border-color: var(--gold); }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--slate); font-size: 14px; pointer-events: none; }
 .filter-btn { padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; border: 1.5px solid var(--border); background: white; color: var(--navy); cursor: pointer; transition: all .14s; }
 .filter-btn.active { background: var(--navy); border-color: var(--navy); color: white; }
 .filter-btn:hover:not(.active) { border-color: var(--gold); color: var(--gold); }
 
+/* ── TABLE ── */
 .table-card { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
-.table-card table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.table-card thead th { background: #F8FAFC; padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-card table { width: 100%; border-collapse: collapse; }
+.table-card thead th { background: #F8FAFC; padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); border-bottom: 1px solid var(--border); white-space: nowrap; }
 .table-card tbody tr { border-bottom: 1px solid #F1F5FB; transition: background .1s; }
 .table-card tbody tr:last-child { border-bottom: none; }
 .table-card tbody tr:hover { background: #F8FAFC; }
-.table-card tbody td { padding: 13px 16px; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table-card tbody td { padding: 12px 14px; font-size: 13.5px; }
 
+/* ── BADGES ── */
 .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
 .badge-success { background: #E6F5EF; color: #1A7A4E; }
 .badge-warning { background: #FEF3C7; color: #92400E; }
@@ -70,6 +83,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .badge-blue    { background: #DBEAFE; color: #1E40AF; }
 .badge-gold    { background: var(--gold-pale); color: #7A5800; }
 
+/* ── RAMO BADGES ── */
 .ramo-incendio    { background: #FEE2E2; color: #991B1B; }
 .ramo-multirresgo { background: #DBEAFE; color: #1E40AF; }
 .ramo-ascensores  { background: #F0FDF4; color: #166534; }
@@ -78,14 +92,16 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .ramo-vehiculos   { background: #EDE9FE; color: #4C1D95; }
 .ramo-rc          { background: #FDF4FF; color: #701A75; }
 
+/* ── CLIENTE CARDS ── */
 .edif-card { background: white; border-radius: 10px; border: 1.5px solid var(--border); padding: 14px 16px; cursor: pointer; transition: all .14s; display: flex; align-items: center; gap: 12px; }
 .edif-card:hover { border-color: var(--gold); box-shadow: 0 2px 10px rgba(15,30,53,.07); }
 .edif-avatar { width: 38px; height: 38px; border-radius: 9px; background: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--gold); flex-shrink: 0; }
 .edif-name { font-size: 13.5px; font-weight: 700; color: var(--navy); }
 .edif-addr { font-size: 11.5px; color: var(--slate); margin-top: 1px; }
-.edif-del-btn { color: var(--slate); font-size: 18px; padding: 4px 6px; border-radius: 6px; cursor: pointer; line-height: 1; transition: color .14s; background: none; border: none; display: flex; align-items: center; }
+.edif-del-btn { color: var(--slate); font-size: 18px; padding: 4px 6px; border-radius: 6px; cursor: pointer; line-height: 1; transition: color .14s; }
 .edif-del-btn:hover { color: var(--danger); }
 
+/* ── PÓLIZA CARDS ── */
 .poliza-card { background: white; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; overflow: hidden; transition: box-shadow .14s; }
 .poliza-card:hover { box-shadow: 0 2px 12px rgba(15,30,53,.08); }
 .poliza-card-header { padding: 14px 18px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
@@ -98,6 +114,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .poliza-field .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--slate); margin-bottom: 3px; }
 .poliza-field .field-val   { font-size: 13.5px; font-weight: 500; color: var(--navy); }
 
+/* ── CUOTA ROWS ── */
 .cuotas-section { margin-top: 14px; }
 .cuotas-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--slate); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
 .cuota-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; margin-bottom: 5px; border: 1.5px solid var(--border); background: white; transition: all .14s; }
@@ -110,6 +127,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .cuota-info .cuota-sub   { font-size: 11.5px; color: var(--slate); margin-top: 1px; }
 .cuota-paid-tag { font-size: 11px; font-weight: 700; color: #1A7A4E; background: #E6F5EF; padding: 3px 9px; border-radius: 10px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 
+/* ── MODALS ── */
 .pago-overlay { position: fixed; inset: 0; background: rgba(15,30,53,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity .18s; }
 .pago-overlay.open { opacity: 1; pointer-events: all; }
 .pago-modal { background: white; border-radius: 16px; padding: 28px; width: 420px; max-width: 95vw; box-shadow: 0 24px 60px rgba(15,30,53,.22); transform: translateY(12px); transition: transform .18s; }
@@ -119,9 +137,170 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .fgroup input, .fgroup select { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--navy); outline: none; transition: border-color .14s; background: white; }
 .fgroup input:focus, .fgroup select:focus { border-color: var(--gold); }
 
+/* ── UPLOAD ZONE ── */
 .upload-zone { border: 1.5px dashed var(--slate-light); border-radius: 8px; padding: 12px 16px; text-align: center; color: var(--slate); font-size: 12.5px; cursor: pointer; margin-top: 12px; transition: all .14s; }
 .upload-zone:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-pale); }
 
+/* ── VENCIMIENTO ROWS ── */
+.venc-urgente { border-left: 3px solid var(--danger); }
+.venc-pronto  { border-left: 3px solid var(--warning); }
+
+/* ── PAGINATION ── */
 .pagination { display: flex; align-items: center; gap: 6px; margin-top: 14px; justify-content: flex-end; }
 .pag-btn { padding: 5px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; border: 1.5px solid var(--border); background: white; cursor: pointer; color: var(--navy); }
 .pag-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
+
+/* ── INFO CHIPS ── */
+.info-chip { display: flex; flex-direction: column; gap: 2px; }
+.info-chip .chip-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--slate); }
+.info-chip .chip-val   { font-size: 14px; font-weight: 600; color: var(--navy); }
+
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — Mobile first
+   ═══════════════════════════════════════════ */
+
+/* ── Hamburger button (mobile only) ── */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 300;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--navy);
+  border: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  box-shadow: 0 2px 12px rgba(15,30,53,.25);
+}
+.hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 2px;
+  transition: all .2s;
+}
+
+/* ── Overlay for mobile sidebar ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,30,53,.5);
+  z-index: 250;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 768px) {
+  /* Show hamburger */
+  .hamburger { display: flex; }
+
+  /* Sidebar becomes a drawer */
+  .sidebar {
+    position: fixed !important;
+    left: -260px;
+    top: 0;
+    height: 100vh;
+    z-index: 260;
+    transition: left .25s ease;
+    width: 260px !important;
+  }
+  .sidebar.open { left: 0; }
+  .sidebar-overlay.open { display: block; }
+
+  /* Main content full width with top padding for hamburger */
+  .app-shell { display: block; }
+  .main-content {
+    padding: 20px 16px 16px;
+    padding-top: 68px !important;
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Page headers stack */
+  .page-header { flex-direction: column; gap: 12px; align-items: flex-start !important; }
+  .page-header > div:last-child { width: 100%; }
+  .page-header .btn-primary,
+  .page-header .btn-outline { width: 100%; justify-content: center; }
+
+  /* Stats grid → 2 cols on mobile */
+  .stats-row { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
+
+  /* Tables → hide, show card list instead */
+  .table-card table { display: none; }
+  .table-card .mobile-list { display: block !important; }
+
+  /* Filters wrap */
+  .toolbar { gap: 8px; }
+  .toolbar input { width: 100% !important; }
+
+  /* Modals full screen */
+  .pago-overlay { align-items: flex-end; padding: 0; }
+  .pago-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 92vh;
+    overflow-y: auto;
+    transform: translateY(100%) !important;
+  }
+  .pago-overlay.open .pago-modal { transform: translateY(0) !important; }
+
+  /* Cliente cards grid → 1 col */
+  .edif-card { padding: 12px; }
+
+  /* Poliza grid → 2 cols */
+  .poliza-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Cuota rows smaller */
+  .cuota-row { padding: 8px 10px; }
+
+  /* Filter buttons wrap */
+  .filter-btn { padding: 7px 10px; font-size: 12px; }
+
+  /* DatePicker dropdown full width */
+  [style*="position: absolute"][style*="width: 280px"] {
+    width: calc(100vw - 32px) !important;
+    left: 0 !important;
+  }
+
+  /* Dashboard grid → 1 col */
+  [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
+  [style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
+  [style*="grid-template-columns: repeat(auto-fill"] { grid-template-columns: 1fr !important; }
+
+  /* Vencimiento rows */
+  [style*="display: flex"][style*="alignItems: center"][style*="gap: 14"] {
+    flex-wrap: wrap;
+  }
+
+  /* Configuracion grid */
+  [style*="grid-template-columns: repeat(auto-fill, minmax(320px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Search bars full width */
+  .search-wrap { width: 100%; }
+  .search-wrap input { width: 100% !important; }
+
+  /* Sidebar logo */
+  .sidebar-logo { padding: 20px 16px 16px; }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 60px 12px 16px; }
+  .stats-row { grid-template-columns: 1fr 1fr !important; }
+  .stat-card .value { font-size: 22px; }
+  .poliza-grid { grid-template-columns: 1fr !important; }
+  .filter-btn { padding: 6px 10px; font-size: 11.5px; }
+}
+

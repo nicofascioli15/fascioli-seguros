@@ -229,6 +229,35 @@ export default function PagosPage() {
             })}
           </tbody>
         </table>
+        {/* Mobile card list */}
+        <div className="mobile-list" style={{ display: 'none' }}>
+          {filtradas.map((c, i) => {
+            const estado = getEstado(c)
+            return (
+              <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.cliente_nombre}</div>
+                  <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 6 }}>
+                  <span className="badge badge-neutral" style={{ marginRight: 6 }}>{c.ramo}</span>
+                  <span style={{ fontFamily: 'monospace' }}>{c.numero_poliza}</span>
+                  {' · '}Cuota {c.cuota_num}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--slate)' }}>
+                    {c.pago_fecha ? `Cobrado ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
+                  </div>
+                  {estado !== 'Cobrado' && (
+                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
+                      Cobrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Modal cobrar */}

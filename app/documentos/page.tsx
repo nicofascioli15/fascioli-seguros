@@ -264,6 +264,27 @@ export default function DocumentosPage() {
             })}
           </tbody>
         </table>
+        {/* Mobile card list */}
+        <div className="mobile-list" style={{ display: 'none' }}>
+          {filtrados.map(d => {
+            const ext = extStyle[getExt(d.nombre)] || extStyle.pdf
+            return (
+              <div key={d.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ width: 36, height: 36, background: ext.bg, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: ext.color }}>{ext.label}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 2 }}>{d.clientes?.nombre || '—'} · {d.tipo} · {formatBytes(d.tamanio_bytes)}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn-outline btn-sm" onClick={() => descargar(d)}><Download size={13} /></button>
+                  <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminar(d)}><Trash2 size={13} /></button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* MODAL SUBIR (3 pasos: cliente → póliza → archivo) */}
