@@ -4,16 +4,12 @@ import ClientesList from './ClientesList'
 import ClienteDetalle from './ClienteDetalle'
 
 export default function ClientesPage() {
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<string | null>(null)
+  const [selected, setSelected] = useState<{ id: string; nombre: string } | null>(null)
 
-  if (clienteSeleccionado) {
-    return (
-      <ClienteDetalle
-        nombre={clienteSeleccionado}
-        onBack={() => setClienteSeleccionado(null)}
-      />
-    )
+  if (selected) {
+    return <ClienteDetalle id={selected.id} nombre={selected.nombre} onBack={() => setSelected(null)} />
   }
 
-  return <ClientesList onSelect={setClienteSeleccionado} />
+  return <ClientesList onSelect={(id, nombre) => setSelected({ id, nombre })} />
 }
+
