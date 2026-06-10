@@ -5,11 +5,6 @@ import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 
 // Catalogs loaded from Supabase
-const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-function mesesACuotaMes(idx: number[]) {
-  return idx.map((m, i) => `${i+1}/${MESES[m]}`).join(' - ')
-}
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -32,42 +27,35 @@ function estadoBadge(venc: string | null) {
   if (d <= 90)   return { label: `${d}d`,     cls: 'badge-warning' }
   return               { label: formatFecha(venc), cls: 'badge-success' }
 }
+// Convierte array de fechas a string legible
+function fechasACuotaMes(fechas: string[]): string {
+  return fechas.map((f, i) => {
+    if (!f) return `${i+1}/?`
+    const [y,m,d] = f.split('-')
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    return `${i+1}/${d}/${meses[parseInt(m)-1]}/${y.slice(2)}`
+  }).join(' - ')
+}
 
-function MesesPicker({ cuotas, value, onChange }: { cuotas: number; value: number[]; onChange: (v: number[]) => void }) {
-  const [open, setOpen] = useState(false)
-  function toggle(idx: number) {
-    if (value.includes(idx)) onChange(value.filter(m => m !== idx).sort((a,b)=>a-b))
-    else if (value.length < cuotas) onChange([...value, idx].sort((a,b)=>a-b))
-  }
-  const label = value.length === 0 ? 'Seleccionar meses de cobro...' : mesesACuotaMes(value)
+function CuotasFechas({ cuotas, value, onChange }: {
+  cuotas: number; value: string[]; onChange: (v: string[]) => void
+}) {
+  if (cuotas === 0) return (
+    <div style={{ padding: '12px', background: '#F4F7FB', borderRadius: 8, fontSize: 13, color: 'var(--slate)', textAlign: 'center' }}>
+      Ingresá la cantidad de cuotas primero
+    </div>
+  )
+  const dates = Array.from({ length: cuotas }, (_, i) => value[i] || '')
   return (
-    <div style={{ position: 'relative' }}>
-      <div onClick={() => setOpen(o => !o)} style={{ padding: '10px 13px', border: `1.5px solid ${open ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 8, fontSize: value.length > 0 ? 12 : 13.5, cursor: 'pointer', background: 'white', color: value.length === 0 ? 'var(--slate)' : 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{label}</span>
-        <span style={{ marginLeft: 8, color: 'var(--slate)', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
-      </div>
-      {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'white', border: '1.5px solid var(--border)', borderRadius: 10, marginTop: 4, padding: 12, boxShadow: '0 8px 24px rgba(15,30,53,.12)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
-            Seleccioná {cuotas} mes{cuotas !== 1 ? 'es' : ''} ({value.length}/{cuotas})
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-            {MESES.map((m, idx) => {
-              const sel = value.includes(idx)
-              const disabled = !sel && value.length >= cuotas
-              return (
-                <div key={idx} onClick={() => !disabled && toggle(idx)} style={{ padding: '7px 4px', borderRadius: 7, textAlign: 'center', fontSize: 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', background: sel ? 'var(--navy)' : disabled ? '#F8FAFC' : '#F4F7FB', color: sel ? 'var(--gold)' : disabled ? 'var(--slate-light)' : 'var(--navy)', border: sel ? '1.5px solid var(--navy)' : '1.5px solid transparent', transition: 'all .12s' }}>
-                  {m}
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button onClick={() => onChange([])} style={{ fontSize: 12, color: 'var(--slate)', background: 'none', border: 'none', cursor: 'pointer' }}>Limpiar</button>
-            <button onClick={() => setOpen(false)} className="btn-primary btn-sm">Confirmar</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+      {dates.map((fecha, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: fecha ? 'var(--navy)' : '#EEF2F8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: fecha ? 'var(--gold)' : 'var(--slate)', flexShrink: 0 }}>{i+1}</div>
+          <div style={{ flex: 1 }}>
+            <DatePicker value={fecha} onChange={val => { const n=[...value]; n[i]=val; onChange(n) }} placeholder={`Fecha cuota ${i+1}`} />
           </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
@@ -97,7 +85,7 @@ export default function PolizasPage() {
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState({
     ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '',
-    corredor: 'Fascioli', moneda: 'U$S', cuotas: '', mesesIdx: [] as number[]
+    corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] as string[]
   })
 
   useEffect(() => {
@@ -148,7 +136,7 @@ export default function PolizasPage() {
       corredor:    form.corredor,
       moneda:      form.moneda,
       cuotas:      parseInt(form.cuotas) || 0,
-      cuota_mes:   mesesACuotaMes(form.mesesIdx),
+      cuota_mes:   fechasACuotaMes(form.fechasCuotas),
     }])
     if (!error) {
       cerrarModal()
@@ -161,7 +149,7 @@ export default function PolizasPage() {
     setPaso('cliente')
     setClienteSearch('')
     setClienteSeleccionado(null)
-    setForm({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', mesesIdx: [] })
+    setForm({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] })
     setShowModal(true)
   }
 
@@ -385,12 +373,12 @@ export default function PolizasPage() {
                   <div className="fgroup">
                     <label>Cantidad de cuotas</label>
                     <input type="number" min="1" max="36" value={form.cuotas}
-                      onChange={e => setForm({ ...form, cuotas: e.target.value, mesesIdx: [] })}
+                      onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })}
                       placeholder="Ej: 10" />
                   </div>
-                  <div className="fgroup">
-                    <label>Meses de cobro</label>
-                    <MesesPicker cuotas={parseInt(form.cuotas) || 0} value={form.mesesIdx} onChange={v => setForm({ ...form, mesesIdx: v })} />
+                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                    <label>Fechas de vencimiento por cuota</label>
+                    <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
                   </div>
                 </div>
 

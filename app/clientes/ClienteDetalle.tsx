@@ -28,83 +28,56 @@ type Poliza = {
 
 type Props = { id: string; nombre: string; onBack: () => void }
 
-const MESES     = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-
-// Convierte array de índices de meses [0,1,2] a string "1/Ene - 2/Feb - 3/Mar"
-function mesesACuotaMes(mesesIdx: number[]): string {
-  return mesesIdx.map((m, i) => `${i+1}/${MESES[m]}`).join(' - ')
+// Convierte array de fechas a string legible para almacenar
+function fechasACuotaMes(fechas: string[]): string {
+  return fechas.map((f, i) => {
+    if (!f) return `${i+1}/?`
+    const [y,m,d] = f.split('-')
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    return `${i+1}/${d}/${meses[parseInt(m)-1]}/${y.slice(2)}`
+  }).join(' - ')
 }
 
-// Picker de meses con checkboxes
-function MesesPicker({ cuotas, value, onChange }: { cuotas: number; value: number[]; onChange: (v: number[]) => void }) {
-  const [open, setOpen] = useState(false)
+// Componente: una fecha por cuota
+function CuotasFechas({ cuotas, value, onChange }: {
+  cuotas: number
+  value: string[]  // array de YYYY-MM-DD, length = cuotas
+  onChange: (v: string[]) => void
+}) {
+  if (cuotas === 0) return (
+    <div style={{ padding: '12px', background: '#F4F7FB', borderRadius: 8, fontSize: 13, color: 'var(--slate)', textAlign: 'center' }}>
+      Ingresá la cantidad de cuotas primero
+    </div>
+  )
 
-  function toggleMes(idx: number) {
-    if (value.includes(idx)) {
-      onChange(value.filter(m => m !== idx).sort((a,b) => a-b))
-    } else if (value.length < cuotas) {
-      onChange([...value, idx].sort((a,b) => a-b))
-    }
+  // Auto-fill: cuando cambia una fecha, sugerir la siguiente como +1 mes
+  function handleChange(idx: number, val: string) {
+    const next = [...value]
+    next[idx] = val
+    onChange(next)
   }
 
-  const label = value.length === 0
-    ? 'Seleccionar meses de cobro...'
-    : mesesACuotaMes(value)
+  // Initialize array to correct length if needed
+  const dates = Array.from({ length: cuotas }, (_, i) => value[i] || '')
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div
-        onClick={() => setOpen(o => !o)}
-        style={{
-          padding: '10px 13px', border: `1.5px solid ${open ? 'var(--gold)' : 'var(--border)'}`,
-          borderRadius: 8, fontSize: 13.5, cursor: 'pointer', background: 'white',
-          color: value.length === 0 ? 'var(--slate)' : 'var(--navy)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          userSelect: 'none'
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontSize: value.length > 0 ? 12 : 13.5 }}>{label}</span>
-        <span style={{ marginLeft: 8, color: 'var(--slate)', fontSize: 12 }}>{open ? '▲' : '▼'}</span>
-      </div>
-      {open && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'white', border: '1.5px solid var(--border)', borderRadius: 10,
-          marginTop: 4, padding: 12,
-          boxShadow: '0 8px 24px rgba(15,30,53,.12)'
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
-            Seleccioná {cuotas} mes{cuotas !== 1 ? 'es' : ''} ({value.length}/{cuotas})
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-            {MESES.map((m, idx) => {
-              const sel = value.includes(idx)
-              const disabled = !sel && value.length >= cuotas
-              return (
-                <div
-                  key={idx}
-                  onClick={() => !disabled && toggleMes(idx)}
-                  style={{
-                    padding: '7px 4px', borderRadius: 7, textAlign: 'center',
-                    fontSize: 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
-                    background: sel ? 'var(--navy)' : disabled ? '#F8FAFC' : '#F4F7FB',
-                    color: sel ? 'var(--gold)' : disabled ? 'var(--slate-light)' : 'var(--navy)',
-                    transition: 'all .12s',
-                    border: sel ? '1.5px solid var(--navy)' : '1.5px solid transparent',
-                  }}
-                >
-                  {m}
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button onClick={() => onChange([])} style={{ fontSize: 12, color: 'var(--slate)', background: 'none', border: 'none', cursor: 'pointer' }}>Limpiar</button>
-            <button onClick={() => setOpen(false)} className="btn-primary btn-sm">Confirmar</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
+      {dates.map((fecha, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 7, background: fecha ? 'var(--navy)' : '#EEF2F8',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 800, color: fecha ? 'var(--gold)' : 'var(--slate)', flexShrink: 0
+          }}>{i+1}</div>
+          <div style={{ flex: 1 }}>
+            <DatePicker
+              value={fecha}
+              onChange={val => handleChange(i, val)}
+              placeholder={`Fecha cuota ${i+1}`}
+            />
           </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
@@ -149,7 +122,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [showPagoModal, setShowPagoModal]     = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
   const [savingPoliza, setSavingPoliza] = useState(false)
   const [savingPago, setSavingPago]    = useState(false)
-  const [polizaForm, setPolizaForm]   = useState({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', mesesIdx: [] as number[] })
+  const [polizaForm, setPolizaForm]   = useState({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] as string[] })
   const [pagoForm, setPagoForm]       = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
   const supabase                      = createClient()
   const [catalogos, setCatalogos]     = useState<{
@@ -245,11 +218,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       corredor:     polizaForm.corredor,
       moneda:       polizaForm.moneda,
       cuotas:       parseInt(polizaForm.cuotas) || 0,
-      cuota_mes:    mesesACuotaMes(polizaForm.mesesIdx),
+      cuota_mes:    fechasACuotaMes(polizaForm.fechasCuotas),
     }])
     if (!error) {
       setShowPolizaModal(false)
-      setPolizaForm({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', mesesIdx: [] })
+      setPolizaForm({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] })
       await fetchPolizas()
     }
     setSavingPoliza(false)
@@ -559,20 +532,20 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
               <div className="fgroup">
                 <label>Cantidad de cuotas</label>
-                <input type="number" min="1" max="36" value={polizaForm.cuotas} onChange={e => setPolizaForm({ ...polizaForm, cuotas: e.target.value })} placeholder="Ej: 10" />
+                <input type="number" min="1" max="36" value={polizaForm.cuotas} onChange={e => setPolizaForm({ ...polizaForm, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
               </div>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                <label>Meses de cobro</label>
-                <MesesPicker
+                <label>
+                  Fechas de vencimiento por cuota
+                  <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--slate)', marginLeft: 6 }}>
+                    — ingresá la cantidad de cuotas primero
+                  </span>
+                </label>
+                <CuotasFechas
                   cuotas={parseInt(polizaForm.cuotas) || 0}
-                  value={polizaForm.mesesIdx}
-                  onChange={v => setPolizaForm({ ...polizaForm, mesesIdx: v })}
+                  value={polizaForm.fechasCuotas}
+                  onChange={v => setPolizaForm({ ...polizaForm, fechasCuotas: v })}
                 />
-                {polizaForm.mesesIdx.length > 0 && (
-                  <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 5 }}>
-                    → {mesesACuotaMes(polizaForm.mesesIdx)}
-                  </div>
-                )}
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
