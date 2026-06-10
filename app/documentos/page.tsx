@@ -1,140 +1,87 @@
 'use client'
-import { useState } from 'react'
-import { Upload, File, FolderOpen, Search, Download, Trash2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Upload, Download, Trash2, Search } from 'lucide-react'
 
-const documentosData = [
-  { id: 1, nombre: 'Poliza_POL00347_BSE.pdf', tipo: 'Póliza', cliente: 'Rodríguez, María', tamanio: '1.2 MB', fecha: '04/06/2026', ext: 'pdf' },
-  { id: 2, nombre: 'Presupuesto_SIN041_Taller.pdf', tipo: 'Siniestro', cliente: 'Martínez, Roberto', tamanio: '0.8 MB', fecha: '05/06/2026', ext: 'pdf' },
-  { id: 3, nombre: 'DNI_Garcia_Federico.jpg', tipo: 'Identificación', cliente: 'García, Federico', tamanio: '0.3 MB', fecha: '02/06/2026', ext: 'img' },
-  { id: 4, nombre: 'Endoso_POL00346.pdf', tipo: 'Endoso', cliente: 'Pérez, Andrés', tamanio: '0.5 MB', fecha: '01/06/2026', ext: 'pdf' },
-  { id: 5, nombre: 'Tarjeta_circulacion_Martinez.pdf', tipo: 'Automotor', cliente: 'Martínez, Roberto', tamanio: '0.4 MB', fecha: '30/05/2026', ext: 'pdf' },
-  { id: 6, nombre: 'Informe_Pericial_SIN038.docx', tipo: 'Siniestro', cliente: 'Pérez, Andrés', tamanio: '2.1 MB', fecha: '28/05/2026', ext: 'doc' },
-  { id: 7, nombre: 'Recibo_PAG0891.xlsx', tipo: 'Cobro', cliente: 'Rodríguez, María', tamanio: '0.1 MB', fecha: '02/06/2026', ext: 'xls' },
-]
-
-const extColor: Record<string, { bg: string, text: string, label: string }> = {
-  pdf: { bg: '#FDEAEA', text: '#B03030', label: 'PDF' },
-  img: { bg: '#E6F0FF', text: '#2456B0', label: 'IMG' },
-  doc: { bg: '#FFF4E5', text: '#B5630A', label: 'DOC' },
-  xls: { bg: '#E6F7F0', text: '#2A7A56', label: 'XLS' },
+const TIPOS = ['Todos', 'Póliza', 'Endoso', 'Siniestro', 'Identificación', 'Cobro', 'Otros']
+const extStyle: Record<string, { bg: string; color: string; label: string }> = {
+  pdf:  { bg: '#FEE2E2', color: '#991B1B', label: 'PDF' },
+  jpg:  { bg: '#DBEAFE', color: '#1E40AF', label: 'IMG' },
+  jpeg: { bg: '#DBEAFE', color: '#1E40AF', label: 'IMG' },
+  png:  { bg: '#DBEAFE', color: '#1E40AF', label: 'IMG' },
+  docx: { bg: '#FEF3C7', color: '#92400E', label: 'DOC' },
+  xlsx: { bg: '#E6F5EF', color: '#1A7A4E', label: 'XLS' },
 }
 
 export default function DocumentosPage() {
-  const [search, setSearch] = useState('')
+  const [search, setSearch]         = useState('')
   const [filtroTipo, setFiltroTipo] = useState('Todos')
-  const [drag, setDrag] = useState(false)
+  const [drag, setDrag]             = useState(false)
+  const inputRef                    = useRef<HTMLInputElement>(null)
+  const docs: any[]                 = []
 
-  const tipos = ['Todos', ...Array.from(new Set(documentosData.map(d => d.tipo)))]
-  const filtrados = documentosData.filter(d => {
-    const matchS = d.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      d.cliente.toLowerCase().includes(search.toLowerCase())
-    const matchT = filtroTipo === 'Todos' || d.tipo === filtroTipo
-    return matchS && matchT
+  const filtrados = docs.filter(d => {
+    const q = search.toLowerCase()
+    return (!q || d.nombre?.toLowerCase().includes(q) || d.cliente?.toLowerCase().includes(q)) &&
+           (filtroTipo === 'Todos' || d.tipo === filtroTipo)
   })
 
   return (
     <div>
-      <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1>Documentos</h1>
-            <p>Archivo centralizado de pólizas, endosos y expedientes</p>
-          </div>
-          <label style={{ cursor: 'pointer' }}>
-            <input type="file" multiple style={{ display: 'none' }} />
-            <span className="btn-primary">
-              <Upload size={16} /> Subir archivos
-            </span>
-          </label>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Documentos</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Archivo centralizado de pólizas, endosos y expedientes</p>
+        </div>
+        <button className="btn-primary" onClick={() => inputRef.current?.click()}><Upload size={14} /> Subir archivos</button>
+        <input ref={inputRef} type="file" multiple style={{ display: 'none' }} />
+      </div>
+      <div onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false) }} onClick={() => inputRef.current?.click()}
+        style={{ border: `2px dashed ${drag ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 12, padding: '28px 24px', textAlign: 'center', marginBottom: 24, background: drag ? 'var(--gold-pale)' : '#FAFBFC', transition: 'all .2s', cursor: 'pointer' }}>
+        <Upload size={24} style={{ margin: '0 auto 8px', color: drag ? 'var(--gold)' : 'var(--slate)', display: 'block' }} />
+        <div style={{ fontWeight: 600, color: drag ? 'var(--gold)' : 'var(--navy)', fontSize: 14 }}>{drag ? 'Soltá para subir' : 'Arrastrá archivos acá'}</div>
+        <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>PDF, JPG, PNG, Word, Excel</div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar archivo o cliente..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {TIPOS.map(t => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
-
-      {/* Drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDrag(true) }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={e => { e.preventDefault(); setDrag(false) }}
-        style={{
-          border: `2px dashed ${drag ? 'var(--gold)' : '#D0D8E4'}`,
-          borderRadius: '12px',
-          padding: '32px',
-          textAlign: 'center',
-          marginBottom: '24px',
-          background: drag ? 'var(--gold-pale)' : '#FAFBFC',
-          transition: 'all 0.2s',
-          cursor: 'pointer'
-        }}
-      >
-        <Upload size={28} color={drag ? 'var(--gold)' : 'var(--slate)'} style={{ margin: '0 auto 10px' }} />
-        <div style={{ fontWeight: '600', color: drag ? 'var(--gold)' : 'var(--navy)', fontSize: '15px' }}>
-          {drag ? 'Soltar para subir' : 'Arrastrá archivos acá'}
-        </div>
-        <div style={{ fontSize: '13px', color: 'var(--slate)', marginTop: '4px' }}>
-          PDF, imágenes, documentos Word y Excel
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div className="search-bar">
-          <Search size={15} />
-          <input placeholder="Buscar archivo o cliente..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {tipos.map(t => (
-            <button key={t} onClick={() => setFiltroTipo(t)} style={{
-              padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-              border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
-              background: filtroTipo === t ? 'var(--navy)' : 'white',
-              borderColor: filtroTipo === t ? 'var(--navy)' : '#D0D8E4',
-              color: filtroTipo === t ? 'white' : 'var(--navy)',
-            }}>{t}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="table-container">
+      <div className="table-card">
         <table>
+          <colgroup>
+            <col style={{ width: 52 }} /><col /><col style={{ width: 130 }} />
+            <col style={{ width: 180 }} /><col style={{ width: 90 }} /><col style={{ width: 110 }} /><col style={{ width: 100 }} />
+          </colgroup>
           <thead>
-            <tr>
-              <th>Archivo</th>
-              <th>Tipo</th>
-              <th>Cliente</th>
-              <th>Tamaño</th>
-              <th>Subido</th>
-              <th></th>
-            </tr>
+            <tr><th></th><th>Archivo</th><th>Tipo</th><th>Cliente</th><th>Tamaño</th><th>Subido</th><th></th></tr>
           </thead>
           <tbody>
-            {filtrados.map(d => {
-              const ext = extColor[d.ext] || extColor.pdf
+            {filtrados.length === 0 ? (
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--slate)' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay documentos subidos</div>
+                <div style={{ fontSize: 12 }}>Arrastrá archivos arriba o usá el botón "Subir archivos"</div>
+              </td></tr>
+            ) : filtrados.map((d, i) => {
+              const ext = extStyle[d.nombre?.split('.').pop()?.toLowerCase() || ''] || extStyle.pdf
               return (
-                <tr key={d.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{
-                        width: '36px', height: '36px', background: ext.bg, borderRadius: '8px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                      }}>
-                        <span style={{ fontSize: '9px', fontWeight: '800', color: ext.text }}>{ext.label}</span>
-                      </div>
-                      <span style={{ fontSize: '13px', fontWeight: '500' }}>{d.nombre}</span>
-                    </div>
-                  </td>
+                <tr key={i}>
+                  <td><div style={{ width: 36, height: 36, background: ext.bg, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 9, fontWeight: 800, color: ext.color }}>{ext.label}</span></div></td>
+                  <td style={{ fontWeight: 500, fontSize: 13 }}>{d.nombre}</td>
                   <td><span className="badge badge-neutral">{d.tipo}</span></td>
-                  <td style={{ fontSize: '13px' }}>{d.cliente}</td>
-                  <td style={{ fontSize: '13px', color: 'var(--slate)' }}>{d.tamanio}</td>
-                  <td style={{ fontSize: '13px', color: 'var(--slate)' }}>{d.fecha}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: '12px' }}>
-                        <Download size={13} />
-                      </button>
-                      <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: '12px', color: '#D94F4F', borderColor: '#FDEAEA' }}>
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
+                  <td style={{ fontSize: 13 }}>{d.cliente}</td>
+                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{d.tamanio}</td>
+                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{d.fecha}</td>
+                  <td><div style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn-outline btn-sm"><Download size={13} /></button>
+                    <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }}><Trash2 size={13} /></button>
+                  </div></td>
                 </tr>
               )
             })}

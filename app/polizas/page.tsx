@@ -1,154 +1,72 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, FileText, Filter } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 
-const polizasData = [
-  { id: 'POL-00347', cliente: 'Rodríguez, María', tipo: 'Automotor', aseguradora: 'BSE', prima: 4800, estado: 'Vigente', vence: '15/12/2026', placa: 'SBM 3421' },
-  { id: 'POL-00346', cliente: 'Pérez, Andrés', tipo: 'Hogar', aseguradora: 'Mapfre', prima: 2100, estado: 'Vigente', vence: '01/09/2026', placa: '-' },
-  { id: 'POL-00345', cliente: 'López, Gabriela', tipo: 'Vida', aseguradora: 'Sura', prima: 1850, estado: 'Vigente', vence: '20/03/2027', placa: '-' },
-  { id: 'POL-00344', cliente: 'García, Federico', tipo: 'RC', aseguradora: 'BSE', prima: 980, estado: 'Por vencer', vence: '15/06/2026', placa: '-' },
-  { id: 'POL-00343', cliente: 'Martínez, Roberto', tipo: 'Automotor', aseguradora: 'Surco', prima: 5200, estado: 'Vigente', vence: '10/11/2026', placa: 'TUV 8832' },
-  { id: 'POL-00342', cliente: 'Torres, Laura', tipo: 'Hogar', aseguradora: 'Mapfre', prima: 1700, estado: 'Vigente', vence: '05/08/2026', placa: '-' },
-  { id: 'POL-00341', cliente: 'Fernández, Carlos', tipo: 'Automotor', aseguradora: 'BSE', prima: 4200, estado: 'Vencida', vence: '28/05/2026', placa: 'ACM 1123' },
-  { id: 'POL-00340', cliente: 'Díaz, Patricia', tipo: 'Vida', aseguradora: 'Sura', prima: 2400, estado: 'Vigente', vence: '14/02/2027', placa: '-' },
-]
-
-const estadoColor: Record<string, string> = {
-  'Vigente': 'badge-success',
-  'Por vencer': 'badge-warning',
-  'Vencida': 'badge-danger',
-}
+const TIPOS = ['Todos', 'Automotor', 'Hogar', 'Vida', 'RC', 'Incendio', 'Multirriesgo', 'Otros']
+const estadoColor: Record<string, string> = { 'Vigente': 'badge-success', 'Por vencer': 'badge-warning', 'Vencida': 'badge-danger' }
 
 export default function PolizasPage() {
-  const [search, setSearch] = useState('')
+  const [search, setSearch]         = useState('')
   const [filtroTipo, setFiltroTipo] = useState('Todos')
-  const [showModal, setShowModal] = useState(false)
+  const polizasData: any[]          = []
 
   const filtradas = polizasData.filter(p => {
-    const matchSearch = p.cliente.toLowerCase().includes(search.toLowerCase()) ||
-      p.id.toLowerCase().includes(search.toLowerCase())
-    const matchTipo = filtroTipo === 'Todos' || p.tipo === filtroTipo
-    return matchSearch && matchTipo
+    const q = search.toLowerCase()
+    return (!q || p.cliente?.toLowerCase().includes(q) || p.id?.toLowerCase().includes(q)) &&
+           (filtroTipo === 'Todos' || p.tipo === filtroTipo)
   })
 
   return (
     <div>
-      <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1>Pólizas</h1>
-            <p>Gestión de toda la cartera de seguros</p>
-          </div>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Nueva póliza
-          </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pólizas</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Gestión de toda la cartera de seguros</p>
+        </div>
+        <button className="btn-primary"><Plus size={15} /> Nueva póliza</button>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente o N° póliza..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {TIPOS.map(t => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div className="search-bar">
-          <Search size={15} />
-          <input placeholder="Buscar cliente o N° póliza..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {['Todos', 'Automotor', 'Hogar', 'Vida', 'RC'].map(t => (
-            <button
-              key={t}
-              onClick={() => setFiltroTipo(t)}
-              style={{
-                padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-                border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
-                background: filtroTipo === t ? 'var(--navy)' : 'white',
-                borderColor: filtroTipo === t ? 'var(--navy)' : '#D0D8E4',
-                color: filtroTipo === t ? 'white' : 'var(--navy)',
-              }}
-            >{t}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* Summary pills */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-        {[
-          { label: 'Total', value: polizasData.length, color: '#EEF2F8', text: 'var(--navy)' },
-          { label: 'Vigentes', value: polizasData.filter(p => p.estado === 'Vigente').length, color: '#E6F7F0', text: '#2A7A56' },
-          { label: 'Por vencer', value: polizasData.filter(p => p.estado === 'Por vencer').length, color: '#FFF4E5', text: '#B5630A' },
-          { label: 'Vencidas', value: polizasData.filter(p => p.estado === 'Vencida').length, color: '#FDEAEA', text: '#B03030' },
-        ].map(s => (
-          <div key={s.label} style={{
-            background: s.color, borderRadius: '8px', padding: '8px 16px',
-            display: 'flex', alignItems: 'center', gap: '8px'
-          }}>
-            <span style={{ fontSize: '18px', fontWeight: '700', color: s.text }}>{s.value}</span>
-            <span style={{ fontSize: '12px', color: s.text, opacity: 0.8 }}>{s.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="table-container">
+      <div className="table-card">
         <table>
+          <colgroup>
+            <col style={{ width: 120 }} /><col style={{ width: 200 }} /><col style={{ width: 130 }} />
+            <col style={{ width: 130 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} />
+          </colgroup>
           <thead>
             <tr>
-              <th>N° Póliza</th>
-              <th>Cliente</th>
-              <th>Tipo</th>
-              <th>Aseguradora</th>
-              <th>Prima anual</th>
-              <th>Vencimiento</th>
-              <th>Estado</th>
-              <th></th>
+              <th>N° Póliza</th><th>Cliente</th><th>Tipo</th>
+              <th>Aseguradora</th><th>Vencimiento</th><th>Estado</th>
             </tr>
           </thead>
           <tbody>
-            {filtradas.map(p => (
-              <tr key={p.id}>
-                <td style={{ fontWeight: '600', color: 'var(--navy)', fontFamily: 'monospace', fontSize: '13px' }}>{p.id}</td>
-                <td>{p.cliente}</td>
-                <td>
-                  <span className="badge badge-neutral">{p.tipo}</span>
-                </td>
-                <td style={{ color: 'var(--slate)', fontSize: '13px' }}>{p.aseguradora}</td>
-                <td style={{ fontWeight: '600' }}>${p.prima.toLocaleString()}</td>
-                <td style={{ fontSize: '13px', color: 'var(--slate)' }}>{p.vence}</td>
-                <td><span className={`badge ${estadoColor[p.estado]}`}>{p.estado}</span></td>
-                <td>
-                  <button className="btn-secondary" style={{ padding: '5px 12px', fontSize: '12px' }}>
-                    Ver
-                  </button>
-                </td>
+            {filtradas.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--slate)' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas cargadas</div>
+                <div style={{ fontSize: 12 }}>Agregá pólizas desde el módulo Clientes</div>
+              </td></tr>
+            ) : filtradas.map(p => (
+              <tr key={p.id} style={{ cursor: 'pointer' }}>
+                <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.id}</td>
+                <td style={{ fontWeight: 600 }}>{p.cliente}</td>
+                <td><span className="badge badge-neutral">{p.tipo}</span></td>
+                <td style={{ color: 'var(--slate)', fontSize: 13 }}>{p.aseguradora}</td>
+                <td style={{ fontSize: 13, color: 'var(--slate)' }}>{p.vence}</td>
+                <td><span className={`badge ${estadoColor[p.estado] || 'badge-neutral'}`}>{p.estado}</span></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Nueva póliza</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}>✕</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <div className="form-group"><label>Cliente</label><input placeholder="Nombre del asegurado" /></div>
-              <div className="form-group"><label>N° Póliza</label><input placeholder="POL-XXXXX" /></div>
-              <div className="form-group">
-                <label>Tipo de seguro</label>
-                <select><option>Automotor</option><option>Hogar</option><option>Vida</option><option>RC</option><option>Otros</option></select>
-              </div>
-              <div className="form-group"><label>Aseguradora</label><input placeholder="BSE, Mapfre, Sura..." /></div>
-              <div className="form-group"><label>Prima anual ($)</label><input type="number" placeholder="0" /></div>
-              <div className="form-group"><label>Fecha de vencimiento</label><input type="date" /></div>
-            </div>
-            <div className="form-group"><label>Notas</label><textarea rows={3} placeholder="Observaciones..." /></div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn-primary">Guardar póliza</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

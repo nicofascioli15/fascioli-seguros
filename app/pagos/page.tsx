@@ -1,121 +1,87 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, Download, CheckCircle } from 'lucide-react'
+import { Plus, Download, Search, CheckCircle } from 'lucide-react'
 
-const pagosData = [
-  { id: 'PAG-0891', poliza: 'POL-00347', cliente: 'Rodríguez, María', aseguradora: 'BSE', monto: 4800, vence: '01/06/2026', estado: 'Cobrado', metodo: 'Transferencia' },
-  { id: 'PAG-0890', poliza: 'POL-00346', cliente: 'Pérez, Andrés', aseguradora: 'Mapfre', monto: 2100, vence: '01/06/2026', estado: 'Cobrado', metodo: 'Efectivo' },
-  { id: 'PAG-0889', poliza: 'POL-00344', cliente: 'García, Federico', aseguradora: 'BSE', monto: 980, vence: '05/06/2026', estado: 'Pendiente', metodo: '-' },
-  { id: 'PAG-0888', poliza: 'POL-00345', cliente: 'López, Gabriela', aseguradora: 'Sura', monto: 1850, vence: '10/06/2026', estado: 'Pendiente', metodo: '-' },
-  { id: 'PAG-0887', poliza: 'POL-00343', cliente: 'Martínez, Roberto', aseguradora: 'Surco', monto: 5200, vence: '15/06/2026', estado: 'Pendiente', metodo: '-' },
-  { id: 'PAG-0886', poliza: 'POL-00341', cliente: 'Fernández, Carlos', aseguradora: 'BSE', monto: 4200, vence: '28/05/2026', estado: 'Vencido', metodo: '-' },
-  { id: 'PAG-0885', poliza: 'POL-00342', cliente: 'Torres, Laura', aseguradora: 'Mapfre', monto: 1700, vence: '20/05/2026', estado: 'Cobrado', metodo: 'Débito' },
-  { id: 'PAG-0884', poliza: 'POL-00340', cliente: 'Díaz, Patricia', aseguradora: 'Sura', monto: 2400, vence: '18/05/2026', estado: 'Cobrado', metodo: 'Transferencia' },
-]
-
-const estadoColor: Record<string, string> = {
-  'Cobrado': 'badge-success',
-  'Pendiente': 'badge-warning',
-  'Vencido': 'badge-danger',
-}
+const estadoColor: Record<string, string> = { 'Cobrado': 'badge-success', 'Pendiente': 'badge-warning', 'Vencido': 'badge-danger' }
 
 export default function PagosPage() {
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState('Todos')
+  const pagosData: any[]    = []
 
   const filtrados = pagosData.filter(p => {
-    const matchS = p.cliente.toLowerCase().includes(search.toLowerCase()) || p.poliza.toLowerCase().includes(search.toLowerCase())
-    const matchF = filtro === 'Todos' || p.estado === filtro
-    return matchS && matchF
+    const q = search.toLowerCase()
+    return (!q || p.cliente?.toLowerCase().includes(q) || p.poliza?.toLowerCase().includes(q)) &&
+           (filtro === 'Todos' || p.estado === filtro)
   })
 
-  const totalCobrado = pagosData.filter(p => p.estado === 'Cobrado').reduce((s, p) => s + p.monto, 0)
-  const totalPendiente = pagosData.filter(p => p.estado === 'Pendiente').reduce((s, p) => s + p.monto, 0)
-  const totalVencido = pagosData.filter(p => p.estado === 'Vencido').reduce((s, p) => s + p.monto, 0)
+  const total = (estado: string) => pagosData.filter(p => p.estado === estado).reduce((s, p) => s + (p.monto || 0), 0)
 
   return (
     <div>
-      <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1>Pagos</h1>
-            <p>Seguimiento de cobros y comisiones</p>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn-secondary"><Download size={15} /> Exportar</button>
-            <button className="btn-primary"><Plus size={16} /> Registrar pago</button>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pagos</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Seguimiento de cobros y comisiones</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn-outline"><Download size={14} /> Exportar</button>
+          <button className="btn-primary"><Plus size={15} /> Registrar pago</button>
         </div>
       </div>
-
-      {/* Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Cobrado este mes', value: totalCobrado, color: '#E6F7F0', text: '#2A7A56', icon: '✓' },
-          { label: 'Pendiente de cobro', value: totalPendiente, color: '#FFF4E5', text: '#B5630A', icon: '⏱' },
-          { label: 'Vencido sin cobrar', value: totalVencido, color: '#FDEAEA', text: '#B03030', icon: '!' },
+          { label: 'Cobrado este mes',   value: total('Cobrado'),   bg: '#E6F5EF', color: '#1A7A4E' },
+          { label: 'Pendiente de cobro', value: total('Pendiente'), bg: '#FEF3C7', color: '#92400E' },
+          { label: 'Vencido sin cobrar', value: total('Vencido'),   bg: '#FEE2E2', color: '#991B1B' },
         ].map(s => (
-          <div key={s.label} className="stat-card" style={{ background: s.color, border: 'none' }}>
-            <div className="label" style={{ color: s.text }}>{s.label}</div>
-            <div className="value" style={{ color: s.text, fontSize: '24px' }}>
-              ${s.value.toLocaleString()}
-            </div>
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: s.color, marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>${s.value.toLocaleString()}</div>
           </div>
         ))}
       </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div className="search-bar">
-          <Search size={15} />
-          <input placeholder="Buscar cliente o póliza..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente o póliza..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 260, background: 'white', color: 'var(--navy)' }} />
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {['Todos', 'Cobrado', 'Pendiente', 'Vencido'].map(t => (
-            <button key={t} onClick={() => setFiltro(t)} style={{
-              padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-              border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
-              background: filtro === t ? 'var(--navy)' : 'white',
-              borderColor: filtro === t ? 'var(--navy)' : '#D0D8E4',
-              color: filtro === t ? 'white' : 'var(--navy)',
-            }}>{t}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['Todos','Cobrado','Pendiente','Vencido'].map(t => <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
-
-      <div className="table-container">
+      <div className="table-card">
         <table>
+          <colgroup>
+            <col style={{ width: 110 }} /><col style={{ width: 110 }} /><col style={{ width: 180 }} />
+            <col style={{ width: 130 }} /><col style={{ width: 100 }} /><col style={{ width: 120 }} />
+            <col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 80 }} />
+          </colgroup>
           <thead>
             <tr>
-              <th>ID Pago</th>
-              <th>Póliza</th>
-              <th>Cliente</th>
-              <th>Aseguradora</th>
-              <th>Monto</th>
-              <th>Vencimiento</th>
-              <th>Método</th>
-              <th>Estado</th>
-              <th></th>
+              <th>ID Pago</th><th>Póliza</th><th>Cliente</th><th>Aseguradora</th>
+              <th>Monto</th><th>Vencimiento</th><th>Método</th><th>Estado</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {filtrados.map(p => (
+            {filtrados.length === 0 ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--slate)' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pagos registrados</div>
+                <div style={{ fontSize: 12 }}>Los pagos se registran desde el detalle de cada póliza en Clientes</div>
+              </td></tr>
+            ) : filtrados.map(p => (
               <tr key={p.id}>
-                <td style={{ fontWeight: '600', fontFamily: 'monospace', fontSize: '13px' }}>{p.id}</td>
-                <td style={{ color: 'var(--slate)', fontSize: '13px' }}>{p.poliza}</td>
-                <td>{p.cliente}</td>
-                <td style={{ color: 'var(--slate)', fontSize: '13px' }}>{p.aseguradora}</td>
-                <td style={{ fontWeight: '700', color: 'var(--navy)' }}>${p.monto.toLocaleString()}</td>
-                <td style={{ fontSize: '13px', color: 'var(--slate)' }}>{p.vence}</td>
-                <td style={{ fontSize: '13px' }}>{p.metodo}</td>
-                <td><span className={`badge ${estadoColor[p.estado]}`}>{p.estado}</span></td>
-                <td>
-                  {p.estado !== 'Cobrado' && (
-                    <button className="btn-primary" style={{ padding: '5px 12px', fontSize: '12px' }}>
-                      <CheckCircle size={13} /> Cobrar
-                    </button>
-                  )}
-                </td>
+                <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.id}</td>
+                <td style={{ fontSize: 12, color: 'var(--slate)', fontFamily: 'monospace' }}>{p.poliza}</td>
+                <td style={{ fontWeight: 600 }}>{p.cliente}</td>
+                <td style={{ color: 'var(--slate)', fontSize: 13 }}>{p.aseguradora}</td>
+                <td style={{ fontWeight: 700 }}>${p.monto?.toLocaleString()}</td>
+                <td style={{ fontSize: 13, color: 'var(--slate)' }}>{p.vence}</td>
+                <td style={{ fontSize: 13 }}>{p.metodo || '—'}</td>
+                <td><span className={`badge ${estadoColor[p.estado] || 'badge-neutral'}`}>{p.estado}</span></td>
+                <td>{p.estado !== 'Cobrado' && <button className="btn-primary btn-sm"><CheckCircle size={12} /> Cobrar</button>}</td>
               </tr>
             ))}
           </tbody>

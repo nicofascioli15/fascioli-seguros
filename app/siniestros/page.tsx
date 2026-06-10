@@ -2,124 +2,66 @@
 import { useState } from 'react'
 import { Plus, Search, AlertTriangle } from 'lucide-react'
 
-const siniestrosData = [
-  { id: 'SIN-041', poliza: 'POL-00343', cliente: 'Martínez, Roberto', tipo: 'Choque', aseguradora: 'Surco', estado: 'En gestión', abierto: '04/06/2026', descripcion: 'Colisión trasera en Av. Italia. Daños en paragolpes y portamaleta.' },
-  { id: 'SIN-040', poliza: 'POL-00347', cliente: 'Rodríguez, María', tipo: 'Robo parcial', aseguradora: 'BSE', estado: 'Documentación', abierto: '01/06/2026', descripcion: 'Robo de accesorios del interior del vehículo en estacionamiento.' },
-  { id: 'SIN-039', poliza: 'POL-00342', cliente: 'Torres, Laura', tipo: 'Granizo', aseguradora: 'Mapfre', estado: 'Cerrado', abierto: '28/05/2026', descripcion: 'Daños en techo por granizo. Indemnización abonada.' },
-  { id: 'SIN-038', poliza: 'POL-00346', cliente: 'Pérez, Andrés', tipo: 'Incendio', aseguradora: 'Mapfre', estado: 'Pericial', abierto: '20/05/2026', descripcion: 'Incendio en cocina. Perito asignado por la compañía.' },
-  { id: 'SIN-037', poliza: 'POL-00345', cliente: 'López, Gabriela', tipo: 'Fallecimiento', aseguradora: 'Sura', estado: 'Cerrado', abierto: '10/05/2026', descripcion: 'Siniestro de vida. Trámite completado con herederos.' },
-  { id: 'SIN-036', poliza: 'POL-00340', cliente: 'Díaz, Patricia', tipo: 'Responsabilidad Civil', aseguradora: 'Sura', estado: 'En gestión', abierto: '05/05/2026', descripcion: 'Daños a tercero. Proceso judicial iniciado.' },
-]
-
-const estadoColor: Record<string, string> = {
-  'En gestión': 'badge-blue',
-  'Documentación': 'badge-warning',
-  'Pericial': 'badge-neutral',
-  'Cerrado': 'badge-success',
-}
+const estadoColor: Record<string, string> = { 'En gestión': 'badge-blue', 'Documentación': 'badge-warning', 'Pericial': 'badge-neutral', 'Cerrado': 'badge-success' }
 
 export default function SiniestrosPage() {
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState('Todos')
-  const [showModal, setShowModal] = useState(false)
+  const data: any[]         = []
 
-  const filtrados = siniestrosData.filter(s => {
-    const matchS = s.cliente.toLowerCase().includes(search.toLowerCase()) || s.id.toLowerCase().includes(search.toLowerCase())
-    const matchF = filtro === 'Todos' || s.estado === filtro
-    return matchS && matchF
+  const filtrados = data.filter(s => {
+    const q = search.toLowerCase()
+    return (!q || s.cliente?.toLowerCase().includes(q) || s.id?.toLowerCase().includes(q)) &&
+           (filtro === 'Todos' || s.estado === filtro)
   })
 
   return (
     <div>
-      <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1>Siniestros</h1>
-            <p>Gestión y seguimiento de casos</p>
-          </div>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Nuevo siniestro
-          </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Siniestros</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Gestión y seguimiento de casos</p>
+        </div>
+        <button className="btn-primary"><Plus size={15} /> Nuevo siniestro</button>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente o ID..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['Todos','En gestión','Documentación','Pericial','Cerrado'].map(t => <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <div className="search-bar">
-          <Search size={15} />
-          <input placeholder="Buscar por cliente o ID..." value={search} onChange={e => setSearch(e.target.value)} />
+      {filtrados.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay siniestros registrados</div>
+          <div style={{ fontSize: 12 }}>Cuando surja un siniestro, registralo con el botón de arriba</div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {['Todos', 'En gestión', 'Documentación', 'Pericial', 'Cerrado'].map(t => (
-            <button key={t} onClick={() => setFiltro(t)} style={{
-              padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-              border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
-              background: filtro === t ? 'var(--navy)' : 'white',
-              borderColor: filtro === t ? 'var(--navy)' : '#D0D8E4',
-              color: filtro === t ? 'white' : 'var(--navy)',
-            }}>{t}</button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gap: '12px' }}>
-        {filtrados.map(s => (
-          <div key={s.id} className="stat-card" style={{ padding: '20px 24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                <div style={{
-                  width: '44px', height: '44px', background: '#FDEAEA', borderRadius: '10px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <AlertTriangle size={20} color="#D94F4F" />
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontWeight: '700', fontFamily: 'monospace', fontSize: '14px', color: 'var(--navy)' }}>{s.id}</span>
-                    <span className={`badge ${estadoColor[s.estado]}`}>{s.estado}</span>
-                  </div>
-                  <div style={{ fontWeight: '700', color: 'var(--navy)', fontSize: '16px', marginTop: '4px' }}>{s.cliente}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--slate)', marginTop: '2px' }}>
-                    {s.poliza} · {s.tipo} · {s.aseguradora}
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--navy)', marginTop: '8px' }}>{s.descripcion}</div>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Abierto</div>
-                <div style={{ fontSize: '14px', fontWeight: '600', marginTop: '2px' }}>{s.abierto}</div>
-                <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', marginTop: '10px' }}>
-                  Ver detalle
-                </button>
-              </div>
+      ) : filtrados.map(s => (
+        <div key={s.id} style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ width: 42, height: 42, background: '#FEE2E2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertTriangle size={18} color="#D94F4F" />
             </div>
-          </div>
-        ))}
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Nuevo siniestro</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <div className="form-group"><label>N° Póliza</label><input placeholder="POL-XXXXX" /></div>
-              <div className="form-group"><label>Cliente</label><input placeholder="Nombre" /></div>
-              <div className="form-group">
-                <label>Tipo de siniestro</label>
-                <select><option>Choque</option><option>Robo</option><option>Robo parcial</option><option>Granizo</option><option>Incendio</option><option>Responsabilidad Civil</option><option>Fallecimiento</option><option>Otro</option></select>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{s.id}</span>
+                <span className={`badge ${estadoColor[s.estado] || 'badge-neutral'}`}>{s.estado}</span>
               </div>
-              <div className="form-group"><label>Fecha de ocurrencia</label><input type="date" /></div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{s.cliente}</div>
+              <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 2 }}>{s.poliza} · {s.tipo} · {s.aseguradora}</div>
+              <div style={{ fontSize: 13, marginTop: 6 }}>{s.descripcion}</div>
             </div>
-            <div className="form-group"><label>Descripción</label><textarea rows={4} placeholder="Descripción detallada del siniestro..." /></div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn-primary">Abrir siniestro</button>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 700, textTransform: 'uppercase' }}>Abierto</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{s.abierto}</div>
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
