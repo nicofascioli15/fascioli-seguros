@@ -37,6 +37,16 @@ function fechasACuotaMes(fechas: string[]): string {
   }).join(' - ')
 }
 
+function addMonthsAndDays(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const newDay = d + months
+  const targetMonthRaw = m - 1 + months
+  const targetYear  = y + Math.floor(targetMonthRaw / 12)
+  const targetMonth = targetMonthRaw % 12
+  const maxDay = new Date(targetYear, targetMonth + 1, 0).getDate()
+  return `${targetYear}-${String(targetMonth + 1).padStart(2,'0')}-${String(Math.min(newDay, maxDay)).padStart(2,'0')}`
+}
+
 function CuotasFechas({ cuotas, value, onChange }: {
   cuotas: number; value: string[]; onChange: (v: string[]) => void
 }) {
@@ -46,14 +56,33 @@ function CuotasFechas({ cuotas, value, onChange }: {
     </div>
   )
   const dates = Array.from({ length: cuotas }, (_, i) => value[i] || '')
+
+  function handleChange(idx: number, val: string) {
+    const next = [...dates]
+    next[idx] = val
+    if (idx === 0 && val) {
+      for (let i = 1; i < cuotas; i++) {
+        if (!next[i]) next[i] = addMonthsAndDays(val, i)
+      }
+    }
+    onChange(next)
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
       {dates.map((fecha, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: 7, background: fecha ? 'var(--navy)' : '#EEF2F8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: fecha ? 'var(--gold)' : 'var(--slate)', flexShrink: 0 }}>{i+1}</div>
           <div style={{ flex: 1 }}>
-            <DatePicker value={fecha} onChange={val => { const n=[...value]; n[i]=val; onChange(n) }} placeholder={`Fecha cuota ${i+1}`} />
+            <DatePicker value={fecha} onChange={val => handleChange(i, val)}
+              placeholder={i === 0 ? 'Fecha 1ª cuota (auto-completa las siguientes)' : `Fecha cuota ${i+1}`} />
           </div>
+          {i === 0 && fecha && cuotas > 1 && (
+            <button onClick={() => onChange(Array.from({ length: cuotas }, (_, j) => addMonthsAndDays(fecha, j)))}
+              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border)', borderRadius: 7, background: 'white', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--slate)', whiteSpace: 'nowrap' }}>
+              Recalcular
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -126,6 +155,11 @@ export default function PolizasPage() {
 
   async function guardarPoliza() {
     if (!clienteSeleccionado || !form.numero.trim()) return
+    const nCuotas = parseInt(form.cuotas) || 0
+    if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
+    if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
+    const faltantes = form.fechasCuotas.slice(0, nCuotas).filter(f => !f).length
+    if (faltantes > 0) { alert(`Faltan ${faltantes} fechas de cuotas`); return }
     setSaving(true)
     const { error } = await supabase.from('polizas').insert([{
       cliente_id:  clienteSeleccionado.id,
