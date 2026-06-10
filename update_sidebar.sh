@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo 'Actualizando Sidebar...'
+
+cat > components/Sidebar.tsx << 'FILEEOF'
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -131,3 +136,11 @@ export default function Sidebar() {
   )
 }
 
+FILEEOF
+echo '✅ components/Sidebar.tsx'
+
+echo ''
+echo '🎉 Listo:'
+echo '   git add .'
+echo '   git commit -m "feat: indicador de almacenamiento en sidebar"'
+echo '   git push'
