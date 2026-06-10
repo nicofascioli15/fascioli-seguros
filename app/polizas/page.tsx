@@ -113,8 +113,8 @@ export default function PolizasPage() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null)
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState({
-    ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '',
-    corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] as string[]
+    ramo: '', compania: '', numero: '', vencimiento: '',
+    corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[]
   })
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export default function PolizasPage() {
     setPaso('cliente')
     setClienteSearch('')
     setClienteSeleccionado(null)
-    setForm({ ramo: 'Incendio', compania: 'BSE', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: 'Fascioli', moneda: 'U$S', cuotas: '', fechasCuotas: [] })
     setShowModal(true)
   }
 
