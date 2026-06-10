@@ -196,7 +196,7 @@ export default function ClientesList({ onSelect }: Props) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="edif-name">{c.nombre}</div>
                 <div className="edif-addr">{c.direccion || 'Sin dirección registrada'}</div>
-                {c.contacto && <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 2 }}>👤 {c.contacto}</div>}
+                {c.contacto && <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 2 }}>{c.contacto}</div>}
               </div>
               <button className="edif-del-btn" onClick={e => { e.stopPropagation(); eliminar(c.id, c.nombre) }} title="Eliminar">
                 <X size={15} />
@@ -207,7 +207,7 @@ export default function ClientesList({ onSelect }: Props) {
             <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
               {search ? 'No se encontraron clientes' : (
                 <div>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}></div>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay clientes aún</div>
                   <div style={{ fontSize: 12 }}>Agregá el primer cliente con el botón de arriba</div>
                 </div>
@@ -221,7 +221,7 @@ export default function ClientesList({ onSelect }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="pago-modal" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>👤 Nuevo cliente</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nuevo cliente</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>

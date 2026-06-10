@@ -232,7 +232,7 @@ export default function DocumentosPage() {
               </td></tr>
             ) : filtrados.length === 0 ? (
               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay documentos subidos</div>
                 <div style={{ fontSize: 12 }}>Arrastrá archivos arriba o usá el botón "Subir archivo"</div>
               </td></tr>
@@ -266,7 +266,7 @@ export default function DocumentosPage() {
         </table>
       </div>
 
-      {/* ── MODAL SUBIR (3 pasos: cliente → póliza → archivo) ── */}
+      {/* MODAL SUBIR (3 pasos: cliente → póliza → archivo) */}
       {showModal && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) cerrarModal() }}>
           <div className="pago-modal" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
@@ -275,7 +275,7 @@ export default function DocumentosPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
-                  {paso === 'cliente' ? '👥 Seleccionar cliente' : paso === 'poliza' ? '📄 Seleccionar póliza' : '📎 Subir archivo'}
+                  {paso === 'cliente' ? 'Seleccionar cliente' : paso === 'poliza' ? 'Seleccionar póliza' : 'Subir archivo'}
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? 1 : paso === 'poliza' ? 2 : 3} de 3
@@ -369,7 +369,7 @@ export default function DocumentosPage() {
                 >
                   {fileSel ? (
                     <>
-                      <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}></div>
                       <div style={{ fontWeight: 700, color: 'var(--success)', fontSize: 14 }}>{fileSel.name}</div>
                       <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>{formatBytes(fileSel.size)} · Click para cambiar</div>
                     </>

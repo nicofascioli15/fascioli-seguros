@@ -177,7 +177,7 @@ export default function VencimientosPage() {
         </div>
       ) : filtrados.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
+          <div style={{ fontSize: 32, marginBottom: 8 }}></div>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin vencimientos en este rango</div>
           <div style={{ fontSize: 12 }}>Probá cambiando el filtro o agregando pólizas con fecha de vencimiento</div>
         </div>

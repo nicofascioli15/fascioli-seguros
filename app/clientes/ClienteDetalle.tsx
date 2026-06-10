@@ -230,7 +230,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setShowNuevoCorreder(false)
     await fetchCatalogos()
     setPolizaForm(prev => ({ ...prev, corredor: nombre }))
-    showToast(`✓ Corredor "${nombre}" creado`)
+    showToast(`Corredor "${nombre}" creado`)
   }
 
   async function guardarPoliza() {
@@ -298,7 +298,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await supabase.storage.from('documentos').remove([doc.storage_path])
     await supabase.from('documentos').delete().eq('id', doc.id)
     await fetchPolizas()
-    showToast(`🗑 "${doc.nombre}" eliminado`)
+    showToast(`"${doc.nombre}" eliminado`)
   }
 
   async function subirDocumento(file: File, poliza: { id: string; ramo: string; numero: string }) {
@@ -310,7 +310,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       .upload(path, file, { upsert: false })
 
     if (storageErr) {
-      showToast(`❌ Error al subir: ${storageErr.message}`)
+      showToast(`Error al subir: ${storageErr.message}`)
       setUploadingDoc(null)
       return
     }
@@ -327,7 +327,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setUploadingDoc(null)
     setUploadPolizaSel(null)
     await fetchPolizas()
-    showToast(`✓ "${file.name}" subido correctamente`)
+    showToast(`"${file.name}" subido correctamente`)
   }
 
   const vencidas = polizas.filter(p => diasHasta(p.vencimiento) !== null && (diasHasta(p.vencimiento) ?? 1) < 0).length
@@ -375,7 +375,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         </div>
       ) : polizas.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>📄</div>
+          <div style={{ fontSize: 32, marginBottom: 10 }}></div>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin pólizas aún</div>
           <button className="btn-primary" style={{ marginTop: 12 }} onClick={() => setShowPolizaModal(true)}>
             <Plus size={14} /> Agregar primera póliza
@@ -430,13 +430,13 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                           <div className="cuota-info">
                             <div className="cuota-title">Cuota {n} de {cuotasN}</div>
                             {pago
-                              ? <div className="cuota-sub">✓ {pago.fecha} · {pago.metodo}{pago.referencia ? ` · Ref: ${pago.referencia}` : ''}</div>
+                              ? <div className="cuota-sub">{pago.fecha} · {pago.metodo}{pago.referencia ? ` · Ref: ${pago.referencia}` : ''}</div>
                               : <div className="cuota-sub">Pendiente de pago</div>
                             }
                           </div>
                           {pago
                             ? <>
-                                <span className="cuota-paid-tag">✓ Pagada</span>
+                                <span className="cuota-paid-tag">Pagada</span>
                                 <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => deshacerPago(pol.id, n)}>Deshacer</button>
                               </>
                             : <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' }); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
@@ -459,7 +459,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                       {pol.documentos.map(doc => (
                         <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F8FAFC', borderRadius: 8, border: '1px solid var(--border)' }}>
                           <span style={{ fontSize: 16 }}>
-                            {doc.nombre.endsWith('.pdf') ? '📄' : doc.nombre.match(/\.(jpg|jpeg|png)$/i) ? '🖼️' : '📎'}
+                            {doc.nombre.endsWith('.pdf') ? '' : doc.nombre.match(/\.(jpg|jpeg|png)$/i) ? '' : ''}
                           </span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
@@ -467,7 +467,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="btn-primary btn-sm" onClick={() => abrirDocumento(doc)}>
-                              📄 Abrir
+                              Abrir
                             </button>
                             <button
                               className="btn-outline btn-sm"
@@ -475,8 +475,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                               onClick={() => eliminarDocumento(doc, pol.numero)}
                               title="Eliminar documento"
                             >
-                              🗑
-                            </button>
+                              Eliminar </button>
                           </div>
                         </div>
                       ))}
@@ -507,7 +506,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowPolizaModal(false) }}>
           <div className="pago-modal" style={{ width: 520 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>📄 Nueva póliza</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva póliza</h3>
               <button onClick={() => setShowPolizaModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>Cliente: {nombre}</div>
@@ -536,8 +535,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                       onKeyDown={e => e.key === 'Enter' && crearCorredor()}
                       placeholder="Nombre del corredor" autoFocus
                       style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)' }} />
-                    <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
-                    <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorreder(false); setNuevoCorreder('') }} style={{ padding: '8px 12px' }}>✕</button>
+                    <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}></button>
+                    <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorreder(false); setNuevoCorreder('') }} style={{ padding: '8px 12px' }}>×</button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -591,7 +590,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowPagoModal(null) }}>
           <div className="pago-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>💳 Registrar pago</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar pago</h3>
               <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
@@ -608,7 +607,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowPagoModal(null)}>Cancelar</button>
               <button className="btn-primary" onClick={registrarPago} disabled={savingPago}>
-                {savingPago ? <><Loader2 size={14} /> Guardando...</> : '✓ Confirmar pago'}
+                {savingPago ? <><Loader2 size={14} /> Guardando...</> : 'Confirmar pago'}
               </button>
             </div>
           </div>
@@ -620,7 +619,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowTipoDocModal(false) }}>
           <div className="pago-modal" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>📎 Subir documento</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Subir documento</h3>
               <button onClick={() => setShowTipoDocModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
@@ -659,11 +658,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 28, right: 28, zIndex: 300,
-          background: toast.startsWith('❌') ? '#D94F4F' : 'var(--navy)',
+          background: toast.startsWith('') ? '#D94F4F' : 'var(--navy)',
           color: 'white', padding: '12px 20px', borderRadius: 10,
           fontSize: 13.5, fontWeight: 600,
           boxShadow: '0 8px 24px rgba(0,0,0,.2)',
-          borderLeft: `3px solid ${toast.startsWith('❌') ? '#FF8080' : 'var(--gold)'}`,
+          borderLeft: `3px solid ${toast.startsWith('') ? '#FF8080' : 'var(--gold)'}`,
           animation: 'fadeIn .2s ease'
         }}>
           {toast}

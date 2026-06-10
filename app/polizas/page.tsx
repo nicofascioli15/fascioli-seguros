@@ -232,7 +232,7 @@ export default function PolizasPage() {
               </td></tr>
             ) : filtradas.length === 0 ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--slate)' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas cargadas</div>
                 <div style={{ fontSize: 12 }}>Usá el botón "Nueva póliza" o agregá desde el módulo Clientes</div>
               </td></tr>
@@ -263,7 +263,7 @@ export default function PolizasPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
-                  {paso === 'cliente' ? '👥 Seleccionar cliente' : '📄 Nueva póliza'}
+                  {paso === 'cliente' ? 'Seleccionar cliente' : 'Nueva póliza'}
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? '1' : '2'} de 2 —{' '}

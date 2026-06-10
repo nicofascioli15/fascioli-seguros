@@ -171,7 +171,7 @@ export default function SiniestrosPage() {
         </div>
       ) : filtrados.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
+          <div style={{ fontSize: 32, marginBottom: 8 }}></div>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay siniestros registrados</div>
           <div style={{ fontSize: 12 }}>Usá el botón "Nuevo siniestro" para registrar uno</div>
         </div>
@@ -212,7 +212,7 @@ export default function SiniestrosPage() {
         </div>
       ))}
 
-      {/* ── MODAL NUEVO SINIESTRO (3 pasos) ─────────────────────────── */}
+      {/* MODAL NUEVO SINIESTRO (3 pasos) ─────────────────────────*/}
       {showModal && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) cerrarModal() }}>
           <div className="pago-modal" style={{ width: paso === 'datos' ? 540 : 480 }} onClick={e => e.stopPropagation()}>
@@ -221,7 +221,7 @@ export default function SiniestrosPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
-                  {paso === 'cliente' ? '👥 Seleccionar cliente' : paso === 'poliza' ? '📄 Seleccionar póliza' : '🛡️ Datos del siniestro'}
+                  {paso === 'cliente' ? 'Seleccionar cliente' : paso === 'poliza' ? 'Seleccionar póliza' : 'Datos del siniestro'}
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? '1' : paso === 'poliza' ? '2' : '3'} de 3

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { FileText, CreditCard, Bell, AlertTriangle } from 'lucide-react'
+import { FileText, CreditCard, Bell, AlertTriangle, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         {/* Próximos vencimientos */}
         <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 22px' }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>🔔 Próximos vencimientos</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Próximos vencimientos</div>
           {loading ? (
             <div style={{ color: 'var(--slate)', fontSize: 13 }}>Cargando...</div>
           ) : vencProximas.length === 0 ? (
@@ -102,12 +102,12 @@ export default function DashboardPage() {
 
         {/* Accesos rápidos */}
         <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 22px' }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>⚡ Accesos rápidos</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Accesos rápidos</div>
           {[
-            { href: '/clientes', icon: '👥', label: 'Nuevo cliente', sub: 'Agregar un cliente a la cartera' },
-            { href: '/polizas', icon: '📄', label: 'Nueva póliza', sub: 'Cargar una póliza existente' },
-            { href: '/vencimientos', icon: '🔔', label: 'Ver vencimientos', sub: 'Pólizas próximas a vencer' },
-            { href: '/siniestros', icon: '🛡️', label: 'Nuevo siniestro', sub: 'Registrar un siniestro' },
+            { href: '/clientes', icon: 'users', label: 'Nuevo cliente', sub: 'Agregar un cliente a la cartera' },
+            { href: '/polizas', icon: '', label: 'Nueva póliza', sub: 'Cargar una póliza existente' },
+            { href: '/vencimientos', icon: '', label: 'Ver vencimientos', sub: 'Pólizas próximas a vencer' },
+            { href: '/siniestros', icon: '', label: 'Nuevo siniestro', sub: 'Registrar un siniestro' },
           ].map(a => (
             <a key={a.href} href={a.href} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 8, textDecoration: 'none', transition: 'background .12s', marginBottom: 4 }}
               onMouseEnter={e => (e.currentTarget.style.background = '#F4F7FB')}

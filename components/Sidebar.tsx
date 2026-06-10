@@ -106,7 +106,7 @@ export default function Sidebar() {
           </div>
           {pct > 80 && (
             <div style={{ fontSize: 10, color: '#D94F4F', marginTop: 4, fontWeight: 600 }}>
-              ⚠️ Espacio casi lleno
+              Espacio casi lleno
             </div>
           )}
         </div>

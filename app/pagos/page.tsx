@@ -200,7 +200,7 @@ export default function PagosPage() {
               </td></tr>
             ) : filtradas.length === 0 ? (
               <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
                 <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
               </td></tr>
@@ -236,7 +236,7 @@ export default function PagosPage() {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(null) }}>
           <div className="pago-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>💳 Registrar cobro</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar cobro</h3>
               <button onClick={() => setShowModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
@@ -253,7 +253,7 @@ export default function PagosPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowModal(null)}>Cancelar</button>
               <button className="btn-primary" onClick={cobrar} disabled={saving}>
-                {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : '✓ Confirmar cobro'}
+                {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Confirmar cobro'}
               </button>
             </div>
           </div>
