@@ -553,7 +553,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
               <div className="fgroup">
                 <label>Vencimiento</label>
-                <input type="date" value={polizaForm.vencimiento} onChange={e => setPolizaForm({ ...polizaForm, vencimiento: e.target.value })} />
+                <DatePicker value={polizaForm.vencimiento} onChange={v => setPolizaForm({ ...polizaForm, vencimiento: v })} placeholder="Seleccionar fecha" />
               </div>
               <div className="fgroup">
                 <label>Moneda</label>
@@ -681,8 +681,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 }
 
 FILEEOF
-echo '✅ ClienteDetalle.tsx'
-echo ''
+echo '✅ Listo'
 echo '   git add .'
-echo '   git commit -m "feat: selector de tipo al subir documento desde poliza"'
+echo '   git commit -m "fix: datepicker en modal de poliza desde Clientes"'
 echo '   git push'
