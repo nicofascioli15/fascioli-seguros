@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 type Cliente = {
@@ -252,6 +252,134 @@ export default function ClientesList({ onSelect }: Props) {
                 {saving ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cliente'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal importar CSV */}
+      {showImport && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowImport(false); setCsvPreview({ rows: [], errors: [] }) } }}>
+          <div className="pago-modal" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Importar clientes desde CSV</h3>
+              <button onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+            </div>
+
+            {importDone ? (
+              <div style={{ textAlign: 'center', padding: '28px 0' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#E6F5EF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <CheckCircle size={24} color="var(--success)" />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', marginBottom: 6 }}>Importación completada</div>
+                <div style={{ fontSize: 14, color: 'var(--slate)' }}>
+                  <span style={{ color: 'var(--success)', fontWeight: 700 }}>{importDone.ok} clientes importados</span>
+                  {importDone.skip > 0 && <span> · {importDone.skip} omitidos</span>}
+                </div>
+                <button className="btn-primary" style={{ marginTop: 20 }}
+                  onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Guía de columnas */}
+                <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ background: '#F4F7FB', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--navy)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                      Columnas requeridas (en este orden)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+                      {[
+                        { col: 'nombre',    req: true,  desc: 'Obligatorio' },
+                        { col: 'direccion', req: false, desc: 'Opcional' },
+                        { col: 'contacto',  req: false, desc: 'Opcional' },
+                        { col: 'tel',       req: false, desc: 'Opcional' },
+                        { col: 'email',     req: false, desc: 'Opcional' },
+                      ].map(c => (
+                        <div key={c.col} style={{ textAlign: 'center', background: 'white', borderRadius: 7, padding: '7px 6px', border: `1.5px solid ${c.req ? 'var(--gold)' : 'var(--border)'}` }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: c.req ? 'var(--navy)' : 'var(--slate)' }}>{c.col}</div>
+                          <div style={{ fontSize: 10, color: c.req ? 'var(--gold)' : 'var(--slate)', marginTop: 2 }}>{c.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button className="btn-outline" onClick={descargarPlantilla} style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}>
+                    <Download size={14} /> Descargar plantilla CSV lista para completar
+                  </button>
+                </div>
+
+                {/* Errores */}
+                {csvPreview.errors.length > 0 && (
+                  <div style={{ background: '#FEF3C7', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+                    {csvPreview.errors.map((e, i) => (
+                      <div key={i} style={{ fontSize: 12.5, color: '#92400E', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                        <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {e}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {csvPreview.rows.length === 0 && csvPreview.errors.length === 0 ? (
+                  // Estado inicial — zona de drop/click
+                  <div
+                    onClick={() => csvRef.current?.click()}
+                    style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', background: '#FAFBFC', transition: 'all .2s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = '#FAFBFC' }}
+                  >
+                    <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--slate)' }} />
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)', marginBottom: 4 }}>Seleccionar archivo CSV</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--slate)' }}>Hacé click acá o arrastrá tu archivo</div>
+                  </div>
+                ) : csvPreview.rows.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate)', fontSize: 13 }}>
+                    No se encontraron filas válidas en el archivo
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginBottom: 10 }}>
+                      Vista previa — {csvPreview.rows.length} clientes a importar
+                    </div>
+                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#F8FAFC' }}>
+                            {['Nombre','Dirección','Contacto','Tel','Email'].map(h => (
+                              <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvPreview.rows.map((r, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #F1F5FB' }}>
+                              <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600 }}>{r.nombre}</td>
+                              <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.direccion || '—'}</td>
+                              <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.contacto || '—'}</td>
+                              <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.tel || '—'}</td>
+                              <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.email || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                      <button className="btn-outline" onClick={() => csvRef.current?.click()}>
+                        <Upload size={14} /> Cambiar archivo
+                      </button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn-outline" onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }) }}>Cancelar</button>
+                        <button className="btn-primary" onClick={confirmarImport} disabled={importing}>
+                          {importing
+                            ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Importando...</>
+                            : <>Importar {csvPreview.rows.length} clientes</>}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
