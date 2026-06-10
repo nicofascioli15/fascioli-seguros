@@ -61,6 +61,22 @@ export default function ClientesList({ onSelect }: Props) {
     await fetchClientes()
   }
 
+  function descargarPlantilla() {
+    const csv = [
+      'nombre,direccion,contacto,tel,email',
+      'Le Mans,Av. Italia 1234,Juan Pérez,099123456,juan@lemans.com.uy',
+      'Sea Park,Bvar. España 567,María García,098765432,',
+      'Rocamar,,,,'
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = 'plantilla_clientes_fascioli.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function parseCsv(text: string) {
     const lines = text.trim().split('\n').filter(l => l.trim())
     if (lines.length < 2) return { rows: [], errors: ['El archivo está vacío o no tiene datos'] }
@@ -249,8 +265,7 @@ export default function ClientesList({ onSelect }: Props) {
 }
 
 FILEEOF
-echo '✅ ClientesList.tsx'
-echo ''
+echo '✅ Listo'
 echo '   git add .'
-echo '   git commit -m "feat: importacion masiva de clientes desde CSV"'
+echo '   git commit -m "feat: plantilla CSV descargable para importar clientes"'
 echo '   git push'
