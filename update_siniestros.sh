@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo 'Actualizando siniestros...'
+
+cat > app/siniestros/page.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
@@ -341,3 +346,11 @@ export default function SiniestrosPage() {
   )
 }
 
+FILEEOF
+echo '✅ app/siniestros/page.tsx'
+
+echo ''
+echo '🎉 Listo. Ahora:'
+echo '   git add .'
+echo '   git commit -m "feat: siniestros conectado a Supabase, flujo 3 pasos"'
+echo '   git push'
