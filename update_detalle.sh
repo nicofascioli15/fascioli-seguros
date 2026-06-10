@@ -8,6 +8,14 @@ import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
+type Documento = {
+  id: string
+  nombre: string
+  storage_path: string
+  tipo: string
+  tamanio_bytes: number
+}
+
 type Poliza = {
   id: string
   ramo: string
@@ -19,6 +27,7 @@ type Poliza = {
   cuotas: number
   cuota_mes: string
   pagos?: Record<number, { id: string; fecha: string; metodo: string; referencia: string }>
+  documentos?: Documento[]
 }
 
 type Props = { id: string; nombre: string; onBack: () => void }
@@ -152,6 +161,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const fileInputRef                  = useRef<HTMLInputElement>(null)
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null) // poliza id being uploaded
   const [uploadPolizaSel, setUploadPolizaSel] = useState<{ id: string; ramo: string; numero: string } | null>(null)
+  const [toast, setToast]             = useState<string | null>(null)
 
   useEffect(() => { fetchPolizas() }, [id])
 
@@ -172,11 +182,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       .select('*')
       .in('poliza_id', polizaIds)
 
+    // Load documentos for all polizas
+    const { data: docsData } = await supabase
+      .from('documentos')
+      .select('id, nombre, storage_path, tipo, tamanio_bytes, poliza_id')
+      .in('poliza_id', polizaIds)
+
     const polizasConPagos: Poliza[] = polData.map(p => {
       const pagosPol = (pagosData || []).filter(pg => pg.poliza_id === p.id)
       const pagosMap: Record<number, any> = {}
       pagosPol.forEach(pg => { pagosMap[pg.cuota_num] = pg })
-      return { ...p, pagos: pagosMap }
+      const docs = (docsData || []).filter((d: any) => d.poliza_id === p.id)
+      return { ...p, pagos: pagosMap, documentos: docs }
     })
 
     setPolizas(polizasConPagos)
@@ -233,9 +250,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await fetchPolizas()
   }
 
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  async function abrirDocumento(doc: Documento) {
+    const { data } = await supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 120)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
+
   async function subirDocumento(file: File, poliza: { id: string; ramo: string; numero: string }) {
     setUploadingDoc(poliza.id)
-    const ext  = file.name.split('.').pop()?.toLowerCase() || 'pdf'
     const path = `${id}/${poliza.id}/${Date.now()}_${file.name.replace(/\s/g, '_')}`
 
     const { error: storageErr } = await supabase.storage
@@ -243,7 +269,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       .upload(path, file, { upsert: false })
 
     if (storageErr) {
-      alert(`Error al subir: ${storageErr.message}`)
+      showToast(`❌ Error al subir: ${storageErr.message}`)
       setUploadingDoc(null)
       return
     }
@@ -259,7 +285,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
     setUploadingDoc(null)
     setUploadPolizaSel(null)
-    alert(`✓ "${file.name}" subido correctamente`)
+    await fetchPolizas()
+    showToast(`✓ "${file.name}" subido correctamente`)
   }
 
   const vencidas = polizas.filter(p => diasHasta(p.vencimiento) !== null && (diasHasta(p.vencimiento) ?? 1) < 0).length
@@ -381,8 +408,32 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                  <button className="btn-outline btn-sm">📄 Ver PDF</button>
+                {/* Documentos cargados */}
+                {pol.documentos && pol.documentos.length > 0 && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 8 }}>
+                      Documentos ({pol.documentos.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {pol.documentos.map(doc => (
+                        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F8FAFC', borderRadius: 8, border: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: 16 }}>
+                            {doc.nombre.endsWith('.pdf') ? '📄' : doc.nombre.match(/\.(jpg|jpeg|png)$/i) ? '🖼️' : '📎'}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
+                            <div style={{ fontSize: 11, color: 'var(--slate)' }}>{doc.tipo}</div>
+                          </div>
+                          <button className="btn-primary btn-sm" onClick={() => abrirDocumento(doc)}>
+                            📄 Abrir
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: pol.documentos && pol.documentos.length > 0 ? 12 : 12, borderTop: pol.documentos && pol.documentos.length > 0 ? 'none' : '1px solid var(--border)' }}>
                   <button
                     className="btn-outline btn-sm"
                     disabled={uploadingDoc === pol.id}
@@ -514,7 +565,24 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         }}
       />
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 28, right: 28, zIndex: 300,
+          background: toast.startsWith('❌') ? '#D94F4F' : 'var(--navy)',
+          color: 'white', padding: '12px 20px', borderRadius: 10,
+          fontSize: 13.5, fontWeight: 600,
+          boxShadow: '0 8px 24px rgba(0,0,0,.2)',
+          borderLeft: `3px solid ${toast.startsWith('❌') ? '#FF8080' : 'var(--gold)'}`,
+          animation: 'fadeIn .2s ease'
+        }}>
+          {toast}
+        </div>
+      )}
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+      `}</style>
     </div>
   )
 }
@@ -525,5 +593,5 @@ echo '✅ app/clientes/ClienteDetalle.tsx'
 echo ''
 echo '🎉 Listo:'
 echo '   git add .'
-echo '   git commit -m "feat: boton subir doc funcional dentro de poliza"'
+echo '   git commit -m "feat: toast confirmacion, lista de docs por poliza, abrir archivos"'
 echo '   git push'
