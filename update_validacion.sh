@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+cat > app/clientes/ClienteDetalle.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2, Upload } from 'lucide-react'
@@ -732,3 +735,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   )
 }
 
+FILEEOF
+echo '+ app/clientes/ClienteDetalle.tsx'
+
+echo '   git add .'
+echo '   git commit -m "feat: campos obligatorios marcados en rojo"'
+echo '   git push'
