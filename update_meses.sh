@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+echo 'Actualizando selector de meses...'
+
+cat > app/clientes/ClienteDetalle.tsx << 'FILEEOF'
 'use client'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2 } from 'lucide-react'
@@ -461,3 +466,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   )
 }
 
+FILEEOF
+echo "✅ ClienteDetalle.tsx"
+
+echo ""
+echo "🎉 Listo. Ahora:"
+echo "   git add ."
+echo '   git commit -m "feat: selector de meses para cuotas"'
+echo "   git push"
