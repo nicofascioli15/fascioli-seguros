@@ -81,7 +81,7 @@ type Paso = 'cliente' | 'poliza'
 export default function PolizasPage() {
   const supabase = createClient()
 
-  const [catalogos, setCatalogos] = useState<{ramos:string[];companias:string[];corredores:string[]}>({ramos:[],companias:[],corredores:[]})
+  const [catalogos, setCatalogos] = useState<{ramos:string[];companias:string[];corredores:string[];monedas:string[]}>({ramos:[],companias:[],corredores:[],monedas:[]})
   const [polizas, setPolizas]         = useState<Poliza[]>([])
   const [clientes, setClientes]       = useState<Cliente[]>([])
   const [loading, setLoading]         = useState(true)
@@ -121,15 +121,17 @@ export default function PolizasPage() {
   }
 
   async function fetchCatalogos() {
-    const [r, c, co] = await Promise.all([
+    const [r, c, co, m] = await Promise.all([
       supabase.from('ramos').select('nombre').order('nombre'),
       supabase.from('companias').select('nombre').order('nombre'),
       supabase.from('corredores').select('nombre').order('nombre'),
+      supabase.from('monedas').select('nombre').order('nombre'),
     ])
     setCatalogos({
       ramos:     (r.data || []).map((x:any) => x.nombre),
       companias: (c.data || []).map((x:any) => x.nombre),
       corredores:(co.data || []).map((x:any) => x.nombre),
+      monedas:   (m.data || []).map((x:any) => x.nombre),
     })
   }
 

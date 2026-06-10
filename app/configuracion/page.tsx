@@ -1,25 +1,28 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, X, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-type Item = { id: string; nombre: string; activa?: boolean; activo?: boolean }
-type Tabla = 'companias' | 'ramos' | 'corredores' | 'metodos_pago'
+type Item = { id: string; nombre: string }
+type Tabla = 'companias' | 'ramos' | 'corredores' | 'metodos_pago' | 'tipos_siniestro' | 'tipos_documento' | 'monedas'
 
 const SECCIONES: { tabla: Tabla; titulo: string; icono: string; placeholder: string }[] = [
-  { tabla: 'companias',    titulo: 'Compañías aseguradoras', icono: '🏢', placeholder: 'Ej: BSE, SURA, Mapfre...' },
-  { tabla: 'ramos',        titulo: 'Ramos / Tipos de seguro', icono: '🏷️', placeholder: 'Ej: Incendio, RC...' },
-  { tabla: 'corredores',   titulo: 'Corredores',              icono: '👤', placeholder: 'Ej: Fascioli, Otro...' },
-  { tabla: 'metodos_pago', titulo: 'Métodos de pago',         icono: '💳', placeholder: 'Ej: Transferencia...' },
+  { tabla: 'companias',       titulo: 'Compañías aseguradoras',   icono: '🏢', placeholder: 'Ej: BSE, SURA, Mapfre...' },
+  { tabla: 'ramos',           titulo: 'Ramos / Tipos de seguro',  icono: '🏷️', placeholder: 'Ej: Incendio, RC...' },
+  { tabla: 'corredores',      titulo: 'Corredores',               icono: '👤', placeholder: 'Ej: Fascioli...' },
+  { tabla: 'metodos_pago',    titulo: 'Métodos de pago',          icono: '💳', placeholder: 'Ej: Transferencia...' },
+  { tabla: 'tipos_siniestro', titulo: 'Tipos de siniestro',       icono: '🛡️', placeholder: 'Ej: Choque, Robo...' },
+  { tabla: 'tipos_documento', titulo: 'Tipos de documento',       icono: '📎', placeholder: 'Ej: Póliza, Endoso...' },
+  { tabla: 'monedas',         titulo: 'Monedas',                  icono: '💵', placeholder: 'Ej: U$S, $, €...' },
 ]
 
 function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
   const supabase = createClient()
-  const [items, setItems]   = useState<Item[]>([])
+  const [items, setItems]     = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
-  const [nuevo, setNuevo]   = useState('')
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast]   = useState<string | null>(null)
+  const [nuevo, setNuevo]     = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [toast, setToast]     = useState<string | null>(null)
 
   useEffect(() => { fetch() }, [])
 
@@ -27,7 +30,7 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
 
   async function fetch() {
     setLoading(true)
-    const { data } = await supabase.from(tabla).select('id, nombre, activa, activo').order('nombre')
+    const { data } = await supabase.from(tabla).select('id, nombre').order('nombre')
     if (data) setItems(data)
     setLoading(false)
   }
@@ -48,7 +51,7 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
   }
 
   async function eliminar(item: Item) {
-    if (!confirm(`¿Eliminar "${item.nombre}"? Esto puede afectar pólizas existentes.`)) return
+    if (!confirm(`¿Eliminar "${item.nombre}"?`)) return
     const { error } = await supabase.from(tabla).delete().eq('id', item.id)
     if (error) {
       showToast(`❌ No se pudo eliminar — puede estar en uso`)
@@ -60,8 +63,7 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
 
   return (
     <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ padding: '16px 20px', background: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 20 }}>{icono}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, color: 'white', fontSize: 14 }}>{titulo}</div>
@@ -71,25 +73,22 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
         </div>
       </div>
 
-      {/* Add new */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+      <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
         <input
           value={nuevo}
           onChange={e => setNuevo(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && agregar()}
           placeholder={placeholder}
-          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)' }}
+          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)', transition: 'border-color .14s' }}
           onFocus={e => (e.target.style.borderColor = 'var(--gold)')}
           onBlur={e => (e.target.style.borderColor = 'var(--border)')}
         />
-        <button className="btn-primary" onClick={agregar} disabled={saving || !nuevo.trim()}
-          style={{ padding: '8px 14px', fontSize: 13 }}>
+        <button className="btn-primary" onClick={agregar} disabled={saving || !nuevo.trim()} style={{ padding: '8px 14px', fontSize: 13 }}>
           {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />}
         </button>
       </div>
 
-      {/* List */}
-      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--slate)' }}>
             <Loader2 size={18} style={{ display: 'block', margin: '0 auto 6px', animation: 'spin 1s linear infinite' }} />
@@ -97,17 +96,16 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
           </div>
         ) : items.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--slate)', fontSize: 13 }}>
-            Sin registros. Agregá el primero arriba.
+            Sin registros — agregá el primero arriba
           </div>
         ) : items.map(item => (
           <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #F1F5FB' }}>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--navy)' }}>{item.nombre}</span>
+            <span style={{ flex: 1, fontSize: 14, color: 'var(--navy)' }}>{item.nombre}</span>
             <button
               onClick={() => eliminar(item)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: '4px 6px', borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: '4px', borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
               onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}
-              title="Eliminar"
             >
               <Trash2 size={15} />
             </button>
@@ -115,7 +113,6 @@ function Seccion({ tabla, titulo, icono, placeholder }: typeof SECCIONES[0]) {
         ))}
       </div>
 
-      {/* Toast local */}
       {toast && (
         <div style={{ padding: '10px 16px', background: toast.startsWith('❌') ? '#FEE2E2' : '#E6F5EF', borderTop: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: toast.startsWith('❌') ? '#991B1B' : '#1A7A4E' }}>
           {toast}
@@ -132,10 +129,9 @@ export default function ConfiguracionPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Configuración</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Administrá los catálogos del sistema</p>
+        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Administrá todos los catálogos del sistema</p>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
         {SECCIONES.map(s => <Seccion key={s.tabla} {...s} />)}
       </div>
     </div>

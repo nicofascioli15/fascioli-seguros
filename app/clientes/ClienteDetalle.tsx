@@ -151,8 +151,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [pagoForm, setPagoForm]       = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
   const supabase                      = createClient()
   const [catalogos, setCatalogos]     = useState<{
-    ramos: string[]; companias: string[]; corredores: string[]; metodos: string[]
-  }>({ ramos: [], companias: [], corredores: [], metodos: [] })
+    ramos: string[]; companias: string[]; corredores: string[]; metodos: string[]; monedas: string[]
+  }>({ ramos: [], companias: [], corredores: [], metodos: [], monedas: [] })
   const [nuevoCorreder, setNuevoCorreder] = useState('')
   const [showNuevoCorreder, setShowNuevoCorreder] = useState(false)
   const fileInputRef                  = useRef<HTMLInputElement>(null)
@@ -198,17 +198,19 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   async function fetchCatalogos() {
-    const [r, c, co, m] = await Promise.all([
+    const [r, c, co, m, mon] = await Promise.all([
       supabase.from('ramos').select('nombre').order('nombre'),
       supabase.from('companias').select('nombre').order('nombre'),
       supabase.from('corredores').select('nombre').order('nombre'),
       supabase.from('metodos_pago').select('nombre').order('nombre'),
+      supabase.from('monedas').select('nombre').order('nombre'),
     ])
     setCatalogos({
       ramos:     (r.data || []).map((x: any) => x.nombre),
       companias: (c.data || []).map((x: any) => x.nombre),
       corredores:(co.data || []).map((x: any) => x.nombre),
       metodos:   (m.data || []).map((x: any) => x.nombre),
+      monedas:   (mon.data || []).map((x: any) => x.nombre),
     })
   }
 
@@ -545,8 +547,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Moneda</label>
                 <select value={polizaForm.moneda} onChange={e => setPolizaForm({ ...polizaForm, moneda: e.target.value })}>
-                  <option value="U$S">U$S (dólares)</option>
-                  <option value="$">$ (pesos)</option>
+                  {(catalogos.monedas || []).map((m: string) => <option key={m}>{m}</option>)}
                 </select>
               </div>
               <div className="fgroup">

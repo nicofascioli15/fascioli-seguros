@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-const TIPOS_SIN = ['Choque', 'Robo', 'Robo parcial', 'Granizo', 'Incendio', 'Responsabilidad Civil', 'Daño parcial', 'Fallecimiento', 'Otro']
 const ESTADOS   = ['En gestión', 'Documentación', 'Pericial', 'Cerrado']
+// TIPOS_SIN stays hardcoded - siniestro types are not in catalogs
 
 const estadoColor: Record<string, string> = {
   'En gestión':    'badge-blue',
@@ -37,6 +37,8 @@ type Paso = 'cliente' | 'poliza' | 'datos'
 export default function SiniestrosPage() {
   const supabase = createClient()
 
+  const [tiposSin, setTiposSin]       = useState<string[]>([])
+  const [tiposDoc, setTiposDoc]       = useState<string[]>([])
   const [siniestros, setSiniestros]   = useState<Siniestro[]>([])
   const [clientes, setClientes]       = useState<Cliente[]>([])
   const [polizasCliente, setPolizasCliente] = useState<Poliza[]>([])
@@ -55,7 +57,17 @@ export default function SiniestrosPage() {
     tipo: 'Choque', descripcion: '', fecha_ocurrencia: new Date().toISOString().slice(0,10), estado: 'En gestión'
   })
 
-  useEffect(() => { fetchSiniestros(); fetchClientes() }, [])
+  useEffect(() => {
+    fetchSiniestros()
+    fetchClientes()
+    Promise.all([
+      supabase.from('tipos_siniestro').select('nombre').order('nombre'),
+      supabase.from('tipos_documento').select('nombre').order('nombre'),
+    ]).then(([ts, td]) => {
+      setTiposSin((ts.data || []).map((x: any) => x.nombre))
+      setTiposDoc((td.data || []).map((x: any) => x.nombre))
+    })
+  }, [])
 
   async function fetchSiniestros() {
     setLoading(true)
@@ -299,7 +311,7 @@ export default function SiniestrosPage() {
                   <div className="fgroup">
                     <label>Tipo de siniestro *</label>
                     <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}>
-                      {TIPOS_SIN.map(t => <option key={t}>{t}</option>)}
+                      {tiposSin.map((t: string) => <option key={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="fgroup">

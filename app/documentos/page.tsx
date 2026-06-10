@@ -3,8 +3,6 @@ import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-const TIPOS_DOC = ['Póliza', 'Endoso', 'Siniestro', 'Identificación', 'Cobro', 'Otros']
-const TIPOS_FILTRO = ['Todos', ...TIPOS_DOC]
 
 const extStyle: Record<string, { bg: string; color: string; label: string }> = {
   pdf:  { bg: '#FEE2E2', color: '#991B1B', label: 'PDF' },
@@ -42,6 +40,7 @@ export default function DocumentosPage() {
   const supabase = createClient()
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const [tiposDoc, setTiposDoc]     = useState<string[]>([])
   const [docs, setDocs]             = useState<Documento[]>([])
   const [clientes, setClientes]     = useState<Cliente[]>([])
   const [polizasCliente, setPolizasCliente] = useState<Poliza[]>([])
@@ -60,7 +59,12 @@ export default function DocumentosPage() {
   const [fileSel, setFileSel]       = useState<File | null>(null)
   const [tipoDoc, setTipoDoc]       = useState('Póliza')
 
-  useEffect(() => { fetchDocs(); fetchClientes() }, [])
+  useEffect(() => {
+    fetchDocs()
+    fetchClientes()
+    supabase.from('tipos_documento').select('nombre').order('nombre')
+      .then(({ data }) => { if (data) setTiposDoc(data.map((x: any) => x.nombre)) })
+  }, [])
 
   async function fetchDocs() {
     setLoading(true)
@@ -206,7 +210,7 @@ export default function DocumentosPage() {
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {TIPOS_FILTRO.map(t => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
+          {['Todos', ...tiposDoc].map((t: string) => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
 
@@ -384,7 +388,7 @@ export default function DocumentosPage() {
                 <div className="fgroup">
                   <label>Tipo de documento</label>
                   <select value={tipoDoc} onChange={e => setTipoDoc(e.target.value)}>
-                    {TIPOS_DOC.map(t => <option key={t}>{t}</option>)}
+                    {tiposDoc.map((t: string) => <option key={t}>{t}</option>)}
                   </select>
                 </div>
 
