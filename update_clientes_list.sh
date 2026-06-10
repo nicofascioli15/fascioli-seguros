@@ -163,7 +163,7 @@ export default function ClientesList({ onSelect }: Props) {
           <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{clientes.length} clientes registrados</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => csvRef.current?.click()}>
+          <button className="btn-outline" onClick={() => { setShowImport(true); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>
             <Upload size={15} /> Importar CSV
           </button>
           <input ref={csvRef} type="file" accept=".csv,.txt" style={{ display: 'none' }}
@@ -267,5 +267,5 @@ export default function ClientesList({ onSelect }: Props) {
 FILEEOF
 echo '✅ Listo'
 echo '   git add .'
-echo '   git commit -m "feat: plantilla CSV descargable para importar clientes"'
+echo '   git commit -m "fix: modal CSV abre primero la guia, no el file picker"'
 echo '   git push'
