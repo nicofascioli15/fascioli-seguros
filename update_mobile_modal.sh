@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+cat > app/globals.css << 'FILEEOF'
 @import "tailwindcss";
 
 :root {
@@ -372,3 +375,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 }
 html { scroll-behavior: smooth; }
 
+FILEEOF
+echo '   git add .'
+echo '   git commit -m "fix: modal mobile padding y columna unica"'
+echo '   git push'
