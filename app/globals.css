@@ -108,8 +108,10 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--surface); 
 .ramo-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .poliza-id   { font-size: 11px; font-family: monospace; color: var(--slate); }
 .poliza-ramo { font-weight: 700; font-size: 14px; }
-.poliza-card-body { padding: 0 18px 16px; border-top: 1px solid var(--border); display: none; }
-.poliza-card-body.open { display: block; padding-top: 14px; }
+.poliza-card-body { border-top: 0px solid var(--border); transition: border-top .28s; }
+.poliza-card-body > div { padding: 0 18px 16px; padding-top: 14px; }
+.poliza-card { transition: box-shadow .25s ease; }
+.poliza-card:hover { box-shadow: 0 2px 12px rgba(15,30,53,.07); }
 .poliza-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
 .poliza-field .field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--slate); margin-bottom: 3px; }
 .poliza-field .field-val   { font-size: 13.5px; font-weight: 500; color: var(--navy); }
