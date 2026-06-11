@@ -450,7 +450,7 @@ export default function PolizasPage() {
                 <div className="fgroup" style={{ marginTop: 4 }}>
                   <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional)</span></label>
                   <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })}
-                    placeholder="Ej: Ford Focus rojo patente ABC 1234, Apto 3B Torre Norte..."
+                    placeholder=""
                     rows={2}
                     style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)', lineHeight: 1.5 }}
                     onFocus={e => (e.target.style.borderColor = 'var(--gold)')}

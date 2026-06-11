@@ -671,7 +671,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <textarea
                 value={polizaForm.nota}
                 onChange={e => setPolizaForm({ ...polizaForm, nota: e.target.value })}
-                placeholder="Identificación del bien asegurado, observaciones, etc."
+                placeholder=""
                 rows={2}
                 style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)', lineHeight: 1.5, transition: 'border-color .14s' }}
                 onFocus={e => (e.target.style.borderColor = 'var(--gold)')}
