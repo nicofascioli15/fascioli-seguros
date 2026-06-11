@@ -1,7 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  // Disable static optimization - all pages render dynamically
+  // This is correct for an authenticated app
+}
 
-export default nextConfig;
+export default nextConfig
+

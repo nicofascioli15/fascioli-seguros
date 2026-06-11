@@ -1,4 +1,5 @@
 'use client'
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
