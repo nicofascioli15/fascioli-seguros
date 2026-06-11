@@ -56,9 +56,13 @@ export default function Sidebar() {
 
   return (
     <>
-      <button className="hamburger" onClick={() => setOpen(o => !o)} aria-label="Menú">
-        {open ? <X size={18} color="var(--gold)" /> : <><span /><span /><span /></>}
-      </button>
+      {/* Mobile topbar */}
+      <div className="mobile-topbar">
+        <img src="/logo-fascioli.svg" alt="Fascioli Seguros" />
+        <button className="hamburger" onClick={() => setOpen(o => !o)} aria-label="Menú">
+          {open ? <X size={16} color="var(--gold)" /> : <><span /><span /><span /></>}
+        </button>
+      </div>
 
       <div className={`sidebar-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
