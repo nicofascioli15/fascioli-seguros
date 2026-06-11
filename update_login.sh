@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+cat > app/login/page.tsx << 'FILEEOF'
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -166,3 +169,8 @@ export default function LoginPage() {
   )
 }
 
+FILEEOF
+echo '+ login/page.tsx'
+echo '   git add .'
+echo '   git commit -m "feat: login redesign + Control Seguros"'
+echo '   git push'
