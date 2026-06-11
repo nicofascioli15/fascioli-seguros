@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Loader2, Shield, User, Plus, X, ArrowLeft } from 'lucide-react'
+import { Loader2, Shield, User, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRol } from '@/lib/useRol'
 import { useRouter } from 'next/navigation'
@@ -81,10 +81,6 @@ export default function UsuariosPage() {
         </div>
         <button className="btn-primary" onClick={() => setShowModal(true)}><Plus size={15} /> Nuevo usuario</button>
       </div>
-
-      <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, padding: 0 }}>
-        <ArrowLeft size={14} /> Volver
-      </button>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
