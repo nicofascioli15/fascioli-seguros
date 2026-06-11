@@ -22,6 +22,7 @@ type Poliza = {
   moneda: string
   cuotas: number
   cuota_mes: string
+  nota: string
   pagos?: Record<number, { id: string; fecha: string; metodo: string; referencia: string }>
   documentos?: Documento[]
 }
@@ -187,7 +188,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [showPagoModal, setShowPagoModal]     = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
   const [savingPoliza, setSavingPoliza] = useState(false)
   const [savingPago, setSavingPago]    = useState(false)
-  const [polizaForm, setPolizaForm]   = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[] })
+  const [polizaForm, setPolizaForm]   = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
   const [pagoForm, setPagoForm]       = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
   const [errores, setErrores]         = useState<Record<string, boolean>>({})
   const supabase                      = createClient()
@@ -306,10 +307,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       moneda:       polizaForm.moneda,
       cuotas:       parseInt(polizaForm.cuotas) || 0,
       cuota_mes:    fechasACuotaMes(polizaForm.fechasCuotas),
+      nota:         polizaForm.nota || null,
     }])
     if (!error) {
       setShowPolizaModal(false)
-      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] })
+      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
       await fetchPolizas()
     }
     setSavingPoliza(false)
@@ -472,6 +474,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <div className="poliza-field"><div className="field-label">Cuotas</div><div className="field-val">{pol.cuotas || '—'}</div></div>
                   <div className="poliza-field"><div className="field-label">Cuota y mes</div><div className="field-val" style={{ fontSize: 12 }}>{pol.cuota_mes || '—'}</div></div>
                 </div>
+                {pol.nota && (
+                  <div style={{ background: '#F4F7FB', borderRadius: 8, padding: '10px 14px', marginBottom: 12, borderLeft: '3px solid var(--gold)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 4 }}>Nota</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--navy)' }}>{pol.nota}</div>
+                  </div>
+                )}
 
                 {cuotasN > 0 && (
                   <div className="cuotas-section">
@@ -656,6 +664,19 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   onChange={v => setPolizaForm({ ...polizaForm, fechasCuotas: v })}
                 />
               </div>
+            </div>
+            {/* Nota */}
+            <div className="fgroup" style={{ marginTop: 4 }}>
+              <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional — ej: Ford Focus rojo patente ABC 1234)</span></label>
+              <textarea
+                value={polizaForm.nota}
+                onChange={e => setPolizaForm({ ...polizaForm, nota: e.target.value })}
+                placeholder="Identificación del bien asegurado, observaciones, etc."
+                rows={2}
+                style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)', lineHeight: 1.5, transition: 'border-color .14s' }}
+                onFocus={e => (e.target.style.borderColor = 'var(--gold)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+              />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowPolizaModal(false)}>Cancelar</button>

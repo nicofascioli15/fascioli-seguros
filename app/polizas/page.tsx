@@ -114,7 +114,7 @@ export default function PolizasPage() {
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState({
     ramo: '', compania: '', numero: '', vencimiento: '',
-    corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[]
+    corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: ''
   })
 
   useEffect(() => {
@@ -171,6 +171,7 @@ export default function PolizasPage() {
       moneda:      form.moneda,
       cuotas:      parseInt(form.cuotas) || 0,
       cuota_mes:   fechasACuotaMes(form.fechasCuotas),
+      nota:        form.nota || null,
     }])
     if (!error) {
       cerrarModal()
@@ -183,7 +184,7 @@ export default function PolizasPage() {
     setPaso('cliente')
     setClienteSearch('')
     setClienteSeleccionado(null)
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
     setShowModal(true)
   }
 
@@ -443,6 +444,18 @@ export default function PolizasPage() {
                     <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
                   </div>
 
+                </div>
+
+                {/* Nota */}
+                <div className="fgroup" style={{ marginTop: 4 }}>
+                  <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional)</span></label>
+                  <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })}
+                    placeholder="Ej: Ford Focus rojo patente ABC 1234, Apto 3B Torre Norte..."
+                    rows={2}
+                    style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)', lineHeight: 1.5 }}
+                    onFocus={e => (e.target.style.borderColor = 'var(--gold)')}
+                    onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                  />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
