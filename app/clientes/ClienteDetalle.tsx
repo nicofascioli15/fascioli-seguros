@@ -464,9 +464,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <div className="poliza-id">{pol.numero}</div>
                   {pol.nota && (
                     <div style={{
-                      fontSize: 12, color: 'var(--navy)', fontWeight: 500,
-                      background: '#F4F7FB', borderRadius: 5, padding: '1px 8px',
-                      borderLeft: '2px solid var(--gold)',
+                      fontSize: 11, color: 'var(--slate)', fontWeight: 400,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       maxWidth: 260
                     }}>
