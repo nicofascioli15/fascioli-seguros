@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
-echo 'Fix build errors + sidebar parpadeo...'
+echo 'Fix Vercel build...'
 
 mkdir -p 'app/(app)/clientes' 'app/(app)/configuracion' 'app/(app)/dashboard' 'app/(app)/documentos' 'app/(app)/historial' 'app/(app)/pagos' 'app/(app)/polizas' 'app/(app)/siniestros' 'app/(app)/usuarios' 'app/(app)/vencimientos'
-# Remove duplicate routes that caused Vercel error
+rm -f middleware.ts
 rm -rf 'app/(app)/dashboard/historial' 'app/(app)/dashboard/usuarios' 2>/dev/null || true
 
 cat > 'app/(app)/clientes/ClienteDetalle.tsx' << 'FILEEOF'
@@ -4886,12 +4886,25 @@ export { useAuth as useRol } from './AuthProvider'
 FILEEOF
 echo '+ lib/useRol.ts'
 
-cat > 'middleware.ts' << 'FILEEOF'
+cat > 'next.config.ts' << 'FILEEOF'
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  // Disable static optimization - all pages render dynamically
+  // This is correct for an authenticated app
+}
+
+export default nextConfig
+
+FILEEOF
+echo '+ next.config.ts'
+
+cat > 'proxy.ts' << 'FILEEOF'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const response = NextResponse.next()
 
   const supabase = createServerClient(
@@ -4929,23 +4942,10 @@ export const config = {
 }
 
 FILEEOF
-echo '+ middleware.ts'
-
-cat > 'next.config.ts' << 'FILEEOF'
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
-  // Disable static optimization - all pages render dynamically
-  // This is correct for an authenticated app
-}
-
-export default nextConfig
-
-FILEEOF
-echo '+ next.config.ts'
+echo '+ proxy.ts'
 
 echo ''
 echo 'Listo:'
 echo '   git add .'
-echo '   git commit -m "fix: build error + sidebar sin parpadeo"'
+echo '   git commit -m "fix: proxy en vez de middleware, build Vercel OK"'
 echo '   git push'
