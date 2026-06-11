@@ -46,12 +46,12 @@ export default function LoginPage() {
           <div style={{
             background: 'rgba(255,255,255,.08)',
             borderRadius: 18,
-            padding: '20px 28px',
+            padding: '24px 36px',
             display: 'inline-block',
             marginBottom: 20,
             border: '1px solid rgba(255,255,255,.12)'
           }}>
-            <img src="/logo-fascioli.svg" alt="Fascioli" style={{ height: 44, display: 'block' }} />
+            <img src="/logo-fascioli.svg" alt="Fascioli" style={{ height: 64, display: 'block' }} />
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: 'white', letterSpacing: '.02em' }}>
             Control Seguros
@@ -170,7 +170,6 @@ export default function LoginPage() {
 }
 
 FILEEOF
-echo '+ login/page.tsx'
 echo '   git add .'
-echo '   git commit -m "feat: login redesign + Control Seguros"'
+echo '   git commit -m "fix: logo mas grande en login"'
 echo '   git push'
