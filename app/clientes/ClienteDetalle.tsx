@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, X, ChevronRight, Loader2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 
 type Documento = {
@@ -297,7 +298,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     }
     setErrores({})
     setSavingPoliza(true)
-    const { error } = await supabase.from('polizas').insert([{
+    const { error, data: polData } = await supabase.from('polizas').insert([{
       cliente_id:   id,
       ramo:         polizaForm.ramo,
       compania:     polizaForm.compania,
@@ -320,14 +321,15 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   async function registrarPago() {
     if (!showPagoModal) return
     setSavingPago(true)
-    const { error } = await supabase.from('pagos').upsert([{
+    const { error, data: pagoData } = await supabase.from('pagos').upsert([{
       poliza_id:  showPagoModal.polizaId,
       cuota_num:  showPagoModal.cuotaNum,
       fecha:      pagoForm.fecha,
       metodo:     pagoForm.metodo,
       referencia: pagoForm.referencia,
-    }], { onConflict: 'poliza_id,cuota_num' })
+    }], { onConflict: 'poliza_id,cuota_num' }).select().single()
     if (!error) {
+      await registrarAudit({ accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id, descripcion: `Pago registrado: cuota ${showPagoModal.cuotaNum} — ${showPagoModal.ramo} — ${nombre}`, datosDespues: pagoData })
       setShowPagoModal(null)
       await fetchPolizas()
     }
@@ -341,7 +343,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function eliminarPoliza(polizaId: string) {
     if (!confirm('¿Eliminar esta póliza?')) return
+    const { data: polAntes } = await supabase.from('polizas').select('*').eq('id', polizaId).single()
     await supabase.from('polizas').delete().eq('id', polizaId)
+    await registrarAudit({ accion: 'eliminar', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza eliminada: ${polAntes?.ramo} ${polAntes?.numero} — ${nombre}`, datosAntes: polAntes })
     await fetchPolizas()
   }
 

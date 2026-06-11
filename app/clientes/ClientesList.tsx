@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 
 type Cliente = {
   id: string
@@ -43,8 +44,9 @@ export default function ClientesList({ onSelect }: Props) {
   async function guardar() {
     if (!form.nombre.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('clientes').insert([form])
-    if (!error) {
+    const { error, data } = await supabase.from('clientes').insert([form]).select().single()
+    if (!error && data) {
+      await registrarAudit({ accion: 'crear', tabla: 'clientes', registroId: data.id, descripcion: `Cliente creado: ${form.nombre}`, datosDespues: data })
       setForm({ nombre: '', direccion: '', contacto: '', tel: '', email: '' })
       setShowModal(false)
       await fetchClientes()
@@ -54,7 +56,9 @@ export default function ClientesList({ onSelect }: Props) {
 
   async function eliminar(id: string, nombre: string) {
     if (!confirm(`¿Eliminar "${nombre}"? Se eliminarán también sus pólizas.`)) return
+    const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
     await supabase.from('clientes').delete().eq('id', id)
+    await registrarAudit({ accion: 'eliminar', tabla: 'clientes', registroId: id, descripcion: `Cliente eliminado: ${nombre}`, datosAntes: data })
     await fetchClientes()
   }
 

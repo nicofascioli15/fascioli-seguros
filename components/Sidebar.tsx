@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, FileText, CreditCard,
-  Bell, AlertTriangle, FolderOpen, Settings, LogOut, Menu, X
+  Bell, AlertTriangle, FolderOpen, Settings, LogOut, Menu, X, History, UserCog
 } from 'lucide-react'
+import { useRol } from '@/lib/useRol'
 
 const navItems = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,6 +32,7 @@ export default function Sidebar() {
   const supabase = createClient()
 
   const [open, setOpen]         = useState(false)
+  const { esSuperAdmin }          = useRol()
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
 
   useEffect(() => { fetchStorageUsage() }, [])
@@ -90,6 +92,19 @@ export default function Sidebar() {
             <Settings size={17} />
             Configuración
           </Link>
+          {esSuperAdmin && (
+            <>
+              <div className="nav-section" style={{ marginTop: 10 }}>Super Admin</div>
+              <Link href="/usuarios" className={`nav-item ${pathname.startsWith('/usuarios') ? 'active' : ''}`}>
+                <UserCog size={17} />
+                Usuarios
+              </Link>
+              <Link href="/historial" className={`nav-item ${pathname.startsWith('/historial') ? 'active' : ''}`}>
+                <History size={17} />
+                Historial
+              </Link>
+            </>
+          )}
         </nav>
 
         <div style={{ padding: '12px 16px 0', borderTop: '1px solid rgba(255,255,255,.07)' }}>
