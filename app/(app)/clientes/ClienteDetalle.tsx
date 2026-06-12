@@ -703,7 +703,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="fgroup"><label>N° Póliza</label><input value={editPolizaForm.numero || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, numero: e.target.value}))} /></div>
               <div className="fgroup"><label>Ramo</label>
-                <select value={editPolizaForm.ramo || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, ramo: e.target.value}))}>
+                <select value={editPolizaForm.ramo || ''} onChange={async e => {
+                  const nuevoRamo = e.target.value
+                  setEditPolizaForm((p: any) => ({...p, ramo: nuevoRamo}))
+                  setEditValoresCampos({})
+                  if (nuevoRamo) {
+                    const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()
+                    if (rd) {
+                      const { data: campos } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden')
+                      setEditCamposRamo(campos || [])
+                    } else setEditCamposRamo([])
+                  } else setEditCamposRamo([])
+                }}>
                   {catalogos.ramos.map(r => <option key={r}>{r}</option>)}
                 </select></div>
               <div className="fgroup"><label>Compañía</label>
