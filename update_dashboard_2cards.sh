@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/dashboard'
+cat > 'app/(app)/dashboard/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
@@ -157,3 +161,9 @@ export default function DashboardPage() {
   )
 }
 
+FILEEOF
+echo '+ app/(app)/dashboard/page.tsx'
+
+git add .
+git commit -m 'fix: dashboard solo 2 cards vencimientos y siniestros'
+git push
