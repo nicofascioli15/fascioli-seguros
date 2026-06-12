@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/polizas'
+cat > 'app/(app)/polizas/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -561,3 +565,9 @@ export default function PolizasPage() {
   )
 }
 
+FILEEOF
+echo '+ app/(app)/polizas/page.tsx'
+
+git add .
+git commit -m 'feat: polizas clickeables con vista detalle + clip badge'
+git push
