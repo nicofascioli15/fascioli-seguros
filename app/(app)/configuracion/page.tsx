@@ -120,7 +120,7 @@ function CamposRamo() {
   const [showForm, setShowForm]   = useState(false)
   const [saving, setSaving]       = useState(false)
   const [toast, setToast]         = useState<string | null>(null)
-  const [form, setForm]           = useState({ nombre: '', tipo: 'texto', opciones: '' })
+  const [form, setForm]           = useState({ nombre: '', tipo: 'texto', opciones: '', con_moneda: false })
 
   useEffect(() => {
     supabase.from('ramos').select('id, nombre').order('nombre').then(({ data }) => { if (data) setRamos(data) })
@@ -138,14 +138,16 @@ function CamposRamo() {
   async function agregarCampo() {
     if (!ramoSel || !form.nombre.trim()) return
     setSaving(true)
+    // For numeric fields with moneda, save as "numero_moneda" type and store options as monedas
+    const tipoFinal = form.tipo === 'numero' && form.con_moneda ? 'numero_moneda' : form.tipo
     await supabase.from('campos_ramo').insert([{
       ramo_id: ramoSel.id,
       nombre:  form.nombre.trim(),
-      tipo:    form.tipo,
+      tipo:    tipoFinal,
       opciones: form.tipo === 'select' ? form.opciones : null,
       orden:   campos.length,
     }])
-    setForm({ nombre: '', tipo: 'texto', opciones: '' })
+    setForm({ nombre: '', tipo: 'texto', opciones: '', con_moneda: false })
     setShowForm(false)
     await seleccionarRamo(ramoSel)
     showToast(`Campo "${form.nombre}" agregado`)
@@ -159,7 +161,7 @@ function CamposRamo() {
     showToast(`Campo "${campo.nombre}" eliminado`)
   }
 
-  const tipoLabel: Record<string, string> = { texto: 'Texto', numero: 'Número', select: 'Lista', fecha: 'Fecha', boolean: 'Sí/No' }
+  const tipoLabel: Record<string, string> = { texto: 'Texto', numero: 'Número', numero_moneda: 'Número + Moneda', select: 'Lista', fecha: 'Fecha', boolean: 'Sí/No' }
 
   return (
     <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', gridColumn: 'span 2' }}>
@@ -224,6 +226,15 @@ function CamposRamo() {
                       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
                         <label>Opciones (separadas por coma)</label>
                         <input value={form.opciones} onChange={e => setForm({ ...form, opciones: e.target.value })} placeholder="Ej: Global, 3x2, Solo terceros" />
+                      </div>
+                    )}
+                    {form.tipo === 'numero' && (
+                      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontSize: 13 }}>
+                          <input type="checkbox" checked={form.con_moneda} onChange={e => setForm({ ...form, con_moneda: e.target.checked })}
+                            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }} />
+                          Incluir selector de moneda (ej: suma asegurada en U$S o $)
+                        </label>
                       </div>
                     )}
                   </div>

@@ -717,6 +717,27 @@ export default function PolizasPage() {
                                 <option value="">— Seleccionar —</option>
                                 {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
                               </select>
+                        ) : campo.tipo === 'numero_moneda' ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input type="number"
+                              value={(valoresCampos[campo.id] || '').split('|')[0] || ''}
+                              onChange={e => {
+                                const moneda = (valoresCampos[campo.id] || '').split('|')[1] || 'U$S'
+                                setValoresCampos(p => ({...p, [campo.id]: `${e.target.value}|${moneda}`}))
+                              }}
+                              placeholder="Monto" style={{ flex: 2 }} />
+                            <select
+                              value={(valoresCampos[campo.id] || '').split('|')[1] || 'U$S'}
+                              onChange={e => {
+                                const monto = (valoresCampos[campo.id] || '').split('|')[0] || ''
+                                setValoresCampos(p => ({...p, [campo.id]: `${monto}|${e.target.value}`}))
+                              }}
+                              style={{ flex: 1 }}>
+                              <option>U$S</option>
+                              <option>$</option>
+                              <option>€</option>
+                            </select>
+                          </div>
                             ) : campo.tipo === 'boolean' ? (
                               <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
                                 style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
@@ -857,6 +878,27 @@ export default function PolizasPage() {
                           <option value="">— Seleccionar —</option>
                           {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
                         </select>
+                        ) : campo.tipo === 'numero_moneda' ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input type="number"
+                              value={(editValores[campo.id] || '').split('|')[0] || ''}
+                              onChange={e => {
+                                const moneda = (editValores[campo.id] || '').split('|')[1] || 'U$S'
+                                setEditValores(p => ({...p, [campo.id]: `${e.target.value}|${moneda}`}))
+                              }}
+                              placeholder="Monto" style={{ flex: 2 }} />
+                            <select
+                              value={(editValores[campo.id] || '').split('|')[1] || 'U$S'}
+                              onChange={e => {
+                                const monto = (editValores[campo.id] || '').split('|')[0] || ''
+                                setEditValores(p => ({...p, [campo.id]: `${monto}|${e.target.value}`}))
+                              }}
+                              style={{ flex: 1 }}>
+                              <option>U$S</option>
+                              <option>$</option>
+                              <option>€</option>
+                            </select>
+                          </div>
                       ) : campo.tipo === 'boolean' ? (
                         <select value={editValores[campo.id] || ''} onChange={e => setEditValores(p => ({...p, [campo.id]: e.target.value}))}
                           style={{ color: editValores[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
