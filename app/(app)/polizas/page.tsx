@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Plus, Search, X, ChevronRight, Loader2 } from 'lucide-react'
+import { Plus, Search, X, ChevronRight, Loader2, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 
@@ -92,7 +92,7 @@ function CuotasFechas({ cuotas, value, onChange }: {
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 type Cliente = { id: string; nombre: string; direccion: string }
-type Poliza  = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; moneda: string; cuotas: number; cuota_mes: string; cliente_id: string; clientes?: { nombre: string } }
+type Poliza  = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; moneda: string; cuotas: number; cuota_mes: string; cliente_id: string; clientes?: { nombre: string }; doc_count?: number }
 
 // Pasos del modal
 type Paso = 'cliente' | 'poliza'
@@ -130,7 +130,17 @@ export default function PolizasPage() {
       .from('polizas')
       .select('*, clientes(nombre)')
       .order('created_at', { ascending: false })
-    if (data) setPolizas(data)
+    if (data) {
+      // Count docs per poliza
+      const ids = data.map((p: any) => p.id)
+      const { data: docs } = await supabase
+        .from('documentos')
+        .select('poliza_id')
+        .in('poliza_id', ids)
+      const countMap: Record<string, number> = {}
+      ;(docs || []).forEach((d: any) => { countMap[d.poliza_id] = (countMap[d.poliza_id] || 0) + 1 })
+      setPolizas(data.map((p: any) => ({ ...p, doc_count: countMap[p.id] || 0 })))
+    }
     setLoading(false)
   }
 
@@ -271,6 +281,14 @@ export default function PolizasPage() {
                   <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatFecha(p.vencimiento)}</td>
                   <td style={{ fontSize: 12 }}>{p.moneda}</td>
                   <td><span className={`badge ${cls}`}>{label}</span></td>
+                  <td>
+                    {(p.doc_count ?? 0) > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--slate)', fontSize: 12 }}>
+                        <Paperclip size={12} />
+                        <span>{p.doc_count}</span>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               )
             })}
