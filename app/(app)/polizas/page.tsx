@@ -138,6 +138,8 @@ export default function PolizasPage() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null)
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
+  const [camposRamo, setCamposRamo]   = useState<{id:string;nombre:string;tipo:string;opciones:string|null}[]>([])
+  const [valoresCampos, setValoresCampos] = useState<Record<string,string>>({})
 
   useEffect(() => {
     fetchPolizas()
@@ -181,15 +183,19 @@ export default function PolizasPage() {
     })
   }
 
+  const [detalleExtras, setDetalleExtras] = useState<{nombre:string;valor:string}[]>([])
+
   async function abrirDetalle(p: Poliza) {
     setDetalle(p)
     setLoadingDetalle(true)
-    const [{ data: docs }, { data: pagos }] = await Promise.all([
+    const [{ data: docs }, { data: pagos }, { data: extras }] = await Promise.all([
       supabase.from('documentos').select('*').eq('poliza_id', p.id).order('created_at', { ascending: false }),
       supabase.from('pagos').select('*').eq('poliza_id', p.id).order('cuota_num'),
+      supabase.from('poliza_campos').select('valor, campos_ramo(nombre)').eq('poliza_id', p.id),
     ])
     setDetalleDocs(docs || [])
     setDetallePagos(pagos || [])
+    setDetalleExtras((extras || []).map((e: any) => ({ nombre: e.campos_ramo?.nombre || '', valor: e.valor })).filter(e => e.nombre && e.valor))
     setLoadingDetalle(false)
   }
 
@@ -236,13 +242,19 @@ export default function PolizasPage() {
     if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
     if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
     setSaving(true)
-    await supabase.from('polizas').insert([{
+    const { data: polData } = await supabase.from('polizas').insert([{
       cliente_id:  clienteSeleccionado.id,
       ramo: form.ramo, compania: form.compania, numero: form.numero,
       vencimiento: form.vencimiento || null, corredor: form.corredor,
       moneda: form.moneda, cuotas: nCuotas,
       cuota_mes: fechasACuotaMes(form.fechasCuotas), nota: form.nota || null,
-    }])
+    }]).select().single()
+    if (polData) {
+      const inserts = Object.entries(valoresCampos)
+        .filter(([_, v]) => v.trim())
+        .map(([campoId, valor]) => ({ poliza_id: (polData as any).id, campo_id: campoId, valor }))
+      if (inserts.length > 0) await supabase.from('poliza_campos').insert(inserts)
+    }
     cerrarModal()
     setSaving(false)
     await fetchPolizas()
@@ -251,6 +263,8 @@ export default function PolizasPage() {
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSeleccionado(null)
     setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
+    setCamposRamo([])
+    setValoresCampos({})
     setShowModal(true)
   }
   function cerrarModal() { setShowModal(false); setClienteSeleccionado(null); setPaso('cliente') }
@@ -536,7 +550,18 @@ export default function PolizasPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                   <div className="fgroup">
                     <label>Ramo *</label>
-                    <select value={form.ramo} onChange={e => setForm({ ...form, ramo: e.target.value })} style={{ color: form.ramo ? 'var(--navy)' : 'var(--slate)' }}>
+                    <select value={form.ramo} onChange={async e => {
+                      const nuevoRamo = e.target.value
+                      setForm({ ...form, ramo: nuevoRamo })
+                      setValoresCampos({})
+                      if (nuevoRamo) {
+                        const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()
+                        if (ramoData) {
+                          const { data } = await supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden')
+                          setCamposRamo(data || [])
+                        } else setCamposRamo([])
+                      } else setCamposRamo([])
+                    }} style={{ color: form.ramo ? 'var(--navy)' : 'var(--slate)' }}>
                       <option value="">— Seleccionar —</option>
                       {catalogos.ramos.map((r:string) => <option key={r}>{r}</option>)}
                     </select>
@@ -578,6 +603,42 @@ export default function PolizasPage() {
                     <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--slate)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
                     <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
                   </div>
+                  {camposRamo.length > 0 && (
+                    <div style={{ gridColumn: 'span 2', background: '#F4F7FB', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>
+                        Datos específicos de {form.ramo}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                        {camposRamo.map(campo => (
+                          <div key={campo.id} className="fgroup">
+                            <label>{campo.nombre}</label>
+                            {campo.tipo === 'select' && campo.opciones ? (
+                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
+                                <option value="">— Seleccionar —</option>
+                                {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
+                              </select>
+                            ) : campo.tipo === 'boolean' ? (
+                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
+                                <option value="">— Seleccionar —</option>
+                                <option value="Sí">Sí</option>
+                                <option value="No">No</option>
+                              </select>
+                            ) : campo.tipo === 'fecha' ? (
+                              <DatePicker value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} />
+                            ) : (
+                              <input type={campo.tipo === 'numero' ? 'number' : 'text'}
+                                value={valoresCampos[campo.id] || ''}
+                                onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                placeholder={campo.nombre} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="fgroup" style={{ gridColumn: 'span 2' }}>
                     <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional)</span></label>
                     <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
