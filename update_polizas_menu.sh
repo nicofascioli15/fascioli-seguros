@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/polizas'
+cat > 'app/(app)/polizas/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -823,3 +827,7 @@ export default function PolizasPage() {
   )
 }
 
+FILEEOF
+git add .
+git commit -m 'feat: menu tres puntos con editar y eliminar en polizas'
+git push
