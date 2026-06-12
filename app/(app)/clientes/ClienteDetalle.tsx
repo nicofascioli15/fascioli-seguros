@@ -31,6 +31,17 @@ function addMonthsAndDays(dateStr: string, months: number): string {
   return siguienteDiaHabil(raw)
 }
 
+function parseFechasCuotaMes(cuotaMes: string): string[] {
+  if (!cuotaMes) return []
+  const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
+  return cuotaMes.split(' - ').map(item => {
+    const parts = item.split('/')
+    if (parts.length < 4) return ''
+    const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
+    return `${y}-${m}-${d}`
+  })
+}
+
 function formatValor(valor: string): string {
   if (!valor) return '—'
   if (valor.includes('|')) {
@@ -185,6 +196,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [editCamposRamo, setEditCamposRamo]     = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
   const [editValoresCampos, setEditValoresCampos] = useState<Record<string, string>>({})
   const [savingEditPoliza, setSavingEditPoliza] = useState(false)
+  const [editPagosCount, setEditPagosCount]     = useState(0)
+  const [editFechasCuotas, setEditFechasCuotas] = useState<string[]>([])
 
   // Pago
   const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
@@ -269,7 +282,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function abrirEditar(pol: Poliza) {
     setEditandoPoliza(pol)
-    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '' })
+    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas })
+    setEditFechasCuotas(parseFechasCuotaMes(pol.cuota_mes || ''))
+    // Load pagos count
+    const { count } = await supabase.from('pagos').select('id', { count: 'exact', head: true }).eq('poliza_id', pol.id)
+    setEditPagosCount(count || 0)
     const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', pol.ramo).single()
     if (!ramoData) { setEditCamposRamo([]); setEditValoresCampos({}); return }
     const [{ data: campos }, { data: vals }] = await Promise.all([
@@ -285,11 +302,19 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   async function guardarEditPoliza() {
     if (!editandoPoliza) return
     setSavingEditPoliza(true)
+    const nCuotas = Number(editPolizaForm.cuotas) || editandoPoliza.cuotas || 0
+    const nuevasCuotaMes = editFechasCuotas.slice(0, nCuotas).map((f, i) => {
+      if (!f) return `${i+1}/?`
+      const [y,m,d] = f.split('-')
+      const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+      return `${i+1}/${d}/${meses[parseInt(m)-1]}/${y.slice(2)}`
+    }).join(' - ')
     await supabase.from('polizas').update({
       numero: editPolizaForm.numero, ramo: editPolizaForm.ramo,
       compania: editPolizaForm.compania, corredor: editPolizaForm.corredor,
       moneda: editPolizaForm.moneda, vencimiento: editPolizaForm.vencimiento || null,
       nota: editPolizaForm.nota || null,
+      cuotas: nCuotas, cuota_mes: nuevasCuotaMes,
     }).eq('id', editandoPoliza.id)
     if (editCamposRamo.length > 0) {
       const upserts = Object.entries(editValoresCampos).filter(([_, v]) => v.trim())
@@ -705,10 +730,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       {/* Modal editar póliza */}
       {editandoPoliza && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditandoPoliza(null) }}>
-          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar póliza</h3>
-              <button onClick={() => setEditandoPoliza(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Editar póliza</h3>
+              <button onClick={() => setEditandoPoliza(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', display: 'flex' }}><X size={18} /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="fgroup"><label>N° Póliza</label><input value={editPolizaForm.numero || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, numero: e.target.value}))} /></div>
@@ -741,6 +766,26 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 <select value={editPolizaForm.moneda || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, moneda: e.target.value}))}>
                   {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
                 </select></div>
+              <div className="fgroup">
+                <label>Cantidad de cuotas</label>
+                <input type="number" value={editPolizaForm.cuotas || ''} min={editPagosCount} max={36}
+                  onChange={e => {
+                    const n = parseInt(e.target.value) || 0
+                    if (n < editPagosCount) return
+                    setEditPolizaForm((p: any) => ({...p, cuotas: n}))
+                    if (n > editFechasCuotas.length) {
+                      const base = editFechasCuotas[0] || ''
+                      setEditFechasCuotas(Array.from({ length: n }, (_, i) => editFechasCuotas[i] || (base ? addMonthsAndDays(base, i) : '')))
+                    } else {
+                      setEditFechasCuotas(prev => prev.slice(0, n))
+                    }
+                  }} />
+                {editPagosCount > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 3 }}>
+                    Mínimo {editPagosCount} ({editPagosCount} ya pagada{editPagosCount > 1 ? 's' : ''})
+                  </div>
+                )}
+              </div>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nota (opcional)</label>
                 <textarea value={editPolizaForm.nota || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, nota: e.target.value}))} rows={2}
                   style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)' }} /></div>
@@ -756,6 +801,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {editFechasCuotas.length > 0 && (
+              <div className="fgroup" style={{ marginTop: 8 }}>
+                <label>Fechas de vencimiento por cuota</label>
+                <CuotasFechas cuotas={Number(editPolizaForm.cuotas) || editFechasCuotas.length} value={editFechasCuotas} onChange={setEditFechasCuotas} />
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
