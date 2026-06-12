@@ -13,7 +13,7 @@ function diasHasta(iso: string | null) {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const [stats, setStats] = useState({ polizas: 0, venc30: 0, siniestros: 0, clientes: 0 })
+  const [stats, setStats] = useState({ polizas: 0, venc30: 0, venc7: 0, siniestros: 0, clientes: 0 })
   const [loading, setLoading] = useState(true)
   const [vencProximas, setVencProximas] = useState<any[]>([])
 
@@ -31,7 +31,8 @@ export default function DashboardPage() {
       .filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 90 })
       .sort((a, b) => (diasHasta(a.vencimiento) || 0) - (diasHasta(b.vencimiento) || 0))
       .slice(0, 6)
-    setStats({ polizas: polizas || 0, venc30, siniestros: siniestros || 0, clientes: clientes || 0 })
+    const venc7 = (polizasData || []).filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 7 }).length
+    setStats({ polizas: polizas || 0, venc30, venc7, siniestros: siniestros || 0, clientes: clientes || 0 })
     setVencProximas(proximas)
     setLoading(false)
   }
@@ -42,15 +43,34 @@ export default function DashboardPage() {
     return `${d}/${m}/${y}`
   }
 
-  const statCards = [
-    { label: 'Pólizas activas',     value: loading ? '—' : stats.polizas,    sub: 'En cartera',         icon: FileText,      bg: '#EEF2F8', iconColor: '#2456B0' },
-    { label: 'Vencen en 30 días',   value: loading ? '—' : stats.venc30,     sub: 'Requieren atención', icon: Bell,          bg: '#FEF3C7', iconColor: '#D97706' },
-    { label: 'Siniestros abiertos', value: loading ? '—' : stats.siniestros, sub: 'En gestión',         icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F' },
-    { label: 'Clientes',            value: loading ? '—' : stats.clientes,   sub: 'Registrados',        icon: Users,         bg: '#E6F5EF', iconColor: '#2A7A56' },
+  const statCards: { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string; href?: string }[] = [
+    { label: 'Pólizas activas',     value: loading ? '—' : stats.polizas,    sub: 'En cartera',         icon: FileText,      bg: '#EEF2F8', iconColor: '#2456B0', href: '/polizas' },
+    { label: 'Vencen en 30 días',   value: loading ? '—' : stats.venc30,     sub: 'Ver vencimientos →', icon: Bell,          bg: '#FEF3C7', iconColor: '#D97706', href: '/vencimientos' },
+    { label: 'Siniestros abiertos', value: loading ? '—' : stats.siniestros, sub: 'En gestión',         icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/siniestros' },
+    { label: 'Clientes',            value: loading ? '—' : stats.clientes,   sub: 'Registrados',        icon: Users,         bg: '#E6F5EF', iconColor: '#2A7A56', href: '/clientes' },
   ]
 
   return (
     <div>
+      {/* Banner urgente */}
+      {!loading && stats.venc7 > 0 && (
+        <a href="/vencimientos" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, background: '#FEF2F2', border: '1.5px solid #FCA5A5', borderRadius: 12, padding: '13px 18px', marginBottom: 16, cursor: 'pointer', transition: 'background .15s' }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#FEE2E2')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#FEF2F2')}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bell size={18} color="#D94F4F" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#991B1B' }}>
+              {stats.venc7 === 1 ? '1 póliza vence' : `${stats.venc7} pólizas vencen`} en los próximos 7 días
+            </div>
+            <div style={{ fontSize: 12, color: '#B91C1C', marginTop: 2 }}>
+              Tocá para ver los vencimientos urgentes →
+            </div>
+          </div>
+        </a>
+      )}
+
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Dashboard</h1>
         <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>
@@ -61,18 +81,33 @@ export default function DashboardPage() {
       {/* Stats — CSS class handles responsive */}
       <div className="dashboard-stats">
         {statCards.map(s => (
-          <div key={s.label} className="stat-card">
-            <div className="stat-card-inner">
-              <div className="stat-card-text">
-                <div className="label">{s.label}</div>
-                <div className="value">{s.value}</div>
-                <div className="sub">{s.sub}</div>
+          s.href ? (
+            <a key={s.label} href={s.href} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+              <div className="stat-card-inner">
+                <div className="stat-card-text">
+                  <div className="label">{s.label}</div>
+                  <div className="value">{s.value}</div>
+                  <div className="sub">{s.sub}</div>
+                </div>
+                <div className="stat-card-icon" style={{ background: s.bg }}>
+                  <s.icon size={20} color={s.iconColor} />
+                </div>
               </div>
-              <div className="stat-card-icon" style={{ background: s.bg }}>
-                <s.icon size={20} color={s.iconColor} />
+            </a>
+          ) : (
+            <div key={s.label} className="stat-card">
+              <div className="stat-card-inner">
+                <div className="stat-card-text">
+                  <div className="label">{s.label}</div>
+                  <div className="value">{s.value}</div>
+                  <div className="sub">{s.sub}</div>
+                </div>
+                <div className="stat-card-icon" style={{ background: s.bg }}>
+                  <s.icon size={20} color={s.iconColor} />
+                </div>
               </div>
             </div>
-          </div>
+          )
         ))}
       </div>
 
