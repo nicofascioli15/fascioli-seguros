@@ -247,24 +247,27 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   async function fetchCatalogos() {
-    const [r, c, co, m, mp, td] = await Promise.all([
+    const [r, c, co, m, mp, td, cfg] = await Promise.all([
       supabase.from('ramos').select('nombre').order('nombre'),
       supabase.from('companias').select('nombre').order('nombre'),
       supabase.from('corredores').select('nombre').order('nombre'),
       supabase.from('monedas').select('nombre').order('nombre'),
       supabase.from('metodos_pago').select('nombre').order('nombre'),
       supabase.from('tipos_documento').select('nombre').order('nombre'),
+      supabase.from('configuracion_sistema').select('valor').eq('clave', 'metodo_pago_default').single(),
     ])
+    const nombresMetodos = (mp.data || []).map((x: any) => x.nombre)
     setCatalogos({
       ramos:     (r.data || []).map((x: any) => x.nombre),
       companias: (c.data || []).map((x: any) => x.nombre),
       corredores:(co.data || []).map((x: any) => x.nombre),
       monedas:   (m.data || []).map((x: any) => x.nombre),
-      metodos:   (mp.data || []).map((x: any) => x.nombre),
+      metodos:   nombresMetodos,
     })
     setTiposDoc((td.data || []).map((x: any) => x.nombre))
     setUploadTipoDoc((td.data || [])[0]?.nombre || '')
-    setPagoForm(p => ({ ...p, metodo: (mp.data || [])[0]?.nombre || 'Transferencia' }))
+    const metodoDef = cfg?.data?.valor && nombresMetodos.includes(cfg.data.valor) ? cfg.data.valor : (nombresMetodos[0] || 'Transferencia')
+    setPagoForm(p => ({ ...p, metodo: metodoDef }))
   }
 
   async function loadCamposRamo(ramo: string, polizaId?: string) {
@@ -589,7 +592,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                               <><span className="cuota-paid-tag">Pagada</span>
                               <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => deshacerPago(pol.id, n)}>Deshacer</button></>
                             ) : (
-                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: catalogos.metodos[0] || 'Transferencia', referencia: '' }); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
+                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: new Date().toISOString().slice(0,10), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
                                 + Registrar pago
                               </button>
                             )}

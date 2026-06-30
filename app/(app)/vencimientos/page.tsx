@@ -120,7 +120,7 @@ export default function VencimientosPage() {
               <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
                 {v.cliente_tel && <a href={`tel:${v.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>}
                 {v.cliente_email && <a href={`mailto:${v.cliente_email}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Mail size={12} /></a>}
-                {v.cliente_tel && <a href={`https://wa.me/${v.cliente_tel.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
+                {v.cliente_tel && <a href={`https://wa.me/${(() => { const n = v.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
               </div>
             </div>
           </div>
@@ -133,7 +133,7 @@ export default function VencimientosPage() {
     <div>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Vencimientos</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Vencimiento de pólizas</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Pólizas ordenadas por proximidad de vencimiento</p>
         </div>
         <ExportButton

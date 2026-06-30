@@ -14,8 +14,8 @@ const navItems = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/clientes',     icon: Users,           label: 'Clientes' },
   { href: '/polizas',      icon: FileText,        label: 'Pólizas' },
-  { href: '/pagos',        icon: CreditCard,      label: 'Pagos' },
-  { href: '/vencimientos', icon: Bell,            label: 'Vencimientos' },
+  { href: '/pagos',        icon: CreditCard,      label: 'Pagos y cuotas' },
+  { href: '/vencimientos', icon: Bell,            label: 'Vencim. pólizas' },
   { href: '/siniestros',   icon: AlertTriangle,   label: 'Siniestros' },
   { href: '/documentos',   icon: FolderOpen,      label: 'Documentos' },
 ]

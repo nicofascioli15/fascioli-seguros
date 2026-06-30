@@ -283,12 +283,78 @@ function CamposRamo() {
   )
 }
 
+function PreferenciasSistema() {
+  const supabase = createClient()
+  const [metodos, setMetodos]           = useState<string[]>([])
+  const [metodoDefault, setMetodoDefault] = useState('')
+  const [loading, setLoading]           = useState(true)
+  const [saving, setSaving]             = useState(false)
+  const [toast, setToast]               = useState<string | null>(null)
+
+  useEffect(() => { fetchAll() }, [])
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  async function fetchAll() {
+    setLoading(true)
+    const [{ data: metodosData }, { data: configData }] = await Promise.all([
+      supabase.from('metodos_pago').select('nombre').order('nombre'),
+      supabase.from('configuracion_sistema').select('valor').eq('clave', 'metodo_pago_default').single(),
+    ])
+    if (metodosData) setMetodos(metodosData.map((m: any) => m.nombre))
+    if (configData?.valor) setMetodoDefault(configData.valor)
+    setLoading(false)
+  }
+
+  async function guardar(valor: string) {
+    setMetodoDefault(valor)
+    setSaving(true)
+    await supabase.from('configuracion_sistema').upsert(
+      { clave: 'metodo_pago_default', valor, updated_at: new Date().toISOString() },
+      { onConflict: 'clave' }
+    )
+    setSaving(false)
+    showToast('✓ Preferencia guardada')
+  }
+
+  return (
+    <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', position: 'relative' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>
+        Preferencias
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-main)', marginBottom: 14 }}>
+        Valores por defecto
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cargando...</div>
+      ) : (
+        <div className="fgroup" style={{ marginBottom: 0 }}>
+          <label>Método de pago por defecto al registrar un cobro</label>
+          <select value={metodoDefault} onChange={e => guardar(e.target.value)} disabled={saving}>
+            <option value="">— Sin preferencia (usa el primero de la lista) —</option>
+            {metodos.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'absolute', top: 16, right: 20, fontSize: 12, fontWeight: 600, color: 'var(--success)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ConfiguracionPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Configuración</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Administrá todos los catálogos del sistema</p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, marginBottom: 16 }}>
+        <PreferenciasSistema />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginBottom: 16 }}>
         {SECCIONES.map(s => <Seccion key={s.tabla} {...s} />)}

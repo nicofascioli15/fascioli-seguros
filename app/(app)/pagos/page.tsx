@@ -53,10 +53,22 @@ export default function PagosPage() {
   const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
   const [saving, setSaving]     = useState(false)
 
+  const [metodoDefault, setMetodoDefault] = useState('Transferencia')
+
   useEffect(() => {
     fetchCuotas()
     supabase.from('metodos_pago').select('nombre').order('nombre')
-      .then(({ data }) => { if (data) setMetodos(data.map((x:any) => x.nombre)) })
+      .then(({ data }) => {
+        if (data) {
+          const nombres = data.map((x:any) => x.nombre)
+          setMetodos(nombres)
+          supabase.from('configuracion_sistema').select('valor').eq('clave', 'metodo_pago_default').single()
+            .then(({ data: cfg }) => {
+              const def = cfg?.valor && nombres.includes(cfg.valor) ? cfg.valor : (nombres[0] || 'Transferencia')
+              setMetodoDefault(def)
+            })
+        }
+      })
   }, [])
 
   async function fetchCuotas() {
@@ -146,7 +158,7 @@ export default function PagosPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pagos</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pagos y vencimiento de cuotas</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
         </div>
         <ExportButton
@@ -244,7 +256,7 @@ export default function PagosPage() {
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
                   <td>
                     {estado !== 'Cobrado'
-                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
+                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
                         </button>
                       : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={() => deshacer(c)}>Deshacer</button>
@@ -275,7 +287,7 @@ export default function PagosPage() {
                     {c.pago_fecha ? `Cobrado ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
                   {estado !== 'Cobrado' && (
-                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
+                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                       Cobrar
                     </button>
                   )}

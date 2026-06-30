@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
 
@@ -293,6 +294,11 @@ export default function PolizasPage() {
     }
     setConfirmEliminar(null)
     if (detalle?.id === p.id) setDetalle(null)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'polizas', registroId: p.id,
+      descripcion: `Póliza eliminada: ${p.ramo} ${p.numero} — ${p.clientes?.nombre || ''}`,
+      datosAntes: p,
+    })
     await fetchPolizas()
   }
 
@@ -333,6 +339,11 @@ export default function PolizasPage() {
     }
     setEditando(null)
     setSavingEdit(false)
+    await registrarAudit({
+      accion: 'editar', tabla: 'polizas', registroId: editando.id,
+      descripcion: `Póliza editada: ${editForm.ramo} ${editForm.numero}`,
+      datosDespues: editForm,
+    })
     await fetchPolizas()
   }
 
@@ -354,6 +365,11 @@ export default function PolizasPage() {
         .filter(([_, v]) => v.trim())
         .map(([campoId, valor]) => ({ poliza_id: (polData as any).id, campo_id: campoId, valor }))
       if (inserts.length > 0) await supabase.from('poliza_campos').insert(inserts)
+      await registrarAudit({
+        accion: 'crear', tabla: 'polizas', registroId: (polData as any).id,
+        descripcion: `Póliza creada: ${form.ramo} ${form.numero} — ${clienteSeleccionado.nombre}`,
+        datosDespues: polData,
+      })
     }
     cerrarModal()
     setSaving(false)
@@ -804,8 +820,13 @@ export default function PolizasPage() {
                   {paso === 'cliente' ? 'Seleccionar cliente' : 'Nueva póliza'}
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-                  Paso {paso === 'cliente' ? '1' : '2'} de 2{paso === 'poliza' && clienteSeleccionado ? ` — ${clienteSeleccionado.nombre}` : ''}
+                  Paso {paso === 'cliente' ? '1' : '2'} de 2
                 </div>
+                {paso === 'poliza' && clienteSeleccionado && (
+                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--gold)', marginTop: 6 }}>
+                    {clienteSeleccionado.nombre}
+                  </div>
+                )}
               </div>
               <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
