@@ -377,7 +377,13 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await supabase.from('pagos').delete().eq('poliza_id', polizaId)
     await supabase.from('documentos').delete().eq('poliza_id', polizaId)
     await supabase.from('poliza_campos').delete().eq('poliza_id', polizaId)
-    await supabase.from('polizas').delete().eq('id', polizaId)
+    await supabase.from('siniestros').delete().eq('poliza_id', polizaId)
+    const { error } = await supabase.from('polizas').delete().eq('id', polizaId)
+    if (error) {
+      console.error('Error eliminando póliza:', error)
+      showToast(`Error: ${error.message}`)
+      return
+    }
     await registrarAudit({ accion: 'eliminar', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza eliminada: ${polAntes?.ramo} ${polAntes?.numero} — ${nombre}`, datosAntes: polAntes })
     await fetchPolizas()
   }
