@@ -20,6 +20,14 @@ const navItems = [
   { href: '/documentos',   icon: FolderOpen,      label: 'Documentos' },
 ]
 
+const bottomNavItems = [
+  { href: '/dashboard',    icon: LayoutDashboard, label: 'Inicio' },
+  { href: '/clientes',     icon: Users,           label: 'Clientes' },
+  { href: '/polizas',      icon: FileText,        label: 'Pólizas' },
+  { href: '/vencimientos', icon: Bell,            label: 'Vencim.' },
+  { href: '/pagos',        icon: CreditCard,      label: 'Pagos' },
+]
+
 const LIMIT_BYTES = 1 * 1024 * 1024 * 1024
 
 function formatBytes(b: number) {
@@ -76,6 +84,17 @@ export default function Sidebar() {
       </div>
 
       <div className={`sidebar-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
+
+      {/* Bottom nav fija - solo mobile */}
+      <nav className="bottom-nav">
+        {bottomNavItems.map(item => (
+          <Link key={item.href} href={item.href}
+            className={`bottom-nav-item ${pathname.startsWith(item.href) ? 'active' : ''}`}>
+            <item.icon size={19} />
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
 
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="sidebar-logo" style={{ justifyContent: 'space-between', padding: '20px 16px' }}>
