@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil } from 'lucide-react'
+import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 
@@ -148,6 +148,8 @@ export default function PolizasPage() {
   const [editCamposRamo, setEditCamposRamo]     = useState<{id:string;nombre:string;tipo:string;opciones:string|null}[]>([])
   const [editValores, setEditValores]           = useState<Record<string,string>>({})
   const [editPagosCount, setEditPagosCount]     = useState(0)
+  const [confirmEliminar, setConfirmEliminar]   = useState<Poliza | null>(null)
+  const [eliminando, setEliminando]              = useState(false)
   const [editFechasCuotas, setEditFechasCuotas] = useState<string[]>([])
 
   // Detail view
@@ -267,8 +269,10 @@ export default function PolizasPage() {
     fetchPolizas()
   }
 
-  async function eliminarPoliza(p: Poliza) {
-    if (!confirm(`¿Eliminar la póliza ${p.numero}? Se eliminarán también sus cuotas y documentos.`)) return
+  async function confirmarEliminarPoliza() {
+    if (!confirmEliminar) return
+    const p = confirmEliminar
+    setEliminando(true)
     // Borrar documentos del storage primero
     const { data: docs } = await supabase.from('documentos').select('storage_path').eq('poliza_id', p.id)
     if (docs && docs.length > 0) {
@@ -280,11 +284,14 @@ export default function PolizasPage() {
     await supabase.from('poliza_campos').delete().eq('poliza_id', p.id)
     await supabase.from('siniestros').delete().eq('poliza_id', p.id)
     const { error } = await supabase.from('polizas').delete().eq('id', p.id)
+    setEliminando(false)
     if (error) {
       console.error('Error eliminando póliza:', error)
       alert(`No se pudo eliminar: ${error.message}`)
       return
     }
+    setConfirmEliminar(null)
+    if (detalle?.id === p.id) setDetalle(null)
     await fetchPolizas()
   }
 
@@ -729,7 +736,7 @@ export default function PolizasPage() {
                   <td onClick={e => e.stopPropagation()}>
                     <button className="btn-outline btn-sm"
                       style={{ color: 'var(--danger)', borderColor: '#FEE2E2', fontSize: 12 }}
-                      onClick={() => eliminarPoliza(p)}>
+                      onClick={() => setConfirmEliminar(p)}>
                       <Trash2 size={12} /> Eliminar
                     </button>
                   </td>
@@ -973,6 +980,38 @@ export default function PolizasPage() {
               <button className="btn-outline" onClick={() => setShowPagoModal(null)}>Cancelar</button>
               <button className="btn-primary" onClick={() => registrarPago(showPagoModal!)} disabled={savingPago}>
                 {savingPago ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Confirmar pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar póliza */}
+      {confirmEliminar && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminando) setConfirmEliminar(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar la póliza <strong style={{ color: 'var(--navy)' }}>{confirmEliminar.numero}</strong> ({confirmEliminar.ramo}).
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
+                Esta acción no se puede deshacer. Se eliminarán también sus cuotas, pagos y documentos adjuntos.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminar(null)} disabled={eliminando}>
+                Cancelar
+              </button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarPoliza}
+                disabled={eliminando}
+              >
+                {eliminando ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...</> : <><Trash2 size={14} /> Eliminar definitivamente</>}
               </button>
             </div>
           </div>

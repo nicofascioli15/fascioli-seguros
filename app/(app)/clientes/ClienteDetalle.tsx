@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
-import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil } from 'lucide-react'
+import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
 
 const FERIADOS_UY = ['01-01', '05-01', '07-18', '08-25', '12-25']
 function esFeriado(date: Date): boolean {
@@ -196,6 +196,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [editCamposRamo, setEditCamposRamo]     = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
   const [editValoresCampos, setEditValoresCampos] = useState<Record<string, string>>({})
   const [savingEditPoliza, setSavingEditPoliza] = useState(false)
+  const [confirmEliminarPoliza, setConfirmEliminarPoliza] = useState<Poliza | null>(null)
+  const [eliminandoPoliza, setEliminandoPoliza] = useState(false)
   const [editPagosCount, setEditPagosCount]     = useState(0)
   const [editFechasCuotas, setEditFechasCuotas] = useState<string[]>([])
 
@@ -365,8 +367,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setSavingPoliza(false)
   }
 
-  async function eliminarPoliza(polizaId: string) {
-    if (!confirm('¿Eliminar esta póliza?')) return
+  async function confirmarEliminarPoliza() {
+    if (!confirmEliminarPoliza) return
+    const polizaId = confirmEliminarPoliza.id
+    setEliminandoPoliza(true)
     const { data: polAntes } = await supabase.from('polizas').select('*').eq('id', polizaId).single()
     // Borrar documentos del storage primero
     const { data: docs } = await supabase.from('documentos').select('storage_path').eq('poliza_id', polizaId)
@@ -379,11 +383,13 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await supabase.from('poliza_campos').delete().eq('poliza_id', polizaId)
     await supabase.from('siniestros').delete().eq('poliza_id', polizaId)
     const { error } = await supabase.from('polizas').delete().eq('id', polizaId)
+    setEliminandoPoliza(false)
     if (error) {
       console.error('Error eliminando póliza:', error)
       showToast(`Error: ${error.message}`)
       return
     }
+    setConfirmEliminarPoliza(null)
     await registrarAudit({ accion: 'eliminar', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza eliminada: ${polAntes?.ramo} ${polAntes?.numero} — ${nombre}`, datosAntes: polAntes })
     await fetchPolizas()
   }
@@ -617,7 +623,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                       <button className="btn-outline btn-sm" onClick={() => { setUploadPolizaId(pol.id); fileRef.current?.click() }} disabled={uploadingDoc === pol.id}>
                         <Upload size={13} /> {uploadingDoc === pol.id ? 'Subiendo...' : 'Subir doc'}
                       </button>
-                      <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminarPoliza(pol.id)}>
+                      <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminarPoliza(pol)}>
                         <Trash2 size={13} /> Eliminar póliza
                       </button>
                     </div>
@@ -895,6 +901,38 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <button className="btn-outline" onClick={() => { setShowUploadModal(false); setUploadFile(null) }}>Cancelar</button>
               <button className="btn-primary" onClick={confirmarSubida}>
                 <Upload size={14} /> Subir archivo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar póliza */}
+      {confirmEliminarPoliza && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminandoPoliza) setConfirmEliminarPoliza(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar la póliza <strong style={{ color: 'var(--navy)' }}>{confirmEliminarPoliza.numero}</strong> ({confirmEliminarPoliza.ramo}).
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
+                Esta acción no se puede deshacer. Se eliminarán también sus cuotas, pagos y documentos adjuntos.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarPoliza(null)} disabled={eliminandoPoliza}>
+                Cancelar
+              </button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarPoliza}
+                disabled={eliminandoPoliza}
+              >
+                {eliminandoPoliza ? <>Eliminando...</> : <><Trash2 size={14} /> Eliminar definitivamente</>}
               </button>
             </div>
           </div>

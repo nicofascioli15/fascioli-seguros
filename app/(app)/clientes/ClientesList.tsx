@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download, Phone, Mail, MessageCircle, Pencil, Trash2 } from 'lucide-react'
+import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download, Phone, Mail, MessageCircle, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 
@@ -32,6 +32,8 @@ export default function ClientesList({ onSelect }: Props) {
   const [editForm, setEditForm]   = useState({ nombre: '', direccion: '', contacto: '', tel: '', email: '' })
   const [contactos, setContactos] = useState<Contacto[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
+  const [confirmEliminarCliente, setConfirmEliminarCliente] = useState<Cliente | null>(null)
+  const [eliminandoCliente, setEliminandoCliente] = useState(false)
 
   // CSV import
   const [showImport, setShowImport]   = useState(false)
@@ -61,10 +63,14 @@ export default function ClientesList({ onSelect }: Props) {
     setSaving(false)
   }
 
-  async function eliminar(id: string, nombre: string) {
-    if (!confirm(`¿Eliminar "${nombre}"? Se eliminarán también sus pólizas.`)) return
+  async function confirmarEliminarCliente() {
+    if (!confirmEliminarCliente) return
+    const { id, nombre } = confirmEliminarCliente
+    setEliminandoCliente(true)
     const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
     await supabase.from('clientes').delete().eq('id', id)
+    setEliminandoCliente(false)
+    setConfirmEliminarCliente(null)
     await registrarAudit({ accion: 'eliminar', tabla: 'clientes', registroId: id, descripcion: `Cliente eliminado: ${nombre}`, datosAntes: data })
     await fetchClientes()
   }
@@ -198,7 +204,7 @@ export default function ClientesList({ onSelect }: Props) {
                 onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
                 <Pencil size={14} />
               </button>
-              <button className="edif-del-btn" onClick={e => { e.stopPropagation(); eliminar(c.id, c.nombre) }} title="Eliminar">
+              <button className="edif-del-btn" onClick={e => { e.stopPropagation(); setConfirmEliminarCliente(c) }} title="Eliminar">
                 <X size={15} />
               </button>
             </div>
@@ -400,8 +406,41 @@ export default function ClientesList({ onSelect }: Props) {
         </div>
       )}
 
+      {/* Modal confirmar eliminar cliente */}
+      {confirmEliminarCliente && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminandoCliente) setConfirmEliminarCliente(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar este cliente?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar a <strong style={{ color: 'var(--navy)' }}>{confirmEliminarCliente.nombre}</strong>.
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
+                Esta acción no se puede deshacer. Se eliminarán también todas sus pólizas, pagos y documentos.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarCliente(null)} disabled={eliminandoCliente}>
+                Cancelar
+              </button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarCliente}
+                disabled={eliminandoCliente}
+              >
+                {eliminandoCliente ? 'Eliminando...' : <><Trash2 size={14} /> Eliminar definitivamente</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
+
 
