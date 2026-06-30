@@ -1,3 +1,94 @@
+#!/bin/bash
+set -e
+mkdir -p components 'app/(app)' app
+cat > 'components/ModalScrollLock.tsx' << 'FILEEOF'
+'use client'
+import { useEffect } from 'react'
+
+// Bloquea el scroll del body/main-content cuando cualquier modal (.pago-overlay.open)
+// está presente en el DOM. Funciona automáticamente para todos los modales de la app
+// sin necesidad de tocarlos uno por uno.
+export default function ModalScrollLock() {
+  useEffect(() => {
+    function checkModals() {
+      const hasOpenModal = document.querySelector('.pago-overlay.open') !== null
+      const mainContent = document.querySelector('.main-content') as HTMLElement | null
+
+      if (hasOpenModal) {
+        document.body.style.overflow = 'hidden'
+        document.body.style.touchAction = 'none'
+        if (mainContent) {
+          mainContent.style.overflow = 'hidden'
+        }
+      } else {
+        document.body.style.overflow = ''
+        document.body.style.touchAction = ''
+        if (mainContent) {
+          mainContent.style.overflow = ''
+        }
+      }
+    }
+
+    // Chequeo inicial
+    checkModals()
+
+    // Observa cambios en el DOM (apertura/cierre de modales, cambio de clase "open")
+    const observer = new MutationObserver(checkModals)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+
+    return () => {
+      observer.disconnect()
+      document.body.style.overflow = ''
+      document.body.style.touchAction = ''
+      const mainContent = document.querySelector('.main-content') as HTMLElement | null
+      if (mainContent) mainContent.style.overflow = ''
+    }
+  }, [])
+
+  return null
+}
+
+FILEEOF
+echo '+ components/ModalScrollLock.tsx'
+
+cat > 'app/(app)/layout.tsx' << 'FILEEOF'
+import Sidebar from '@/components/Sidebar'
+import GlobalSearch from '@/components/GlobalSearch'
+import ModalScrollLock from '@/components/ModalScrollLock'
+import { AuthProvider } from '@/lib/AuthProvider'
+import { ThemeProvider } from '@/lib/ThemeProvider'
+
+export const dynamic = 'force-dynamic'
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <ModalScrollLock />
+        <div className="app-shell">
+          <Sidebar />
+          <main className="main-content">
+            <div className="topbar-search">
+              <GlobalSearch />
+            </div>
+            {children}
+          </main>
+        </div>
+      </AuthProvider>
+    </ThemeProvider>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/layout.tsx'
+
+cat > 'app/globals.css' << 'FILEEOF'
 @import "tailwindcss";
 
 :root {
@@ -484,3 +575,9 @@ a.stat-card:hover {
 }
 
 
+FILEEOF
+echo '+ app/globals.css'
+
+git add .
+git commit -m 'fix critico bloquear scroll de fondo cuando hay modal abierto en mobile'
+git push
