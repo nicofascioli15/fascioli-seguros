@@ -115,9 +115,9 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         left: pos.left,
         width: Math.max(pos.width, 280),
         zIndex: 9999,
-        background: 'white',
+        background: 'var(--bg-card)',
         borderRadius: 14,
-        border: '1.5px solid var(--border)',
+        border: '1.5px solid var(--border-soft)',
         boxShadow: '0 16px 48px rgba(15,30,53,.18)',
         padding: '16px',
         animation: 'dpFadeIn .15s ease',
@@ -127,15 +127,15 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
       {/* Month/Year nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button onClick={prevMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, color: 'var(--slate)', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#F4F7FB')}
           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
         ><ChevronLeft size={16} /></button>
 
-        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--navy)', display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-main)', display: 'flex', gap: 6, alignItems: 'center' }}>
           <span>{MESES[viewMonth]}</span>
           <select value={viewYear} onChange={e => setViewYear(+e.target.value)}
-            style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--navy)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+            style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--text-main)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
             {Array.from({ length: 15 }, (_, i) => today.getFullYear() - 2 + i).map(y =>
               <option key={y} value={y}>{y}</option>
             )}
@@ -143,7 +143,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         </div>
 
         <button onClick={nextMonth}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, color: 'var(--slate)', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#F4F7FB')}
           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
         ><ChevronRight size={16} /></button>
@@ -152,7 +152,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
       {/* Day headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 6 }}>
         {DIAS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--slate)', padding: '4px 0', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+          <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', padding: '4px 0', textTransform: 'uppercase', letterSpacing: '.04em' }}>
             {d}
           </div>
         ))}
@@ -195,7 +195,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         >Hoy</button>
         {value && (
           <button onClick={() => { onChange(''); setOpen(false) }}
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
             onMouseEnter={e => (e.currentTarget.style.background = '#F4F7FB')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
           >Limpiar</button>
@@ -223,7 +223,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         </span>
         {value && !disabled && (
           <span onClick={e => { e.stopPropagation(); onChange('') }}
-            style={{ color: 'var(--slate)', fontSize: 16, lineHeight: 1, padding: '0 2px', cursor: 'pointer' }}>×</span>
+            style={{ color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px', cursor: 'pointer' }}>×</span>
         )}
       </div>
 
@@ -239,4 +239,5 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
     </>
   )
 }
+
 

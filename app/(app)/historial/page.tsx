@@ -113,19 +113,19 @@ export default function HistorialPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Historial de cambios</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Solo visible para Super Admin</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Historial de cambios</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Solo visible para Super Admin</p>
         </div>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Total acciones',     value: stats.total,    bg: '#EEF2F8', color: 'var(--navy)' },
+          { label: 'Total acciones',     value: stats.total,    bg: '#EEF2F8', color: 'var(--text-main)' },
           { label: 'Acciones hoy',       value: stats.hoy,      bg: '#DBEAFE', color: '#1E40AF' },
           { label: 'Eliminaciones activas', value: stats.eliminar, bg: '#FEE2E2', color: '#991B1B' },
         ].map(s => (
-          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '16px 20px', border: '1px solid var(--border)' }}>
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '16px 20px', border: '1px solid var(--border-soft)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: s.color, opacity: .7, marginBottom: 4 }}>{s.label}</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
           </div>
@@ -133,16 +133,16 @@ export default function HistorialPage() {
       </div>
 
       {/* Filtros */}
-      <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '14px 16px', marginBottom: 16 }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '14px 16px', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input placeholder="Buscar acción o usuario..." value={search} onChange={e => setSearch(e.target.value)}
-              style={{ padding: '8px 14px 8px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', width: 240, background: 'white', color: 'var(--navy)' }} />
+              style={{ padding: '8px 14px 8px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', width: 240, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
           </div>
           <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Módulo:</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Módulo:</span>
             {['Todos','clientes','polizas','pagos','siniestros','documentos'].map(t =>
               <button key={t} onClick={() => setFiltroTabla(t)} className={`filter-btn ${filtroTabla === t ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
                 {t === 'Todos' ? 'Todos' : tablaLabel[t]}
@@ -151,7 +151,7 @@ export default function HistorialPage() {
           </div>
           <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Acción:</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Acción:</span>
             {['Todos','crear','editar','eliminar'].map(a =>
               <button key={a} onClick={() => setFiltroAccion(a)} className={`filter-btn ${filtroAccion === a ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
                 {a === 'Todos' ? 'Todas' : a.charAt(0).toUpperCase() + a.slice(1)}
@@ -163,12 +163,12 @@ export default function HistorialPage() {
 
       {/* Lista */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 48, color: 'var(--slate)' }}>
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
           <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
           Cargando historial...
         </div>
       ) : filtrados.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 48, color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin registros aún</div>
           <div style={{ fontSize: 12 }}>Las acciones del sistema aparecerán aquí automáticamente</div>
         </div>
@@ -177,7 +177,7 @@ export default function HistorialPage() {
           {filtrados.map(log => (
             <div key={log.id} style={{
               background: log.revertido ? '#F8FAFC' : 'white',
-              borderRadius: 12, border: '1px solid var(--border)',
+              borderRadius: 12, border: '1px solid var(--border-soft)',
               overflow: 'hidden', opacity: log.revertido ? 0.55 : 1,
               transition: 'box-shadow .15s'
             }}>
@@ -196,18 +196,18 @@ export default function HistorialPage() {
                 </span>
 
                 {/* Descripción */}
-                <div style={{ flex: 1, fontSize: 13, color: 'var(--navy)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ flex: 1, fontSize: 13, color: 'var(--text-main)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {log.descripcion}
                 </div>
 
                 {log.revertido && (
-                  <span style={{ fontSize: 11, color: 'var(--slate)', fontStyle: 'italic', flexShrink: 0, background: '#EEF2F8', padding: '2px 8px', borderRadius: 6 }}>Revertido</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', flexShrink: 0, background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 6 }}>Revertido</span>
                 )}
 
                 {/* Usuario + fecha */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)' }}>{log.usuario_email?.split('@')[0]}</div>
-                  <div style={{ fontSize: 11, color: 'var(--slate)' }}>{formatFecha(log.created_at)}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>{log.usuario_email?.split('@')[0]}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatFecha(log.created_at)}</div>
                 </div>
 
                 {/* Revertir */}
@@ -233,7 +233,7 @@ export default function HistorialPage() {
                     {log.datos_antes && (
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#991B1B', marginBottom: 6 }}>Antes</div>
-                        <pre style={{ fontSize: 11, background: '#FEF2F2', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--navy)', margin: 0, lineHeight: 1.5 }}>
+                        <pre style={{ fontSize: 11, background: '#FEF2F2', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--text-main)', margin: 0, lineHeight: 1.5 }}>
                           {JSON.stringify(log.datos_antes, null, 2)}
                         </pre>
                       </div>
@@ -241,7 +241,7 @@ export default function HistorialPage() {
                     {log.datos_despues && (
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#1A7A4E', marginBottom: 6 }}>Después</div>
-                        <pre style={{ fontSize: 11, background: '#F0FDF4', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--navy)', margin: 0, lineHeight: 1.5 }}>
+                        <pre style={{ fontSize: 11, background: '#F0FDF4', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--text-main)', margin: 0, lineHeight: 1.5 }}>
                           {JSON.stringify(log.datos_despues, null, 2)}
                         </pre>
                       </div>
@@ -259,4 +259,5 @@ export default function HistorialPage() {
     </div>
   )
 }
+
 

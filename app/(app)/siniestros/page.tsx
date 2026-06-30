@@ -142,8 +142,8 @@ export default function SiniestrosPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Siniestros</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Siniestros</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
             {loading ? 'Cargando...' : `${siniestros.filter(s => s.estado !== 'Cerrado').length} abiertos · ${siniestros.filter(s => s.estado === 'Cerrado').length} cerrados`}
           </p>
         </div>
@@ -153,9 +153,9 @@ export default function SiniestrosPage() {
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar cliente, póliza o tipo..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['Todos', ...ESTADOS].map(t =>
@@ -166,18 +166,18 @@ export default function SiniestrosPage() {
 
       {/* Lista */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
           <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
           Cargando siniestros...
         </div>
       ) : filtrados.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}></div>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay siniestros registrados</div>
           <div style={{ fontSize: 12 }}>Usá el botón "Nuevo siniestro" para registrar uno</div>
         </div>
       ) : filtrados.map(s => (
-        <div key={s.id} style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+        <div key={s.id} style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 42, height: 42, background: '#FEE2E2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <AlertTriangle size={18} color="#D94F4F" />
@@ -187,24 +187,24 @@ export default function SiniestrosPage() {
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{s.clientes?.nombre || '—'}</span>
                 <span className={`badge ${estadoColor[s.estado] || 'badge-neutral'}`}>{s.estado}</span>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginBottom: 4 }}>{s.tipo}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)', marginBottom: 4 }}>{s.tipo}</div>
               {s.polizas && (
-                <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                   <span className="badge badge-neutral" style={{ marginRight: 6 }}>{s.polizas.ramo}</span>
                   <span style={{ fontFamily: 'monospace' }}>{s.polizas.numero}</span>
                   {' · '}{s.polizas.compania}
                 </div>
               )}
-              {s.descripcion && <div style={{ fontSize: 13, color: 'var(--navy)', marginTop: 4 }}>{s.descripcion}</div>}
+              {s.descripcion && <div style={{ fontSize: 13, color: 'var(--text-main)', marginTop: 4 }}>{s.descripcion}</div>}
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 700, textTransform: 'uppercase' }}>Fecha</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Fecha</div>
               <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{formatFecha(s.fecha_ocurrencia)}</div>
               {/* Cambiar estado */}
               <select
                 value={s.estado}
                 onChange={e => cambiarEstado(s.id, e.target.value)}
-                style={{ marginTop: 8, padding: '5px 10px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', outline: 'none', background: 'white', color: 'var(--navy)' }}
+                style={{ marginTop: 8, padding: '5px 10px', border: '1.5px solid var(--border-soft)', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }}
               >
                 {ESTADOS.map(e => <option key={e}>{e}</option>)}
               </select>
@@ -221,16 +221,16 @@ export default function SiniestrosPage() {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
                   {paso === 'cliente' ? 'Seleccionar cliente' : paso === 'poliza' ? 'Seleccionar póliza' : 'Datos del siniestro'}
                 </h3>
-                <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? '1' : paso === 'poliza' ? '2' : '3'} de 3
                   {clienteSel && paso !== 'cliente' && ` — ${clienteSel.nombre}`}
                   {polizaSel && paso === 'datos' && ` · ${polizaSel.ramo} ${polizaSel.numero}`}
                 </div>
               </div>
-              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
 
             {/* Barra de progreso */}
@@ -246,14 +246,14 @@ export default function SiniestrosPage() {
             {paso === 'cliente' && (
               <>
                 <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
-                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--navy)' }} />
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
                 </div>
                 <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {clientesFiltrados.map(c => (
                     <div key={c.id} onClick={() => { setClienteSel(c); fetchPolizasCliente(c.id); setPaso('poliza') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'white', transition: 'all .12s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
                     >
@@ -261,13 +261,13 @@ export default function SiniestrosPage() {
                         {c.nombre.trim()[0]?.toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)' }}>{c.nombre}</div>
-                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--slate)' }}>{c.direccion}</div>}
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
                       </div>
                       <ChevronRight size={16} color="var(--slate)" />
                     </div>
                   ))}
-                  {clientesFiltrados.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--slate)', fontSize: 13 }}>No se encontraron clientes</div>}
+                  {clientesFiltrados.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 13 }}>No se encontraron clientes</div>}
                 </div>
               </>
             )}
@@ -277,12 +277,12 @@ export default function SiniestrosPage() {
               <>
                 <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {polizasCliente.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--slate)', fontSize: 13 }}>
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 13 }}>
                       Este cliente no tiene pólizas cargadas
                     </div>
                   ) : polizasCliente.map(p => (
                     <div key={p.id} onClick={() => { setPolizaSel(p); setPaso('datos') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 9, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'white', transition: 'all .12s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
                     >
@@ -291,7 +291,7 @@ export default function SiniestrosPage() {
                           <span className="badge badge-neutral">{p.ramo}</span>
                           <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{p.numero}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                           {p.compania}{p.vencimiento ? ` · Vence ${formatFecha(p.vencimiento)}` : ''}
                         </div>
                       </div>
@@ -331,7 +331,7 @@ export default function SiniestrosPage() {
                     <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })}
                       placeholder="Describí brevemente el siniestro..."
                       rows={3}
-                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)' }}
+                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }}
                     />
                   </div>
                 </div>
@@ -354,4 +354,5 @@ export default function SiniestrosPage() {
     </div>
   )
 }
+
 

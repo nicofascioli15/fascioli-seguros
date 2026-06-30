@@ -146,8 +146,8 @@ export default function PagosPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pagos</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pagos</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
         </div>
         <ExportButton
           titulo="Reporte de cobros"
@@ -193,9 +193,9 @@ export default function PagosPage() {
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar cliente, póliza o ramo..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {['Todos','Cobrado','Pendiente','Vencido'].map(t =>
@@ -220,12 +220,12 @@ export default function PagosPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
                 Cargando pagos...
               </td></tr>
             ) : filtradas.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
                 <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
@@ -237,9 +237,9 @@ export default function PagosPage() {
                   <td style={{ fontWeight: 600 }}>{c.cliente_nombre}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
                   <td><span className="badge badge-neutral">{c.ramo}</span></td>
-                  <td style={{ color: 'var(--slate)', fontSize: 13 }}>{c.compania}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.compania}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.cuota_num}</td>
-                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatFecha(c.vencimiento)}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(c.vencimiento)}</td>
                   <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
                   <td>
@@ -247,7 +247,7 @@ export default function PagosPage() {
                       ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
                         </button>
-                      : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--slate)' }} onClick={() => deshacer(c)}>Deshacer</button>
+                      : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={() => deshacer(c)}>Deshacer</button>
                     }
                   </td>
                 </tr>
@@ -265,13 +265,13 @@ export default function PagosPage() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.cliente_nombre}</div>
                   <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
                   <span className="badge badge-neutral" style={{ marginRight: 6 }}>{c.ramo}</span>
                   <span style={{ fontFamily: 'monospace' }}>{c.numero_poliza}</span>
                   {' · '}Cuota {c.cuota_num}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: 12, color: 'var(--slate)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {c.pago_fecha ? `Cobrado ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
                   {estado !== 'Cobrado' && (
@@ -292,9 +292,9 @@ export default function PagosPage() {
           <div className="pago-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar cobro</h3>
-              <button onClick={() => setShowModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => setShowModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {showModal.cliente_nombre} · {showModal.ramo} · Cuota {showModal.cuota_num}
             </div>
             <div className="fgroup"><label>Fecha de cobro</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>

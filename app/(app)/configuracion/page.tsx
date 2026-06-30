@@ -62,7 +62,7 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
   }
 
   return (
-    <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: 7, background: 'rgba(201,168,76,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--gold)', letterSpacing: '.04em' }}>{abrev}</span>
@@ -75,7 +75,7 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
       <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
         <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregar()}
           placeholder={placeholder}
-          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--navy)', transition: 'border-color .14s' }}
+          style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--text-main)', transition: 'border-color .14s' }}
           onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
         <button className="btn-primary" onClick={agregar} disabled={saving || !nuevo.trim()} style={{ padding: '8px 14px', fontSize: 13 }}>
           {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />}
@@ -83,16 +83,16 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
       </div>
       <div style={{ maxHeight: 240, overflowY: 'auto' }}>
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--slate)' }}>
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Loader2 size={18} style={{ display: 'block', margin: '0 auto 6px', animation: 'spin 1s linear infinite' }} />
           </div>
         ) : items.length === 0 ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--slate)', fontSize: 13 }}>Sin registros — agregá el primero arriba</div>
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros — agregá el primero arriba</div>
         ) : items.map(item => (
           <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #F1F5FB' }}>
-            <span style={{ flex: 1, fontSize: 14, color: 'var(--navy)' }}>{item.nombre}</span>
+            <span style={{ flex: 1, fontSize: 14, color: 'var(--text-main)' }}>{item.nombre}</span>
             <button onClick={() => eliminar(item)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: '4px', borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
               onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
               <Trash2 size={15} />
@@ -164,7 +164,7 @@ function CamposRamo() {
   const tipoLabel: Record<string, string> = { texto: 'Texto', numero: 'Número', numero_moneda: 'Número + Moneda', select: 'Lista', fecha: 'Fecha', boolean: 'Sí/No' }
 
   return (
-    <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', gridColumn: 'span 2' }}>
+    <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden', gridColumn: 'span 2' }}>
       <div style={{ padding: '14px 18px', background: 'var(--navy)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: 7, background: 'rgba(201,168,76,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--gold)' }}>CAM</span>
@@ -180,7 +180,7 @@ function CamposRamo() {
         <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
           {ramos.map(r => (
             <div key={r.id} onClick={() => seleccionarRamo(r)}
-              style={{ padding: '11px 16px', cursor: 'pointer', borderBottom: '1px solid #F1F5FB', fontSize: 13.5, fontWeight: ramoSel?.id === r.id ? 700 : 400, color: 'var(--navy)', background: ramoSel?.id === r.id ? 'var(--gold-pale)' : 'white', borderLeft: ramoSel?.id === r.id ? '3px solid var(--gold)' : '3px solid transparent', transition: 'all .12s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              style={{ padding: '11px 16px', cursor: 'pointer', borderBottom: '1px solid #F1F5FB', fontSize: 13.5, fontWeight: ramoSel?.id === r.id ? 700 : 400, color: 'var(--text-main)', background: ramoSel?.id === r.id ? 'var(--gold-pale)' : 'white', borderLeft: ramoSel?.id === r.id ? '3px solid var(--gold)' : '3px solid transparent', transition: 'all .12s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               {r.nombre}
               <ChevronRight size={14} color="var(--slate)" />
             </div>
@@ -190,18 +190,18 @@ function CamposRamo() {
         {/* Campos del ramo seleccionado */}
         <div style={{ padding: '16px' }}>
           {!ramoSel ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--slate)', fontSize: 13 }}>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: 13 }}>
               Seleccioná un ramo para ver o agregar campos
             </div>
           ) : loading ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate)' }}>
+            <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
               <Loader2 size={18} style={{ display: 'block', margin: '0 auto', animation: 'spin 1s linear infinite' }} />
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
-                  {ramoSel.nombre} <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--slate)' }}>— {campos.length} campos</span>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>
+                  {ramoSel.nombre} <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>— {campos.length} campos</span>
                 </div>
                 <button className="btn-primary btn-sm" onClick={() => setShowForm(s => !s)}>
                   <Plus size={13} /> Agregar campo
@@ -210,7 +210,7 @@ function CamposRamo() {
 
               {/* Form nuevo campo */}
               {showForm && (
-                <div style={{ background: '#F4F7FB', borderRadius: 10, padding: '14px', marginBottom: 14, border: '1px solid var(--border)' }}>
+                <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginBottom: 14, border: '1px solid var(--border-soft)' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
                     <div className="fgroup">
                       <label>Nombre del campo *</label>
@@ -249,20 +249,20 @@ function CamposRamo() {
 
               {/* Lista de campos */}
               {campos.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--slate)', fontSize: 13, background: '#F8FAFC', borderRadius: 8 }}>
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: 13, background: 'var(--bg-hover)', borderRadius: 8 }}>
                   Sin campos adicionales para {ramoSel.nombre}
                 </div>
               ) : campos.map(c => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 6, background: 'white' }}>
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-soft)', marginBottom: 6, background: 'var(--bg-card)' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy)' }}>{c.nombre}</div>
-                    <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>{c.nombre}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                       {tipoLabel[c.tipo] || c.tipo}
                       {c.opciones && ` · ${c.opciones}`}
                     </div>
                   </div>
                   <button onClick={() => eliminarCampo(c)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: '4px', display: 'flex', alignItems: 'center' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
                     onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
                     <Trash2 size={15} />
@@ -287,8 +287,8 @@ export default function ConfiguracionPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Configuración</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Administrá todos los catálogos del sistema</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Configuración</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Administrá todos los catálogos del sistema</p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginBottom: 16 }}>
         {SECCIONES.map(s => <Seccion key={s.tabla} {...s} />)}
@@ -299,4 +299,5 @@ export default function ConfiguracionPage() {
     </div>
   )
 }
+
 

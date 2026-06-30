@@ -66,7 +66,7 @@ function CuotasFechas({ cuotas, value, onChange }: {
   cuotas: number; value: string[]; onChange: (v: string[]) => void
 }) {
   if (cuotas === 0) return (
-    <div style={{ padding: '12px', background: '#F4F7FB', borderRadius: 8, fontSize: 13, color: 'var(--slate)', textAlign: 'center' }}>
+    <div style={{ padding: '12px', background: 'var(--bg-card-alt)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
       Ingresá la cantidad de cuotas primero
     </div>
   )
@@ -92,7 +92,7 @@ function CuotasFechas({ cuotas, value, onChange }: {
           </div>
           {i === 0 && fecha && cuotas > 1 && (
             <button onClick={() => onChange(Array.from({ length: cuotas }, (_, j) => addMonthsAndDays(fecha, j)))}
-              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border)', borderRadius: 7, background: 'white', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--slate)', whiteSpace: 'nowrap' }}>
+              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border-soft)', borderRadius: 7, background: 'var(--bg-card)', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
               Recalcular
             </button>
           )}
@@ -392,13 +392,13 @@ export default function PolizasPage() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pólizas</h1>
-            <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{detalle.ramo} · {detalle.numero}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pólizas</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{detalle.ramo} · {detalle.numero}</p>
           </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <button onClick={() => setDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+          <button onClick={() => setDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
             <ArrowLeft size={14} /> Volver a pólizas
           </button>
           <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
@@ -427,17 +427,17 @@ export default function PolizasPage() {
         </div>
 
         {/* Header card */}
-        <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '20px 24px', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                 <span className="badge badge-neutral" style={{ fontSize: 13 }}>{detalle.ramo}</span>
                 <span className={`badge ${cls}`}>{label}</span>
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', fontFamily: 'monospace' }}>{detalle.numero}</div>
-              <div style={{ fontSize: 14, color: 'var(--slate)', marginTop: 4 }}>{detalle.clientes?.nombre}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)', fontFamily: 'monospace' }}>{detalle.numero}</div>
+              <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{detalle.clientes?.nombre}</div>
               {detalle.nota && (
-                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--navy)', background: '#F4F7FB', borderLeft: '3px solid var(--gold)', padding: '6px 12px', borderRadius: 6 }}>
+                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-card-alt)', borderLeft: '3px solid var(--gold)', padding: '6px 12px', borderRadius: 6 }}>
                   {detalle.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                 </div>
               )}
@@ -452,8 +452,8 @@ export default function PolizasPage() {
                 { label: 'Pagadas',     value: `${detallePagos.length}/${detalle.cuotas}` },
               ].map(f => (
                 <div key={f.label}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 2 }}>{f.label}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy)' }}>{f.value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{f.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{f.value}</div>
                 </div>
               ))}
             </div>
@@ -462,15 +462,15 @@ export default function PolizasPage() {
 
         {/* Campos extra por ramo */}
         {detalleExtras.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 24px', marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '16px 24px', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
               Datos específicos — {detalle.ramo}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
               {detalleExtras.map(e => (
                 <div key={e.nombre}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 2 }}>{e.nombre}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy)' }}>{formatValor(e.valor)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{e.nombre}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{formatValor(e.valor)}</div>
                 </div>
               ))}
             </div>
@@ -479,9 +479,9 @@ export default function PolizasPage() {
 
         {/* Cuotas */}
         {detalle.cuotas > 0 && (
-          <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 16 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
                 Cuotas <span style={{ fontWeight: 400 }}>({detallePagos.length}/{detalle.cuotas} pagadas)</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 700, color: pct === 100 ? 'var(--success)' : 'var(--slate)' }}>{pct}%</span>
@@ -520,14 +520,14 @@ export default function PolizasPage() {
         )}
 
         {/* Documentos */}
-        <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '18px 20px' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px' }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>
             Documentos {detalleDocs.length > 0 && `(${detalleDocs.length})`}
           </div>
           {loadingDetalle ? (
-            <div style={{ color: 'var(--slate)', fontSize: 13 }}>Cargando...</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando...</div>
           ) : detalleDocs.length === 0 ? (
-            <div style={{ color: 'var(--slate)', fontSize: 13 }}>Sin documentos adjuntos</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin documentos adjuntos</div>
           ) : detalleDocs.map(doc => {
             const ext = extStyle[getExt(doc.nombre)] || extStyle.pdf
             return (
@@ -537,7 +537,7 @@ export default function PolizasPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
-                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 1 }}>{doc.tipo} · {formatBytes(doc.tamanio_bytes)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{doc.tipo} · {formatBytes(doc.tamanio_bytes)}</div>
                 </div>
                 <button className="btn-outline btn-sm" onClick={() => descargarDoc(doc)}><Download size={13} /></button>
                 <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminarDoc(doc)}><Trash2 size={13} /></button>
@@ -553,7 +553,7 @@ export default function PolizasPage() {
             {/* Sticky header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Editar póliza</h3>
-              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
+              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
             </div>
             {/* Scrollable body */}
             <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
@@ -602,20 +602,20 @@ export default function PolizasPage() {
                     }
                   }} />
                 {editPagosCount > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
                     Mínimo {editPagosCount} ({editPagosCount} ya pagada{editPagosCount > 1 ? 's' : ''})
                   </div>
                 )}
               </div>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nota (opcional)</label>
                 <textarea value={editForm.nota || ''} onChange={e => setEditForm(p => ({...p, nota: e.target.value}))} rows={2}
-                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)' }}
+                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }}
                   onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
               </div>
             </div>
             {editCamposRamo.length > 0 && (
-              <div style={{ background: '#F4F7FB', borderRadius: 10, padding: '14px', marginTop: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>
+              <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
                   Datos específicos — {editForm.ramo}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
@@ -658,7 +658,7 @@ export default function PolizasPage() {
             )}
             </div>
             {/* Sticky footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'white', borderRadius: '0 0 14px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-card)', borderRadius: '0 0 14px 14px' }}>
               <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarEdicion} disabled={savingEdit}>
                 {savingEdit ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Guardar cambios'}
@@ -676,8 +676,8 @@ export default function PolizasPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pólizas</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{loading ? 'Cargando...' : `${polizas.length} pólizas en cartera`}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pólizas</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{loading ? 'Cargando...' : `${polizas.length} pólizas en cartera`}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <ExportButton
@@ -711,9 +711,9 @@ export default function PolizasPage() {
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar cliente o N° póliza..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {RAMOS_FILTRO.map(t => <button key={t} onClick={() => setFiltroRamo(t)} className={`filter-btn ${filtroRamo === t ? 'active' : ''}`}>{t}</button>)}
@@ -734,11 +734,11 @@ export default function PolizasPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
               </td></tr>
             ) : filtradas.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas</div>
               </td></tr>
             ) : filtradas.map(p => {
@@ -748,14 +748,14 @@ export default function PolizasPage() {
                   <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.numero}</td>
                   <td style={{ fontWeight: 600 }}>{p.clientes?.nombre || '—'}</td>
                   <td><span className="badge badge-neutral">{p.ramo}</span></td>
-                  <td style={{ color: 'var(--slate)', fontSize: 13 }}>{p.compania}</td>
-                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatFecha(p.vencimiento)}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{p.compania}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(p.vencimiento)}</td>
                   <td style={{ fontSize: 12 }}>{p.moneda}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className={`badge ${cls}`}>{label}</span>
                       {(p.doc_count ?? 0) > 0 && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--slate)', fontSize: 11 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--text-muted)', fontSize: 11 }}>
                           <Paperclip size={11} />{p.doc_count}
                         </span>
                       )}
@@ -782,7 +782,7 @@ export default function PolizasPage() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{p.clientes?.nombre || '—'}</div>
                   <span className={`badge ${cls}`}>{label}</span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--slate)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   <span className="badge badge-neutral" style={{ marginRight: 6 }}>{p.ramo}</span>
                   <span style={{ fontFamily: 'monospace' }}>{p.numero}</span>
                   {' · '}{p.compania}
@@ -800,14 +800,14 @@ export default function PolizasPage() {
           <div className="pago-modal" style={{ width: 540, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
                   {paso === 'cliente' ? 'Seleccionar cliente' : 'Nueva póliza'}
                 </h3>
-                <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? '1' : '2'} de 2{paso === 'poliza' && clienteSeleccionado ? ` — ${clienteSeleccionado.nombre}` : ''}
                 </div>
               </div>
-              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
               {['cliente','poliza'].map((p, i) => {
@@ -819,14 +819,14 @@ export default function PolizasPage() {
             {paso === 'cliente' && (
               <>
                 <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
-                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--navy)' }} />
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
                 </div>
                 <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {clientesFiltrados.map(c => (
                     <div key={c.id} onClick={() => { setClienteSeleccionado(c); setPaso('poliza') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'white', transition: 'all .12s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
                     >
@@ -834,8 +834,8 @@ export default function PolizasPage() {
                         {c.nombre.trim()[0]?.toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)' }}>{c.nombre}</div>
-                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--slate)' }}>{c.direccion}</div>}
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
                       </div>
                     </div>
                   ))}
@@ -898,12 +898,12 @@ export default function PolizasPage() {
                     <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
                   </div>
                   <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                    <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--slate)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
+                    <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
                     <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
                   </div>
                   {camposRamo.length > 0 && (
-                    <div style={{ gridColumn: 'span 2', background: '#F4F7FB', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>
+                    <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
                         Datos específicos de {form.ramo}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
@@ -959,9 +959,9 @@ export default function PolizasPage() {
                   )}
 
                   <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                    <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional)</span></label>
+                    <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>(opcional)</span></label>
                     <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
-                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)', lineHeight: 1.5 }}
+                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)', lineHeight: 1.5 }}
                       onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
                   </div>
                 </div>
@@ -985,9 +985,9 @@ export default function PolizasPage() {
           <div className="pago-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar pago</h3>
-              <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {(detalle as any)?.ramo} · {(detalle as any)?.numero} · Cuota {showPagoModal}
             </div>
             <div className="fgroup">
@@ -1022,9 +1022,9 @@ export default function PolizasPage() {
               <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <AlertTriangle size={26} color="var(--danger)" />
               </div>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
-              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
-                Estás por eliminar la póliza <strong style={{ color: 'var(--navy)' }}>{confirmEliminar.numero}</strong> ({confirmEliminar.ramo}).
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar la póliza <strong style={{ color: 'var(--text-main)' }}>{confirmEliminar.numero}</strong> ({confirmEliminar.ramo}).
               </p>
               <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
                 Esta acción no se puede deshacer. Se eliminarán también sus cuotas, pagos y documentos adjuntos.

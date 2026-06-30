@@ -163,8 +163,8 @@ export default function ClientesList({ onSelect }: Props) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Clientes</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{clientes.length} clientes registrados</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Clientes</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{clientes.length} clientes registrados</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-outline" onClick={() => { setShowImport(true); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>
@@ -177,14 +177,14 @@ export default function ClientesList({ onSelect }: Props) {
 
       <div style={{ marginBottom: 18 }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar por nombre o dirección..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 340, background: 'white', color: 'var(--navy)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 340, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--slate)' }}>
+        <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-muted)' }}>
           <Loader2 size={28} style={{ margin: '0 auto 10px', display: 'block', animation: 'spin 1s linear infinite' }} />
         </div>
       ) : (
@@ -195,11 +195,11 @@ export default function ClientesList({ onSelect }: Props) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="edif-name">{c.nombre}</div>
                 <div className="edif-addr">{c.direccion || 'Sin dirección registrada'}</div>
-                {c.contacto && <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 2 }}>{c.contacto}</div>}
+                {c.contacto && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{c.contacto}</div>}
               </div>
               {/* Edit button */}
               <button title="Editar" onClick={e => { e.stopPropagation(); abrirEditar(c) }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}
                 onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--navy)')}
                 onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
                 <Pencil size={14} />
@@ -210,7 +210,7 @@ export default function ClientesList({ onSelect }: Props) {
             </div>
           ))}
           {filtrados.length === 0 && (
-            <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+            <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
               {search ? 'No se encontraron clientes' : <div><div style={{ fontWeight: 600, marginBottom: 4 }}>No hay clientes aún</div><div style={{ fontSize: 12 }}>Agregá el primero arriba</div></div>}
             </div>
           )}
@@ -223,7 +223,7 @@ export default function ClientesList({ onSelect }: Props) {
           <div className="pago-modal" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nuevo cliente</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}>
@@ -257,7 +257,7 @@ export default function ClientesList({ onSelect }: Props) {
           <div className="pago-modal" style={{ width: 520, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar cliente</h3>
-              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
 
             {/* Datos principales */}
@@ -269,8 +269,8 @@ export default function ClientesList({ onSelect }: Props) {
             </div>
 
             {/* Contacto principal */}
-            <div style={{ background: '#F4F7FB', borderRadius: 10, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 10 }}>
+            <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
                 Contacto principal
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
@@ -286,7 +286,7 @@ export default function ClientesList({ onSelect }: Props) {
             {/* Contactos adicionales */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
                   Contactos adicionales
                 </div>
                 <button className="btn-outline btn-sm" onClick={addContacto} style={{ fontSize: 12 }}>
@@ -295,15 +295,15 @@ export default function ClientesList({ onSelect }: Props) {
               </div>
 
               {contactos.length === 0 && (
-                <div style={{ fontSize: 12.5, color: 'var(--slate)', textAlign: 'center', padding: '12px', background: '#F8FAFC', borderRadius: 8, border: '1px dashed var(--border)' }}>
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '12px', background: 'var(--bg-hover)', borderRadius: 8, border: '1px dashed var(--border)' }}>
                   Sin contactos adicionales — tocá "+ Agregar contacto"
                 </div>
               )}
 
               {contactos.map((ct, idx) => (
-                <div key={idx} style={{ background: '#F4F7FB', borderRadius: 10, padding: 12, marginBottom: 8, position: 'relative' }}>
+                <div key={idx} style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 12, marginBottom: 8, position: 'relative' }}>
                   <button onClick={() => removeContacto(idx)}
-                    style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', display: 'flex', alignItems: 'center' }}>
+                    style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                     <Trash2 size={13} color="var(--danger)" />
                   </button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
@@ -340,13 +340,13 @@ export default function ClientesList({ onSelect }: Props) {
           <div className="pago-modal" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Importar clientes desde CSV</h3>
-              <button onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             {importDone ? (
               <div style={{ textAlign: 'center', padding: '28px 0' }}>
                 <CheckCircle size={40} color="var(--success)" style={{ display: 'block', margin: '0 auto 12px' }} />
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', marginBottom: 6 }}>Importación completada</div>
-                <div style={{ fontSize: 14, color: 'var(--slate)' }}><span style={{ color: 'var(--success)', fontWeight: 700 }}>{importDone.ok} clientes importados</span>{importDone.skip > 0 && <span> · {importDone.skip} omitidos</span>}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>Importación completada</div>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)' }}><span style={{ color: 'var(--success)', fontWeight: 700 }}>{importDone.ok} clientes importados</span>{importDone.skip > 0 && <span> · {importDone.skip} omitidos</span>}</div>
                 <button className="btn-primary" style={{ marginTop: 20 }} onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>Cerrar</button>
               </div>
             ) : (
@@ -363,28 +363,28 @@ export default function ClientesList({ onSelect }: Props) {
                 )}
                 {csvPreview.rows.length === 0 ? (
                   <div onClick={() => csvRef.current?.click()}
-                    style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', background: '#FAFBFC' }}
+                    style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-hover)' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)' }}
                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)' }}>
-                    <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--slate)' }} />
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)', marginBottom: 4 }}>Seleccionar archivo CSV</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--slate)' }}>Hacé click o arrastrá tu archivo</div>
+                    <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo CSV</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá tu archivo</div>
                   </div>
                 ) : (
                   <>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginBottom: 10 }}>{csvPreview.rows.length} clientes a importar</div>
-                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)', marginBottom: 10 }}>{csvPreview.rows.length} clientes a importar</div>
+                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border-soft)', borderRadius: 10, overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr style={{ background: '#F8FAFC' }}>
-                          {['Nombre','Dirección','Contacto','Tel','Email'].map(h => <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--slate)', borderBottom: '1px solid var(--border)' }}>{h}</th>)}
+                        <thead><tr style={{ background: 'var(--bg-hover)' }}>
+                          {['Nombre','Dirección','Contacto','Tel','Email'].map(h => <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>)}
                         </tr></thead>
                         <tbody>{csvPreview.rows.map((r, i) => (
                           <tr key={i} style={{ borderBottom: '1px solid #F1F5FB' }}>
                             <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600 }}>{r.nombre}</td>
-                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.direccion || '—'}</td>
-                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.contacto || '—'}</td>
-                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.tel || '—'}</td>
-                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--slate)' }}>{r.email || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.direccion || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.contacto || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.tel || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.email || '—'}</td>
                           </tr>
                         ))}</tbody>
                       </table>
@@ -414,9 +414,9 @@ export default function ClientesList({ onSelect }: Props) {
               <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <AlertTriangle size={26} color="var(--danger)" />
               </div>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar este cliente?</h3>
-              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
-                Estás por eliminar a <strong style={{ color: 'var(--navy)' }}>{confirmEliminarCliente.nombre}</strong>.
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar este cliente?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar a <strong style={{ color: 'var(--text-main)' }}>{confirmEliminarCliente.nombre}</strong>.
               </p>
               <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
                 Esta acción no se puede deshacer. Se eliminarán también todas sus pólizas, pagos y documentos.

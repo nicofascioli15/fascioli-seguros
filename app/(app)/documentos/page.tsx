@@ -170,8 +170,8 @@ export default function DocumentosPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Documentos</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Archivo centralizado de pólizas, endosos y expedientes</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Documentos</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Archivo centralizado de pólizas, endosos y expedientes</p>
         </div>
         <button className="btn-primary" onClick={abrirModal} disabled={uploading}>
           {uploading
@@ -199,16 +199,16 @@ export default function DocumentosPage() {
               <div style={{ fontWeight: 600, color: drag ? 'var(--gold)' : 'var(--navy)', fontSize: 14 }}>
                 {drag ? 'Soltá el archivo' : 'Arrastrá un archivo acá'}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>PDF, JPG, PNG, Word, Excel · Se asignará a un cliente y póliza</div></>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>PDF, JPG, PNG, Word, Excel · Se asignará a un cliente y póliza</div></>
         }
       </div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar archivo o cliente..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['Todos', ...tiposDoc].map((t: string) => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
@@ -227,12 +227,12 @@ export default function DocumentosPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
                 Cargando documentos...
               </td></tr>
             ) : filtrados.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay documentos subidos</div>
                 <div style={{ fontSize: 12 }}>Arrastrá archivos arriba o usá el botón "Subir archivo"</div>
@@ -249,11 +249,11 @@ export default function DocumentosPage() {
                   <td style={{ fontWeight: 500, fontSize: 13 }}>{d.nombre}</td>
                   <td><span className="badge badge-neutral">{d.tipo}</span></td>
                   <td style={{ fontSize: 13 }}>{d.clientes?.nombre || '—'}</td>
-                  <td style={{ fontSize: 12, color: 'var(--slate)' }}>
+                  <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {d.polizas ? <><span className="badge badge-neutral" style={{ marginRight: 4 }}>{d.polizas.ramo}</span>{d.polizas.numero}</> : '—'}
                   </td>
-                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatBytes(d.tamanio_bytes)}</td>
-                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatFecha(d.created_at)}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatBytes(d.tamanio_bytes)}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(d.created_at)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn-outline btn-sm" onClick={() => descargar(d)} title="Descargar"><Download size={13} /></button>
@@ -276,7 +276,7 @@ export default function DocumentosPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--slate)', marginTop: 2 }}>{d.clientes?.nombre || '—'} · {d.tipo} · {formatBytes(d.tamanio_bytes)}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{d.clientes?.nombre || '—'} · {d.tipo} · {formatBytes(d.tamanio_bytes)}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn-outline btn-sm" onClick={() => descargar(d)}><Download size={13} /></button>
@@ -296,16 +296,16 @@ export default function DocumentosPage() {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)' }}>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
                   {paso === 'cliente' ? 'Seleccionar cliente' : paso === 'poliza' ? 'Seleccionar póliza' : 'Subir archivo'}
                 </h3>
-                <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? 1 : paso === 'poliza' ? 2 : 3} de 3
                   {clienteSel && paso !== 'cliente' && ` — ${clienteSel.nombre}`}
                   {polizaSel && paso === 'archivo' && ` · ${polizaSel.ramo} ${polizaSel.numero}`}
                 </div>
               </div>
-              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
 
             {/* Barra de progreso */}
@@ -320,15 +320,15 @@ export default function DocumentosPage() {
             {paso === 'cliente' && (
               <>
                 <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
-                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'white', color: 'var(--navy)' }} />
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
                 </div>
                 <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {clientesFiltrados.map(c => (
                     <div key={c.id}
                       onClick={() => { setClienteSel(c); fetchPolizasCliente(c.id); setPaso('poliza') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'white', transition: 'all .12s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
                     >
@@ -336,13 +336,13 @@ export default function DocumentosPage() {
                         {c.nombre.trim()[0]?.toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--navy)' }}>{c.nombre}</div>
-                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--slate)' }}>{c.direccion}</div>}
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
                       </div>
                       <ChevronRight size={16} color="var(--slate)" />
                     </div>
                   ))}
-                  {clientesFiltrados.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--slate)', fontSize: 13 }}>No se encontraron clientes</div>}
+                  {clientesFiltrados.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 13 }}>No se encontraron clientes</div>}
                 </div>
               </>
             )}
@@ -352,11 +352,11 @@ export default function DocumentosPage() {
               <>
                 <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                   {polizasCliente.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--slate)', fontSize: 13 }}>Este cliente no tiene pólizas cargadas</div>
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 13 }}>Este cliente no tiene pólizas cargadas</div>
                   ) : polizasCliente.map(p => (
                     <div key={p.id}
                       onClick={() => { setPolizaSel(p); setPaso('archivo') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 9, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'white', transition: 'all .12s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
                     >
@@ -365,7 +365,7 @@ export default function DocumentosPage() {
                           <span className="badge badge-neutral">{p.ramo}</span>
                           <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{p.numero}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>{p.compania}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{p.compania}</div>
                       </div>
                       <ChevronRight size={16} color="var(--slate)" />
                     </div>
@@ -393,13 +393,13 @@ export default function DocumentosPage() {
                     <>
                       <div style={{ fontSize: 28, marginBottom: 6 }}></div>
                       <div style={{ fontWeight: 700, color: 'var(--success)', fontSize: 14 }}>{fileSel.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 3 }}>{formatBytes(fileSel.size)} · Click para cambiar</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{formatBytes(fileSel.size)} · Click para cambiar</div>
                     </>
                   ) : (
                     <>
-                      <Upload size={24} style={{ margin: '0 auto 8px', color: 'var(--slate)', display: 'block' }} />
-                      <div style={{ fontWeight: 600, color: 'var(--navy)', fontSize: 14 }}>Hacé click para seleccionar</div>
-                      <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>PDF, JPG, PNG, Word, Excel</div>
+                      <Upload size={24} style={{ margin: '0 auto 8px', color: 'var(--text-muted)', display: 'block' }} />
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: 14 }}>Hacé click para seleccionar</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>PDF, JPG, PNG, Word, Excel</div>
                     </>
                   )}
                 </div>
@@ -433,4 +433,5 @@ export default function DocumentosPage() {
     </div>
   )
 }
+
 

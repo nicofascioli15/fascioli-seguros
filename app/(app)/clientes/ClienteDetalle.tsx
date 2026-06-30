@@ -127,7 +127,7 @@ function CampoInput({ campo, value, onChange }: {
 
 function CuotasFechas({ cuotas, value, onChange }: { cuotas: number; value: string[]; onChange: (v: string[]) => void }) {
   if (cuotas === 0) return (
-    <div style={{ padding: '12px', background: '#F4F7FB', borderRadius: 8, fontSize: 13, color: 'var(--slate)', textAlign: 'center' }}>
+    <div style={{ padding: '12px', background: 'var(--bg-card-alt)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
       Ingresá la cantidad de cuotas primero
     </div>
   )
@@ -149,7 +149,7 @@ function CuotasFechas({ cuotas, value, onChange }: { cuotas: number; value: stri
           </div>
           {i === 0 && fecha && cuotas > 1 && (
             <button onClick={() => onChange(Array.from({ length: cuotas }, (_, j) => addMonthsAndDays(fecha, j)))}
-              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border)', borderRadius: 7, background: 'white', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--slate)', whiteSpace: 'nowrap' }}>
+              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border-soft)', borderRadius: 7, background: 'var(--bg-card)', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
               Recalcular
             </button>
           )}
@@ -459,27 +459,27 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Clientes</h1>
-          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>{nombre}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Clientes</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{nombre}</p>
         </div>
         <button className="btn-primary" onClick={() => setShowPolizaModal(true)}><Plus size={15} /> Nueva póliza</button>
       </div>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, padding: 0 }}>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, padding: 0 }}>
         ← Volver a clientes
       </button>
 
       {/* Polizas */}
-      <div style={{ background: 'white', borderRadius: 12, border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 16 }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{nombre}</div>
-          <div style={{ background: '#EEF2F8', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>{polizas.length}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)' }}>PÓLIZAS</div>
+          <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>{polizas.length}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>PÓLIZAS</div>
           </div>
         </div>
 
-        {loading ? <div style={{ color: 'var(--slate)', fontSize: 13 }}>Cargando...</div>
-        : polizas.length === 0 ? <div style={{ color: 'var(--slate)', fontSize: 13 }}>Sin pólizas — creá la primera arriba</div>
+        {loading ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando...</div>
+        : polizas.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin pólizas — creá la primera arriba</div>
         : polizas.map(pol => {
           const isOpen = !!openCards[pol.id]
           const { label, cls } = estadoBadge(pol.vencimiento)
@@ -500,7 +500,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div className="poliza-id">{pol.numero}</div>
                     {pol.nota && (
-                      <div style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
                         {pol.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                       </div>
                     )}
@@ -512,7 +512,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   onClick={e => { e.stopPropagation(); abrirEditar(pol) }}>
                   <Pencil size={11} /> Editar
                 </button>
-                <ChevronRight size={16} style={{ marginLeft: 4, color: 'var(--slate)', transition: 'transform .28s ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }} />
+                <ChevronRight size={16} style={{ marginLeft: 4, color: 'var(--text-muted)', transition: 'transform .28s ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }} />
               </div>
 
               <div className="poliza-card-body" style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows .28s ease' }}>
@@ -526,22 +526,22 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   </div>
 
                   {pol.nota && (
-                    <div style={{ background: '#F4F7FB', borderRadius: 8, padding: '10px 14px', marginBottom: 12, borderLeft: '3px solid var(--gold)' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 4 }}>Nota</div>
-                      <div style={{ fontSize: 13.5, color: 'var(--navy)' }}>{pol.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, borderLeft: '3px solid var(--gold)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 4 }}>Nota</div>
+                      <div style={{ fontSize: 13.5, color: 'var(--text-main)' }}>{pol.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</div>
                     </div>
                   )}
 
                   {pol.poliza_campos && pol.poliza_campos.filter(pc => pc.valor && pc.campos_ramo?.nombre).length > 0 && (
-                    <div style={{ background: '#F4F7FB', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 8 }}>
+                    <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
                         Datos específicos — {pol.ramo}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
                         {pol.poliza_campos.filter(pc => pc.valor && pc.campos_ramo?.nombre).map((pc, i) => (
                           <div key={i}>
-                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 2 }}>{pc.campos_ramo.nombre}</div>
-                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy)' }}>{formatValor(pc.valor)}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{pc.campos_ramo.nombre}</div>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>{formatValor(pc.valor)}</div>
                           </div>
                         ))}
                       </div>
@@ -551,13 +551,13 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   {/* Fechas por cuota */}
                   {pol.cuota_mes && (
                     <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 8 }}>Fechas de vencimiento</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>Fechas de vencimiento</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px' }}>
                         {pol.cuota_mes.split(' - ').map((item, i) => {
                           const pagado = pol.pagos && (pol.pagos as any)[i+1]
                           return (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, background: pagado ? '#E6F5EF' : '#F4F7FB', borderRadius: 7, padding: '4px 10px', fontSize: 12.5, fontWeight: 500, color: 'var(--navy)' }}>
-                              <span style={{ fontWeight: 800, color: 'var(--slate)', fontSize: 11, minWidth: 14 }}>{i+1}</span>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, background: pagado ? '#E6F5EF' : '#F4F7FB', borderRadius: 7, padding: '4px 10px', fontSize: 12.5, fontWeight: 500, color: 'var(--text-main)' }}>
+                              <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: 11, minWidth: 14 }}>{i+1}</span>
                               <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
                               <span>{item.split('/').slice(1).join('/')}</span>
                               {pagado && <span style={{ fontSize: 10, color: '#1A7A4E', fontWeight: 700 }}>✓</span>}
@@ -571,7 +571,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   {/* Cuotas / Pagos */}
                   {pol.cuotas > 0 && pol.cuota_mes && (
                     <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
                         Cuotas
                       </div>
                       {pol.cuota_mes.split(' - ').map((item, i) => {
@@ -603,15 +603,15 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                     {pol.docs && pol.docs.length > 0 && (
                       <div style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 6 }}>Documentos</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 6 }}>Documentos</div>
                         {pol.docs.map((doc: Doc) => (
                           <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5FB' }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 7, background: '#EEF2F8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--bg-card-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                               <Paperclip size={13} color="var(--slate)" />
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
-                              <div style={{ fontSize: 11, color: 'var(--slate)' }}>{doc.tipo}</div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doc.tipo}</div>
                             </div>
                             <button className="btn-outline btn-sm" onClick={() => descargarDoc(doc)} title="Descargar"><Download size={12} /></button>
                             <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminarDoc(doc)} title="Eliminar"><Trash2 size={12} /></button>
@@ -644,9 +644,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
           <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva póliza</h3>
-              <button onClick={() => { setShowPolizaModal(false); setErrores({}) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => { setShowPolizaModal(false); setErrores({}) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 16 }}>Cliente: {nombre}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Cliente: {nombre}</div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="fgroup">
@@ -712,14 +712,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 {errores.cuotas && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Ingresá al menos 1 cuota</div>}
               </div>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--slate)', marginLeft: 6 }}>— ingresá la cantidad primero</span></label>
+                <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad primero</span></label>
                 {Object.keys(errores).some(k => k.startsWith('fecha_cuota')) && <div style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>Completá todas las fechas</div>}
                 <CuotasFechas cuotas={parseInt(polizaForm.cuotas) || 0} value={polizaForm.fechasCuotas} onChange={v => setPolizaForm({ ...polizaForm, fechasCuotas: v })} />
               </div>
 
               {camposRamo.length > 0 && (
-                <div style={{ gridColumn: 'span 2', background: '#F4F7FB', borderRadius: 10, padding: 14, marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>Datos específicos de {polizaForm.ramo}</div>
+                <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>Datos específicos de {polizaForm.ramo}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                     {camposRamo.map(campo => (
                       <div key={campo.id} className="fgroup">
@@ -732,9 +732,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               )}
 
               <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--slate)' }}>(opcional)</span></label>
+                <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>(opcional)</span></label>
                 <textarea value={polizaForm.nota} onChange={e => setPolizaForm({ ...polizaForm, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
-                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)' }}
+                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }}
                   onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
               </div>
             </div>
@@ -755,7 +755,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             {/* Sticky header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Editar póliza</h3>
-              <button onClick={() => setEditandoPoliza(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)', display: 'flex' }}><X size={18} /></button>
+              <button onClick={() => setEditandoPoliza(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
             </div>
             {/* Scrollable body */}
             <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
@@ -805,18 +805,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     }
                   }} />
                 {editPagosCount > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
                     Mínimo {editPagosCount} ({editPagosCount} ya pagada{editPagosCount > 1 ? 's' : ''})
                   </div>
                 )}
               </div>
               <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nota (opcional)</label>
                 <textarea value={editPolizaForm.nota || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, nota: e.target.value}))} rows={2}
-                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--navy)' }} /></div>
+                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }} /></div>
             </div>
             {editCamposRamo.length > 0 && (
-              <div style={{ background: '#F4F7FB', borderRadius: 10, padding: 14, marginTop: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--slate)', marginBottom: 12 }}>Datos específicos — {editPolizaForm.ramo}</div>
+              <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>Datos específicos — {editPolizaForm.ramo}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                   {editCamposRamo.map(campo => (
                     <div key={campo.id} className="fgroup">
@@ -835,7 +835,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             )}
             </div>
             {/* Sticky footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'white', borderRadius: '0 0 14px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-card)', borderRadius: '0 0 14px 14px' }}>
               <button className="btn-outline" onClick={() => setEditandoPoliza(null)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarEditPoliza} disabled={savingEditPoliza}>
                 {savingEditPoliza ? 'Guardando...' : 'Guardar cambios'}
@@ -851,9 +851,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
           <div className="pago-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar pago</h3>
-              <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
               {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}
             </div>
             <div className="fgroup"><label>Fecha de pago</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
@@ -879,16 +879,16 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
           <div className="pago-modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Subir documento</h3>
-              <button onClick={() => { setShowUploadModal(false); setUploadFile(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+              <button onClick={() => { setShowUploadModal(false); setUploadFile(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             {/* File preview */}
-            <div style={{ background: '#F4F7FB', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Paperclip size={16} color="var(--gold)" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploadFile.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2 }}>{(uploadFile.size / 1024).toFixed(0)} KB</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploadFile.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{(uploadFile.size / 1024).toFixed(0)} KB</div>
               </div>
             </div>
             <div className="fgroup">
@@ -915,9 +915,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <AlertTriangle size={26} color="var(--danger)" />
               </div>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
-              <p style={{ fontSize: 13.5, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 4 }}>
-                Estás por eliminar la póliza <strong style={{ color: 'var(--navy)' }}>{confirmEliminarPoliza.numero}</strong> ({confirmEliminarPoliza.ramo}).
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar la póliza <strong style={{ color: 'var(--text-main)' }}>{confirmEliminarPoliza.numero}</strong> ({confirmEliminarPoliza.ramo}).
               </p>
               <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
                 Esta acción no se puede deshacer. Se eliminarán también sus cuotas, pagos y documentos adjuntos.

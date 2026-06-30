@@ -68,8 +68,8 @@ export default function DashboardPage() {
       )}
 
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Dashboard</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
           {new Date().toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
         </p>
       </div>
@@ -113,9 +113,9 @@ export default function DashboardPage() {
         <div className="dashboard-panel">
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Próximos vencimientos</div>
           {loading ? (
-            <div style={{ color: 'var(--slate)', fontSize: 13 }}>Cargando...</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando...</div>
           ) : vencProximas.length === 0 ? (
-            <div style={{ color: 'var(--slate)', fontSize: 13 }}>No hay vencimientos próximos</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No hay vencimientos próximos</div>
           ) : vencProximas.map(p => {
             const d = diasHasta(p.vencimiento)
             const cls = d !== null && d <= 7 ? 'badge-danger' : d !== null && d <= 30 ? 'badge-warning' : 'badge-success'
@@ -146,8 +146,8 @@ export default function DashboardPage() {
                 <Icon size={17} color="var(--navy)" />
               </div>
               <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--navy)' }}>{label}</div>
-                <div style={{ fontSize: 12, color: 'var(--slate)' }}>{sub}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>{label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</div>
               </div>
             </a>
           ))}
@@ -156,4 +156,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
 
