@@ -368,6 +368,15 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   async function eliminarPoliza(polizaId: string) {
     if (!confirm('¿Eliminar esta póliza?')) return
     const { data: polAntes } = await supabase.from('polizas').select('*').eq('id', polizaId).single()
+    // Borrar documentos del storage primero
+    const { data: docs } = await supabase.from('documentos').select('storage_path').eq('poliza_id', polizaId)
+    if (docs && docs.length > 0) {
+      await supabase.storage.from('documentos').remove(docs.map(d => d.storage_path))
+    }
+    // Borrar registros relacionados antes de la póliza
+    await supabase.from('pagos').delete().eq('poliza_id', polizaId)
+    await supabase.from('documentos').delete().eq('poliza_id', polizaId)
+    await supabase.from('poliza_campos').delete().eq('poliza_id', polizaId)
     await supabase.from('polizas').delete().eq('id', polizaId)
     await registrarAudit({ accion: 'eliminar', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza eliminada: ${polAntes?.ramo} ${polAntes?.numero} — ${nombre}`, datosAntes: polAntes })
     await fetchPolizas()
@@ -898,4 +907,5 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     </div>
   )
 }
+
 
