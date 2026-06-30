@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p app
+cat > app/globals.css << 'FILEEOF'
 @import "tailwindcss";
 
 :root {
@@ -486,3 +490,7 @@ a.stat-card:hover {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'fix safe area iphone contenido y modales no quedan tapados por bottom nav'
+git push
