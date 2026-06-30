@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p app
+cat > app/globals.css << 'FILEEOF'
 @import "tailwindcss";
 
 :root {
@@ -484,3 +488,7 @@ a.stat-card:hover {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'fix margen superior en modales mobile'
+git push
