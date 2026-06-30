@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
+import ExportButton from '@/components/ExportButton'
 
 const estadoColor: Record<string, string> = {
   'Cobrado':   'badge-success',
@@ -148,7 +149,31 @@ export default function PagosPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pagos</h1>
           <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
         </div>
-        <button className="btn-outline"><Download size={14} /> Exportar</button>
+        <ExportButton
+          titulo="Reporte de cobros"
+          subtitulo={`${filtradas.length} cuotas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Cuota', key: 'cuota', width: 40 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Estado', key: 'estado', width: 70 },
+            { header: 'Fecha de pago', key: 'fechaPago', width: 80 },
+            { header: 'Método', key: 'metodo', width: 80 },
+          ]}
+          filas={filtradas.map(c => ({
+            cliente: c.cliente_nombre,
+            numero: c.numero_poliza,
+            ramo: c.ramo,
+            cuota: c.cuota_num,
+            vencimiento: formatFecha(c.vencimiento),
+            estado: getEstado(c),
+            fechaPago: c.pago_fecha ? formatFecha(c.pago_fecha) : '—',
+            metodo: c.pago_metodo || '—',
+          }))}
+          filename="reporte-cobros-fascioli"
+        />
       </div>
 
       {/* Resumen */}
@@ -294,4 +319,5 @@ export default function PagosPage() {
     </div>
   )
 }
+
 

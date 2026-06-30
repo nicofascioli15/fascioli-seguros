@@ -1,3 +1,192 @@
+#!/bin/bash
+set -e
+mkdir -p lib components 'app/(app)/polizas' 'app/(app)/vencimientos' 'app/(app)/pagos'
+cat > 'lib/export.ts' << 'FILEEOF'
+// Utilidades de exportación a PDF y Excel
+// Usa jsPDF + jsPDF-AutoTable (PDF) y xlsx/SheetJS (Excel)
+
+export type Columna = { header: string; key: string; width?: number }
+
+function formatDateNow(): string {
+  const d = new Date()
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
+
+export async function exportarPDF(opts: {
+  titulo: string
+  subtitulo?: string
+  columnas: Columna[]
+  filas: Record<string, any>[]
+  filename: string
+}) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+
+  // Header con branding
+  doc.setFillColor(15, 30, 53) // navy
+  doc.rect(0, 0, pageWidth, 64, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('FASCIOLI', 32, 28)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.text('GASTOS COMUNES · VENTAS · ALQUILERES', 32, 40)
+
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text(opts.titulo, pageWidth - 32, 26, { align: 'right' })
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Generado el ${formatDateNow()}`, pageWidth - 32, 40, { align: 'right' })
+  if (opts.subtitulo) {
+    doc.text(opts.subtitulo, pageWidth - 32, 52, { align: 'right' })
+  }
+
+  doc.setTextColor(0, 0, 0)
+
+  autoTable(doc, {
+    startY: 80,
+    head: [opts.columnas.map(c => c.header)],
+    body: opts.filas.map(row => opts.columnas.map(c => row[c.key] ?? '')),
+    styles: { fontSize: 9, cellPadding: 6, font: 'helvetica' },
+    headStyles: { fillColor: [15, 30, 53], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    margin: { left: 32, right: 32 },
+    columnStyles: Object.fromEntries(
+      opts.columnas.map((c, i) => [i, c.width ? { cellWidth: c.width } : {}])
+    ),
+  })
+
+  // Footer con total de filas
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(8)
+    doc.setTextColor(150)
+    doc.text(`${opts.filas.length} registros · Página ${i} de ${pageCount}`, 32, doc.internal.pageSize.getHeight() - 16)
+  }
+
+  doc.save(opts.filename.endsWith('.pdf') ? opts.filename : `${opts.filename}.pdf`)
+}
+
+export async function exportarExcel(opts: {
+  titulo: string
+  columnas: Columna[]
+  filas: Record<string, any>[]
+  filename: string
+}) {
+  const XLSX = await import('xlsx')
+
+  const data = opts.filas.map(row => {
+    const obj: Record<string, any> = {}
+    opts.columnas.forEach(c => { obj[c.header] = row[c.key] ?? '' })
+    return obj
+  })
+
+  const ws = XLSX.utils.json_to_sheet(data)
+
+  // Ajustar ancho de columnas
+  ws['!cols'] = opts.columnas.map(c => ({ wch: c.width ? Math.round(c.width / 6) : 18 }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, opts.titulo.slice(0, 31))
+  XLSX.writeFile(wb, opts.filename.endsWith('.xlsx') ? opts.filename : `${opts.filename}.xlsx`)
+}
+
+FILEEOF
+echo '+ lib/export.ts'
+
+cat > 'components/ExportButton.tsx' << 'FILEEOF'
+'use client'
+import { useState, useRef, useEffect } from 'react'
+import { Download, FileSpreadsheet, FileText as FileTextIcon, Loader2 } from 'lucide-react'
+import { exportarPDF, exportarExcel, Columna } from '@/lib/export'
+
+type Props = {
+  titulo: string
+  subtitulo?: string
+  columnas: Columna[]
+  filas: Record<string, any>[]
+  filename: string
+  disabled?: boolean
+}
+
+export default function ExportButton({ titulo, subtitulo, columnas, filas, filename, disabled }: Props) {
+  const [open, setOpen] = useState(false)
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  async function handlePDF() {
+    setExporting('pdf')
+    try { await exportarPDF({ titulo, subtitulo, columnas, filas, filename }) }
+    finally { setExporting(null); setOpen(false) }
+  }
+
+  async function handleExcel() {
+    setExporting('excel')
+    try { await exportarExcel({ titulo, columnas, filas, filename }) }
+    finally { setExporting(null); setOpen(false) }
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        className="btn-outline"
+        onClick={() => setOpen(o => !o)}
+        disabled={disabled || filas.length === 0}
+        style={{ opacity: filas.length === 0 ? 0.5 : 1 }}
+      >
+        <Download size={15} /> Exportar
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 100,
+          background: 'white', borderRadius: 10, border: '1px solid var(--border)',
+          boxShadow: '0 8px 24px rgba(15,30,53,.15)', overflow: 'hidden', minWidth: 180,
+        }}>
+          <button
+            onClick={handlePDF}
+            disabled={exporting !== null}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13.5, color: 'var(--navy)', fontFamily: 'inherit' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#F4F7FB')}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
+          >
+            {exporting === 'pdf' ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <FileTextIcon size={15} color="var(--danger)" />}
+            Descargar PDF
+          </button>
+          <button
+            onClick={handleExcel}
+            disabled={exporting !== null}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13.5, color: 'var(--navy)', fontFamily: 'inherit', borderTop: '1px solid var(--border)' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = '#F4F7FB')}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
+          >
+            {exporting === 'excel' ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <FileSpreadsheet size={15} color="#1A7A4E" />}
+            Descargar Excel
+          </button>
+        </div>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+FILEEOF
+echo '+ components/ExportButton.tsx'
+
+cat > 'app/(app)/polizas/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -1053,3 +1242,598 @@ export default function PolizasPage() {
 
 
 
+FILEEOF
+echo '+ app/(app)/polizas/page.tsx'
+
+cat > 'app/(app)/vencimientos/page.tsx' << 'FILEEOF'
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react'
+import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import ExportButton from '@/components/ExportButton'
+
+function diasHasta(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso), hoy = new Date()
+  hoy.setHours(0,0,0,0)
+  return Math.round((d.getTime() - hoy.getTime()) / 86400000)
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  const [y,m,d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+type Item = {
+  id: string
+  numero: string
+  ramo: string
+  compania: string
+  vencimiento: string | null
+  corredor: string
+  moneda: string
+  cliente_nombre: string
+  cliente_tel: string
+  cliente_email: string
+  dias: number | null
+}
+
+export default function VencimientosPage() {
+  const supabase = createClient()
+  const [items, setItems]     = useState<Item[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch]   = useState('')
+  const [filtro, setFiltro]   = useState(90)
+
+  useEffect(() => { fetchVencimientos() }, [])
+
+  async function fetchVencimientos() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('polizas')
+      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, clientes(nombre, tel, email)')
+      .order('vencimiento', { ascending: true })
+
+    if (data) {
+      setItems(data.map(p => ({
+        id:              p.id,
+        numero:          p.numero,
+        ramo:            p.ramo,
+        compania:        p.compania,
+        vencimiento:     p.vencimiento,
+        corredor:        p.corredor,
+        moneda:          p.moneda,
+        cliente_nombre:  (p.clientes as any)?.nombre || '—',
+        cliente_tel:     (p.clientes as any)?.tel || '',
+        cliente_email:   (p.clientes as any)?.email || '',
+        dias:            diasHasta(p.vencimiento),
+      })))
+    }
+    setLoading(false)
+  }
+
+  const filtrados = items.filter(v => {
+    const q = search.toLowerCase()
+    const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
+    if (filtro === 0)  return matchQ && v.dias !== null && v.dias < 0
+    if (filtro === -1) return matchQ
+    return matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro
+  })
+
+  const urgentes   = filtrados.filter(v => v.dias !== null && v.dias >= 0 && v.dias <= 7)
+  const proximos   = filtrados.filter(v => v.dias !== null && v.dias > 7 && v.dias <= 30)
+  const planificados = filtrados.filter(v => v.dias !== null && v.dias > 30)
+  const vencidas   = filtrados.filter(v => v.dias !== null && v.dias < 0)
+
+  function Section({ title, items, dotColor }: { title: string; items: Item[]; dotColor: string }) {
+    if (items.length === 0) return null
+    return (
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>{title}</h2>
+          <span style={{ fontSize: 12, color: 'var(--slate)', background: '#EEF2F8', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
+        </div>
+        {items.map(v => (
+          <div key={v.id} style={{
+            background: 'white', borderRadius: 12, border: '1px solid var(--border)',
+            padding: '16px 18px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14,
+            borderLeft: `3px solid ${dotColor}`
+          }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+              background: v.dias !== null && v.dias < 0 ? '#FEE2E2' : v.dias !== null && v.dias <= 7 ? '#FEE2E2' : v.dias !== null && v.dias <= 30 ? '#FEF3C7' : '#EEF2F8',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: v.dias !== null && v.dias < 0 ? '#991B1B' : v.dias !== null && v.dias <= 7 ? '#991B1B' : v.dias !== null && v.dias <= 30 ? '#92400E' : 'var(--navy)' }}>
+                {v.dias !== null ? Math.abs(v.dias) : '?'}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', opacity: .7, color: 'var(--slate)' }}>
+                {v.dias !== null && v.dias < 0 ? 'venc.' : 'días'}
+              </span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{v.cliente_nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span className="badge badge-neutral">{v.ramo}</span>
+                <span style={{ fontFamily: 'monospace' }}>{v.numero}</span>
+                <span>{v.compania}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--slate)', fontWeight: 700, textTransform: 'uppercase' }}>Vence</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{formatFecha(v.vencimiento)}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+                {v.cliente_tel && <a href={`tel:${v.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>}
+                {v.cliente_email && <a href={`mailto:${v.cliente_email}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Mail size={12} /></a>}
+                {v.cliente_tel && <a href={`https://wa.me/${v.cliente_tel.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Vencimientos</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Pólizas ordenadas por proximidad de vencimiento</p>
+        </div>
+        <ExportButton
+          titulo="Vencimientos de pólizas"
+          subtitulo={`${filtrados.length} pólizas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Compañía', key: 'compania', width: 80 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Días', key: 'dias', width: 50 },
+            { header: 'Teléfono', key: 'telefono', width: 90 },
+          ]}
+          filas={filtrados.map(v => ({
+            cliente: v.cliente_nombre,
+            numero: v.numero,
+            ramo: v.ramo,
+            compania: v.compania,
+            vencimiento: formatFecha(v.vencimiento),
+            dias: v.dias !== null ? (v.dias < 0 ? `Vencida (${Math.abs(v.dias)}d)` : `${v.dias}d`) : '—',
+            telefono: v.cliente_tel,
+          }))}
+          filename="vencimientos-fascioli"
+        />
+      </div>
+
+      {/* Resumen */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Vencidas',    count: vencidas.length,    bg: '#FEE2E2', color: '#991B1B' },
+          { label: '≤ 7 días',   count: urgentes.length,    bg: '#FEE2E2', color: '#991B1B' },
+          { label: '8–30 días',  count: proximos.length,    bg: '#FEF3C7', color: '#92400E' },
+          { label: '31–90 días', count: planificados.length, bg: '#EEF2F8', color: 'var(--navy)' },
+        ].map(s => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '10px 18px' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.count}</div>
+            <div style={{ fontSize: 11, color: s.color, opacity: .8 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente o N° póliza..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[{l:'30 días',v:30},{l:'90 días',v:90},{l:'180 días',v:180},{l:'Vencidas',v:0},{l:'Todas',v:-1}].map(t =>
+            <button key={t.v} onClick={() => setFiltro(t.v)} className={`filter-btn ${filtro === t.v ? 'active' : ''}`}>{t.l}</button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)' }}>
+          <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
+          Cargando vencimientos...
+        </div>
+      ) : filtrados.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--slate)', background: 'white', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}></div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin vencimientos en este rango</div>
+          <div style={{ fontSize: 12 }}>Probá cambiando el filtro o agregando pólizas con fecha de vencimiento</div>
+        </div>
+      ) : (
+        <>
+          <Section title="Vencidas" items={vencidas} dotColor="#D94F4F" />
+          <Section title="Urgentes — vencen en 7 días o menos" items={urgentes} dotColor="#D94F4F" />
+          <Section title="Próximas — 8 a 30 días" items={proximos} dotColor="#D97706" />
+          <Section title="Planificadas — 31 a 90 días" items={planificados} dotColor="#4A80D4" />
+        </>
+      )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/vencimientos/page.tsx'
+
+cat > 'app/(app)/pagos/page.tsx' << 'FILEEOF'
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react'
+import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
+import ExportButton from '@/components/ExportButton'
+
+const estadoColor: Record<string, string> = {
+  'Cobrado':   'badge-success',
+  'Pendiente': 'badge-warning',
+  'Vencido':   'badge-danger',
+}
+
+// Metodos loaded from Supabase
+
+function diasHasta(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso), hoy = new Date()
+  hoy.setHours(0,0,0,0)
+  return Math.round((d.getTime() - hoy.getTime()) / 86400000)
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  const [y,m,d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+type Cuota = {
+  poliza_id: string
+  cuota_num: number
+  numero_poliza: string
+  ramo: string
+  compania: string
+  cliente_nombre: string
+  vencimiento: string | null
+  moneda: string
+  pago_id: string | null
+  pago_fecha: string | null
+  pago_metodo: string | null
+  pago_ref: string | null
+}
+
+export default function PagosPage() {
+  const supabase = createClient()
+  const [metodos, setMetodos] = useState<string[]>([])
+  const [cuotas, setCuotas]     = useState<Cuota[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [filtro, setFiltro]     = useState('Todos')
+  const [showModal, setShowModal] = useState<Cuota | null>(null)
+  const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    fetchCuotas()
+    supabase.from('metodos_pago').select('nombre').order('nombre')
+      .then(({ data }) => { if (data) setMetodos(data.map((x:any) => x.nombre)) })
+  }, [])
+
+  async function fetchCuotas() {
+    setLoading(true)
+    // Traer todas las polizas con sus clientes
+    const { data: polizas } = await supabase
+      .from('polizas')
+      .select('id, numero, ramo, compania, vencimiento, moneda, cuotas, cliente_id, clientes(nombre)')
+      .order('created_at', { ascending: false })
+
+    if (!polizas) { setLoading(false); return }
+
+    // Traer todos los pagos
+    const polizaIds = polizas.map(p => p.id)
+    const { data: pagos } = await supabase
+      .from('pagos')
+      .select('*')
+      .in('poliza_id', polizaIds)
+
+    // Expandir cuotas
+    const rows: Cuota[] = []
+    for (const pol of polizas) {
+      const nCuotas = pol.cuotas || 0
+      if (nCuotas === 0) continue
+      for (let n = 1; n <= nCuotas; n++) {
+        const pago = pagos?.find(pg => pg.poliza_id === pol.id && pg.cuota_num === n)
+        const d = diasHasta(pol.vencimiento)
+        rows.push({
+          poliza_id:       pol.id,
+          cuota_num:       n,
+          numero_poliza:   pol.numero,
+          ramo:            pol.ramo,
+          compania:        pol.compania,
+          cliente_nombre:  (pol.clientes as any)?.nombre || '—',
+          vencimiento:     pol.vencimiento,
+          moneda:          pol.moneda,
+          pago_id:         pago?.id || null,
+          pago_fecha:      pago?.fecha || null,
+          pago_metodo:     pago?.metodo || null,
+          pago_ref:        pago?.referencia || null,
+        })
+      }
+    }
+    setCuotas(rows)
+    setLoading(false)
+  }
+
+  async function cobrar() {
+    if (!showModal) return
+    setSaving(true)
+    await supabase.from('pagos').upsert([{
+      poliza_id:  showModal.poliza_id,
+      cuota_num:  showModal.cuota_num,
+      fecha:      pagoForm.fecha,
+      metodo:     pagoForm.metodo,
+      referencia: pagoForm.referencia,
+    }], { onConflict: 'poliza_id,cuota_num' })
+    setShowModal(null)
+    setSaving(false)
+    await fetchCuotas()
+  }
+
+  async function deshacer(c: Cuota) {
+    await supabase.from('pagos').delete().eq('poliza_id', c.poliza_id).eq('cuota_num', c.cuota_num)
+    await fetchCuotas()
+  }
+
+  const getEstado = (c: Cuota) => {
+    if (c.pago_id) return 'Cobrado'
+    const d = diasHasta(c.vencimiento)
+    if (d !== null && d < 0) return 'Vencido'
+    return 'Pendiente'
+  }
+
+  const filtradas = cuotas.filter(c => {
+    const q = search.toLowerCase()
+    const estado = getEstado(c)
+    return (!q || c.cliente_nombre.toLowerCase().includes(q) || c.numero_poliza.toLowerCase().includes(q) || c.ramo.toLowerCase().includes(q)) &&
+           (filtro === 'Todos' || estado === filtro)
+  })
+
+  const totalCobrado   = cuotas.filter(c => c.pago_id).length
+  const totalPendiente = cuotas.filter(c => !c.pago_id && (diasHasta(c.vencimiento) ?? 1) >= 0).length
+  const totalVencido   = cuotas.filter(c => !c.pago_id && (diasHasta(c.vencimiento) ?? 1) < 0).length
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Pagos</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
+        </div>
+        <ExportButton
+          titulo="Reporte de cobros"
+          subtitulo={`${filtradas.length} cuotas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Cuota', key: 'cuota', width: 40 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Estado', key: 'estado', width: 70 },
+            { header: 'Fecha de pago', key: 'fechaPago', width: 80 },
+            { header: 'Método', key: 'metodo', width: 80 },
+          ]}
+          filas={filtradas.map(c => ({
+            cliente: c.cliente_nombre,
+            numero: c.numero_poliza,
+            ramo: c.ramo,
+            cuota: c.cuota_num,
+            vencimiento: formatFecha(c.vencimiento),
+            estado: getEstado(c),
+            fechaPago: c.pago_fecha ? formatFecha(c.pago_fecha) : '—',
+            metodo: c.pago_metodo || '—',
+          }))}
+          filename="reporte-cobros-fascioli"
+        />
+      </div>
+
+      {/* Resumen */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
+        {[
+          { label: 'Cuotas cobradas',   value: totalCobrado,   bg: '#E6F5EF', color: '#1A7A4E' },
+          { label: 'Cuotas pendientes', value: totalPendiente, bg: '#FEF3C7', color: '#92400E' },
+          { label: 'Cuotas vencidas',   value: totalVencido,   bg: '#FEE2E2', color: '#991B1B' },
+        ].map(s => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: s.color, marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente, póliza o ramo..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'white', color: 'var(--navy)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['Todos','Cobrado','Pendiente','Vencido'].map(t =>
+            <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabla */}
+      <div className="table-card">
+        <table>
+          <colgroup>
+            <col style={{ width: 180 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} />
+            <col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} />
+            <col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>N° Póliza</th><th>Ramo</th><th>Compañía</th>
+              <th>Cuota</th><th>Vencimiento</th><th>Cobrado</th><th>Estado</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+                <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
+                Cargando pagos...
+              </td></tr>
+            ) : filtradas.length === 0 ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--slate)' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}></div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
+                <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
+              </td></tr>
+            ) : filtradas.map((c, i) => {
+              const estado = getEstado(c)
+              return (
+                <tr key={`${c.poliza_id}-${c.cuota_num}`}>
+                  <td style={{ fontWeight: 600 }}>{c.cliente_nombre}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
+                  <td><span className="badge badge-neutral">{c.ramo}</span></td>
+                  <td style={{ color: 'var(--slate)', fontSize: 13 }}>{c.compania}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.cuota_num}</td>
+                  <td style={{ fontSize: 13, color: 'var(--slate)' }}>{formatFecha(c.vencimiento)}</td>
+                  <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
+                  <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
+                  <td>
+                    {estado !== 'Cobrado'
+                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
+                          <CheckCircle size={12} /> Cobrar
+                        </button>
+                      : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--slate)' }} onClick={() => deshacer(c)}>Deshacer</button>
+                    }
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {/* Mobile card list */}
+        <div className="mobile-list" style={{ display: 'none' }}>
+          {filtradas.map((c, i) => {
+            const estado = getEstado(c)
+            return (
+              <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.cliente_nombre}</div>
+                  <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--slate)', marginBottom: 6 }}>
+                  <span className="badge badge-neutral" style={{ marginRight: 6 }}>{c.ramo}</span>
+                  <span style={{ fontFamily: 'monospace' }}>{c.numero_poliza}</span>
+                  {' · '}Cuota {c.cuota_num}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--slate)' }}>
+                    {c.pago_fecha ? `Cobrado ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
+                  </div>
+                  {estado !== 'Cobrado' && (
+                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' }); setShowModal(c) }}>
+                      Cobrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Modal cobrar */}
+      {showModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(null) }}>
+          <div className="pago-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar cobro</h3>
+              <button onClick={() => setShowModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--slate)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {showModal.cliente_nombre} · {showModal.ramo} · Cuota {showModal.cuota_num}
+            </div>
+            <div className="fgroup"><label>Fecha de cobro</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
+            <div className="fgroup">
+              <label>Método</label>
+              <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
+                {metodos.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="fgroup"><label>Referencia</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Comprobante (opcional)" /></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowModal(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={cobrar} disabled={saving}>
+                {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Confirmar cobro'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/pagos/page.tsx'
+
+cat > 'package.json' << 'FILEEOF'
+{
+  "name": "fascioli-seguros",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.0",
+    "date-fns": "^4.4.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.7",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+FILEEOF
+echo '+ package.json'
+
+npm install
+git add .
+git commit -m 'feat exportar PDF y Excel en polizas vencimientos y pagos'
+git push

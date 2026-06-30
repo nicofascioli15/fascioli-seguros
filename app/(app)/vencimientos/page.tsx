@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import ExportButton from '@/components/ExportButton'
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -130,9 +131,34 @@ export default function VencimientosPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Vencimientos</h1>
-        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Pólizas ordenadas por proximidad de vencimiento</p>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)' }}>Vencimientos</h1>
+          <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>Pólizas ordenadas por proximidad de vencimiento</p>
+        </div>
+        <ExportButton
+          titulo="Vencimientos de pólizas"
+          subtitulo={`${filtrados.length} pólizas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Compañía', key: 'compania', width: 80 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Días', key: 'dias', width: 50 },
+            { header: 'Teléfono', key: 'telefono', width: 90 },
+          ]}
+          filas={filtrados.map(v => ({
+            cliente: v.cliente_nombre,
+            numero: v.numero,
+            ramo: v.ramo,
+            compania: v.compania,
+            vencimiento: formatFecha(v.vencimiento),
+            dias: v.dias !== null ? (v.dias < 0 ? `Vencida (${Math.abs(v.dias)}d)` : `${v.dias}d`) : '—',
+            telefono: v.cliente_tel,
+          }))}
+          filename="vencimientos-fascioli"
+        />
       </div>
 
       {/* Resumen */}
@@ -188,4 +214,5 @@ export default function VencimientosPage() {
     </div>
   )
 }
+
 
