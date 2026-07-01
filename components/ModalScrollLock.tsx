@@ -6,6 +6,22 @@ import { useEffect } from 'react'
 // sin necesidad de tocarlos uno por uno.
 export default function ModalScrollLock() {
   useEffect(() => {
+    // Prevent browser from opening files when dragged outside drop zones
+    function preventDrop(e: DragEvent) {
+      if (!(e.target as HTMLElement).closest('[data-dropzone]')) {
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'none'
+      }
+    }
+    document.addEventListener('dragover', preventDrop)
+    document.addEventListener('drop', preventDrop)
+    return () => {
+      document.removeEventListener('dragover', preventDrop)
+      document.removeEventListener('drop', preventDrop)
+    }
+  }, [])
+
+  useEffect(() => {
     function checkModals() {
       const hasOpenModal = document.querySelector('.pago-overlay.open') !== null
       const mainContent = document.querySelector('.main-content') as HTMLElement | null
