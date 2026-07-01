@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/clientes'
+cat > 'app/(app)/clientes/ClientesList.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
@@ -446,3 +450,7 @@ export default function ClientesList({ onSelect }: Props) {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'fix csv acepta punto y coma y coma como separador'
+git push
