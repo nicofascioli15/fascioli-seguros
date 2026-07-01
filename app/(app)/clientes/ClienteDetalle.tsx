@@ -933,17 +933,25 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 <button onClick={() => setUploadFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16 }}>×</button>
               </div>
             ) : (
-              <div
-                onClick={() => fileRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
-                onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
-                onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setUploadFile(file) }}
-                style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', marginBottom: 16, transition: 'all .15s' }}
-              >
-                <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá el documento acá</div>
-              </div>
+              <>
+                <input
+                  type="file"
+                  id="upload-doc-input-cliente"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f); e.target.value = '' }}
+                />
+                <div
+                  onClick={() => (document.getElementById('upload-doc-input-cliente') as HTMLInputElement)?.click()}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                  onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setUploadFile(file) }}
+                  style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', marginBottom: 16, transition: 'all .15s' }}
+                >
+                  <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá el documento acá</div>
+                </div>
+              </>
             )}
             <div className="fgroup">
               <label>Tipo de documento</label>

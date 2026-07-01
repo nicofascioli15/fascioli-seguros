@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/polizas' 'app/(app)/clientes'
+cat > 'app/(app)/polizas/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
@@ -1247,3 +1251,1030 @@ export default function PolizasPage() {
 
 
 
+FILEEOF
+echo '+ app/(app)/polizas/page.tsx'
+
+cat > 'app/(app)/clientes/ClienteDetalle.tsx' << 'FILEEOF'
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
+import DatePicker from '@/components/DatePicker'
+import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
+
+const FERIADOS_UY = ['01-01', '05-01', '07-18', '08-25', '12-25']
+function esFeriado(date: Date): boolean {
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return FERIADOS_UY.includes(`${mm}-${dd}`)
+}
+function siguienteDiaHabil(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  while (date.getDay() === 0 || date.getDay() === 6 || esFeriado(date)) {
+    date.setDate(date.getDate() + 1)
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+}
+function addMonthsAndDays(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const targetMonthRaw = m - 1 + months
+  const targetYear = y + Math.floor(targetMonthRaw / 12)
+  const targetMonth = targetMonthRaw % 12
+  const maxDay = new Date(targetYear, targetMonth + 1, 0).getDate()
+  const finalDay = Math.min(d, maxDay)
+  const raw = `${targetYear}-${String(targetMonth + 1).padStart(2,'0')}-${String(finalDay).padStart(2,'0')}`
+  return siguienteDiaHabil(raw)
+}
+
+function parseFechasCuotaMes(cuotaMes: string): string[] {
+  if (!cuotaMes) return []
+  const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
+  return cuotaMes.split(' - ').map(item => {
+    const parts = item.split('/')
+    if (parts.length < 4) return ''
+    const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
+    return `${y}-${m}-${d}`
+  })
+}
+
+function formatValor(valor: string): string {
+  if (!valor) return '—'
+  if (valor.includes('|')) {
+    const [monto, moneda] = valor.split('|')
+    const num = Number(monto)
+    if (!isNaN(num)) return `${moneda} ${num.toLocaleString('es-UY', { minimumFractionDigits: 0 })}`
+  }
+  return valor
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  const [y,m,d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function fechasACuotaMes(fechas: string[]): string {
+  return fechas.map((f, i) => {
+    if (!f) return `${i+1}/?`
+    const [y,m,d] = f.split('-')
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    return `${i+1}/${d}/${meses[parseInt(m)-1]}/${y.slice(2)}`
+  }).join(' - ')
+}
+
+function ramoDot(ramo: string) {
+  const map: Record<string,string> = {
+    'Incendio': '#D94F4F', 'Vehículos': '#7C5CBF', 'Vida': '#2E9668',
+    'RC': '#2456B0', 'Multirriesgo': '#D97706', 'Inmuebles': '#0891B2',
+  }
+  return map[ramo] || '#94A3B8'
+}
+
+function diasHasta(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso), hoy = new Date()
+  hoy.setHours(0,0,0,0)
+  return Math.round((d.getTime() - hoy.getTime()) / 86400000)
+}
+
+function estadoBadge(venc: string | null) {
+  const d = diasHasta(venc)
+  if (d === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
+  if (d < 0) return { label: 'Vencida', cls: 'badge-danger' }
+  if (d <= 30) return { label: `${d}d`, cls: 'badge-danger' }
+  if (d <= 90) return { label: `${d}d`, cls: 'badge-warning' }
+  return { label: formatFecha(venc), cls: 'badge-success' }
+}
+
+function CampoInput({ campo, value, onChange }: {
+  campo: { id: string; nombre: string; tipo: string; opciones: string | null }
+  value: string
+  onChange: (v: string) => void
+}) {
+  if (campo.tipo === 'numero_moneda') {
+    const parts = value.split('|')
+    const monto = parts[0] || ''
+    const moneda = parts[1] || 'U$S'
+    return (
+      <div style={{ display: 'flex', gap: 8 }}>
+        <select value={moneda} onChange={e => onChange(`${monto}|${e.target.value}`)} style={{ flex: 1, minWidth: 70 }}>
+          <option>U$S</option><option>$</option><option>€</option>
+        </select>
+        <input type="number" value={monto} onChange={e => onChange(`${e.target.value}|${moneda}`)} placeholder="0" style={{ flex: 3 }} />
+      </div>
+    )
+  }
+  if (campo.tipo === 'select' && campo.opciones) return (
+    <select value={value} onChange={e => onChange(e.target.value)} style={{ color: value ? 'var(--navy)' : 'var(--slate)' }}>
+      <option value="">— Seleccionar —</option>
+      {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
+    </select>
+  )
+  if (campo.tipo === 'boolean') return (
+    <select value={value} onChange={e => onChange(e.target.value)} style={{ color: value ? 'var(--navy)' : 'var(--slate)' }}>
+      <option value="">— Seleccionar —</option>
+      <option>Sí</option><option>No</option>
+    </select>
+  )
+  if (campo.tipo === 'fecha') return <DatePicker value={value} onChange={onChange} />
+  return <input type={campo.tipo === 'numero' ? 'number' : 'text'} value={value} onChange={e => onChange(e.target.value)} placeholder={campo.nombre} />
+}
+
+function CuotasFechas({ cuotas, value, onChange }: { cuotas: number; value: string[]; onChange: (v: string[]) => void }) {
+  if (cuotas === 0) return (
+    <div style={{ padding: '12px', background: 'var(--bg-card-alt)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+      Ingresá la cantidad de cuotas primero
+    </div>
+  )
+  const dates = Array.from({ length: cuotas }, (_, i) => value[i] || '')
+  function handleChange(idx: number, val: string) {
+    const next = [...dates]; next[idx] = val
+    if (idx === 0 && val) {
+      for (let i = 1; i < cuotas; i++) { if (!next[i]) next[i] = addMonthsAndDays(val, i) }
+    }
+    onChange(next)
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
+      {dates.map((fecha, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: fecha ? 'var(--navy)' : '#EEF2F8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: fecha ? 'var(--gold)' : 'var(--slate)' }}>{i + 1}</div>
+          <div style={{ flex: 1 }}>
+            <DatePicker value={fecha} onChange={val => handleChange(i, val)} placeholder={i === 0 ? 'Fecha 1ª cuota (auto-completa las siguientes)' : `Fecha cuota ${i + 1}`} />
+          </div>
+          {i === 0 && fecha && cuotas > 1 && (
+            <button onClick={() => onChange(Array.from({ length: cuotas }, (_, j) => addMonthsAndDays(fecha, j)))}
+              style={{ flexShrink: 0, padding: '5px 10px', border: '1.5px solid var(--border-soft)', borderRadius: 7, background: 'var(--bg-card)', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              Recalcular
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+type Poliza = {
+  id: string; numero: string; ramo: string; compania: string; vencimiento: string | null
+  corredor: string; moneda: string; cuotas: number; cuota_mes: string; nota: string
+  poliza_campos?: { valor: string; campos_ramo: { nombre: string } }[]
+  pagos?: Record<number, { fecha: string; metodo: string; referencia: string }>
+  docs?: Doc[]
+}
+
+type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number }
+
+interface Props { id: string; nombre: string; onBack: () => void }
+
+export default function ClienteDetalle({ id, nombre, onBack }: Props) {
+  const supabase = createClient()
+
+  const [polizas, setPolizas]     = useState<Poliza[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [openCards, setOpenCards] = useState<Record<string, boolean>>({})
+  const [catalogos, setCatalogos] = useState<{ ramos: string[]; companias: string[]; corredores: string[]; monedas: string[]; metodos: string[] }>({ ramos: [], companias: [], corredores: [], monedas: [], metodos: [] })
+  const [toast, setToast]         = useState<string | null>(null)
+
+  // Nueva póliza
+  const [showPolizaModal, setShowPolizaModal] = useState(false)
+  const [polizaForm, setPolizaForm]           = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
+  const [camposRamo, setCamposRamo]           = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
+  const [valoresCampos, setValoresCampos]     = useState<Record<string, string>>({})
+  const [errores, setErrores]                 = useState<Record<string, boolean>>({})
+  const [savingPoliza, setSavingPoliza]       = useState(false)
+  const [showNuevoCorreder, setShowNuevoCorreder] = useState(false)
+  const [nuevoCorreder, setNuevoCorreder]     = useState('')
+
+  // Editar póliza
+  const [editandoPoliza, setEditandoPoliza]     = useState<Poliza | null>(null)
+  const [editPolizaForm, setEditPolizaForm]     = useState<any>({})
+  const [editCamposRamo, setEditCamposRamo]     = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
+  const [editValoresCampos, setEditValoresCampos] = useState<Record<string, string>>({})
+  const [savingEditPoliza, setSavingEditPoliza] = useState(false)
+  const [confirmEliminarPoliza, setConfirmEliminarPoliza] = useState<Poliza | null>(null)
+  const [eliminandoPoliza, setEliminandoPoliza] = useState(false)
+  const [editPagosCount, setEditPagosCount]     = useState(0)
+  const [editFechasCuotas, setEditFechasCuotas] = useState<string[]>([])
+
+  // Pago
+  const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
+  const [pagoForm, setPagoForm]             = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
+  const [savingPago, setSavingPago]         = useState(false)
+
+  // Docs
+  const [uploadingDoc, setUploadingDoc]     = useState<string | null>(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadFile, setUploadFile]         = useState<File | null>(null)
+  const [tiposDoc, setTiposDoc]             = useState<string[]>([])
+  const [docNueva, setDocNueva]             = useState<{ file: File; tipo: string } | null>(null)
+  const fileRefNueva                        = useRef<HTMLInputElement>(null)
+  const [uploadPolizaId, setUploadPolizaId] = useState<string | null>(null)
+  const [uploadTipoDoc, setUploadTipoDoc]   = useState('')
+  const fileRef                             = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { fetchPolizas(); fetchCatalogos() }, [])
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
+
+  async function fetchPolizas() {
+    setLoading(true)
+    const { data } = await supabase.from('polizas')
+      .select('*, poliza_campos(valor, campos_ramo(nombre))')
+      .eq('cliente_id', id).order('created_at')
+    if (data) {
+      // Load pagos and docs for each poliza
+      const ids = data.map((p: any) => p.id)
+      const [{ data: pagosData }, { data: docsData }] = await Promise.all([
+        supabase.from('pagos').select('*').in('poliza_id', ids),
+        supabase.from('documentos').select('*').in('poliza_id', ids).order('created_at', { ascending: false }),
+      ])
+      const pagosMap: Record<string, any> = {}
+      ;(pagosData || []).forEach((pg: any) => {
+        if (!pagosMap[pg.poliza_id]) pagosMap[pg.poliza_id] = {}
+        pagosMap[pg.poliza_id][pg.cuota_num] = pg
+      })
+      const docsMap: Record<string, Doc[]> = {}
+      ;(docsData || []).forEach((doc: any) => {
+        if (!docsMap[doc.poliza_id]) docsMap[doc.poliza_id] = []
+        docsMap[doc.poliza_id].push(doc)
+      })
+      setPolizas(data.map((p: any) => ({ ...p, pagos: pagosMap[p.id] || {}, docs: docsMap[p.id] || [] })))
+    }
+    setLoading(false)
+  }
+
+  async function fetchCatalogos() {
+    const [r, c, co, m, mp, td, cfg] = await Promise.all([
+      supabase.from('ramos').select('nombre').order('nombre'),
+      supabase.from('companias').select('nombre').order('nombre'),
+      supabase.from('corredores').select('nombre').order('nombre'),
+      supabase.from('monedas').select('nombre').order('nombre'),
+      supabase.from('metodos_pago').select('nombre').order('nombre'),
+      supabase.from('tipos_documento').select('nombre').order('nombre'),
+      supabase.from('configuracion_sistema').select('valor').eq('clave', 'metodo_pago_default').single(),
+    ])
+    const nombresMetodos = (mp.data || []).map((x: any) => x.nombre)
+    setCatalogos({
+      ramos:     (r.data || []).map((x: any) => x.nombre),
+      companias: (c.data || []).map((x: any) => x.nombre),
+      corredores:(co.data || []).map((x: any) => x.nombre),
+      monedas:   (m.data || []).map((x: any) => x.nombre),
+      metodos:   nombresMetodos,
+    })
+    setTiposDoc((td.data || []).map((x: any) => x.nombre))
+    setUploadTipoDoc((td.data || [])[0]?.nombre || '')
+    const metodoDef = cfg?.data?.valor && nombresMetodos.includes(cfg.data.valor) ? cfg.data.valor : (nombresMetodos[0] || 'Transferencia')
+    setPagoForm(p => ({ ...p, metodo: metodoDef }))
+  }
+
+  async function loadCamposRamo(ramo: string, polizaId?: string) {
+    const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', ramo).single()
+    if (!ramoData) { setCamposRamo([]); setValoresCampos({}); return }
+    const { data: campos } = await supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden')
+    setCamposRamo(campos || [])
+    if (polizaId) {
+      const { data: vals } = await supabase.from('poliza_campos').select('campo_id, valor').eq('poliza_id', polizaId)
+      const map: Record<string, string> = {}
+      ;(vals || []).forEach((v: any) => { map[v.campo_id] = v.valor })
+      setEditValoresCampos(map)
+    } else {
+      setValoresCampos({})
+    }
+  }
+
+  async function abrirEditar(pol: Poliza) {
+    setEditandoPoliza(pol)
+    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas })
+    setEditFechasCuotas(parseFechasCuotaMes(pol.cuota_mes || ''))
+    // Load pagos count
+    const { count } = await supabase.from('pagos').select('id', { count: 'exact', head: true }).eq('poliza_id', pol.id)
+    setEditPagosCount(count || 0)
+    const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', pol.ramo).single()
+    if (!ramoData) { setEditCamposRamo([]); setEditValoresCampos({}); return }
+    const [{ data: campos }, { data: vals }] = await Promise.all([
+      supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden'),
+      supabase.from('poliza_campos').select('campo_id, valor').eq('poliza_id', pol.id),
+    ])
+    setEditCamposRamo(campos || [])
+    const map: Record<string, string> = {}
+    ;(vals || []).forEach((v: any) => { map[v.campo_id] = v.valor })
+    setEditValoresCampos(map)
+  }
+
+  async function guardarEditPoliza() {
+    if (!editandoPoliza) return
+    setSavingEditPoliza(true)
+    const nCuotas = Number(editPolizaForm.cuotas) || editandoPoliza.cuotas || 0
+    const nuevasCuotaMes = editFechasCuotas.slice(0, nCuotas).map((f, i) => {
+      if (!f) return `${i+1}/?`
+      const [y,m,d] = f.split('-')
+      const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+      return `${i+1}/${d}/${meses[parseInt(m)-1]}/${y.slice(2)}`
+    }).join(' - ')
+    await supabase.from('polizas').update({
+      numero: editPolizaForm.numero, ramo: editPolizaForm.ramo,
+      compania: editPolizaForm.compania, corredor: editPolizaForm.corredor,
+      moneda: editPolizaForm.moneda, vencimiento: editPolizaForm.vencimiento || null,
+      nota: editPolizaForm.nota || null,
+      cuotas: nCuotas, cuota_mes: nuevasCuotaMes,
+    }).eq('id', editandoPoliza.id)
+    if (editCamposRamo.length > 0) {
+      const upserts = Object.entries(editValoresCampos).filter(([_, v]) => v.trim())
+        .map(([campoId, valor]) => ({ poliza_id: editandoPoliza.id, campo_id: campoId, valor }))
+      if (upserts.length > 0) await supabase.from('poliza_campos').upsert(upserts, { onConflict: 'poliza_id,campo_id' })
+    }
+    setEditandoPoliza(null)
+    setSavingEditPoliza(false)
+    showToast('Póliza actualizada')
+    await fetchPolizas()
+  }
+
+  async function guardarPoliza() {
+    const nCuotas = parseInt(polizaForm.cuotas) || 0
+    const errs: Record<string, boolean> = {}
+    if (!polizaForm.numero.trim())  errs.numero = true
+    if (!polizaForm.ramo)           errs.ramo = true
+    if (!polizaForm.compania)       errs.compania = true
+    if (!polizaForm.corredor)       errs.corredor = true
+    if (!polizaForm.vencimiento)    errs.vencimiento = true
+    if (nCuotas < 1)                errs.cuotas = true
+    if (nCuotas > 0 && !polizaForm.fechasCuotas[0]) errs.fecha_cuota_0 = true
+    if (nCuotas > 0) {
+      polizaForm.fechasCuotas.slice(0, nCuotas).forEach((f, i) => { if (!f) errs[`fecha_cuota_${i}`] = true })
+    }
+    if (Object.keys(errs).length > 0) { setErrores(errs); showToast('Completá todos los campos obligatorios'); return }
+    setErrores({})
+    setSavingPoliza(true)
+    const { error, data: polData } = await supabase.from('polizas').insert([{
+      cliente_id: id, ramo: polizaForm.ramo, compania: polizaForm.compania,
+      numero: polizaForm.numero, vencimiento: polizaForm.vencimiento || null,
+      corredor: polizaForm.corredor, moneda: polizaForm.moneda, cuotas: nCuotas,
+      cuota_mes: fechasACuotaMes(polizaForm.fechasCuotas), nota: polizaForm.nota || null,
+    }]).select().single()
+    if (!error && polData) {
+      const polizaId = (polData as any).id
+      if (Object.keys(valoresCampos).length > 0) {
+        const inserts = Object.entries(valoresCampos).filter(([_, v]) => v.trim())
+          .map(([campoId, valor]) => ({ poliza_id: polizaId, campo_id: campoId, valor }))
+        if (inserts.length > 0) await supabase.from('poliza_campos').insert(inserts)
+      }
+      // Subir documento si se adjuntó
+      if (docNueva) {
+        const path = `${id}/${polizaId}/${Date.now()}_${docNueva.file.name}`
+        await supabase.storage.from('documentos').upload(path, docNueva.file)
+        await supabase.from('documentos').insert([{
+          cliente_id: id, poliza_id: polizaId,
+          nombre: docNueva.file.name, tipo: docNueva.tipo,
+          storage_path: path, tamanio_bytes: docNueva.file.size,
+        }])
+        setDocNueva(null)
+      }
+      await registrarAudit({ accion: 'crear', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza creada: ${polizaForm.ramo} ${polizaForm.numero} — ${nombre}`, datosDespues: polData })
+      setShowPolizaModal(false)
+      setCamposRamo([]); setValoresCampos({})
+      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
+      await fetchPolizas()
+    }
+    setSavingPoliza(false)
+  }
+
+  async function confirmarEliminarPoliza() {
+    if (!confirmEliminarPoliza) return
+    const polizaId = confirmEliminarPoliza.id
+    setEliminandoPoliza(true)
+    const { data: polAntes } = await supabase.from('polizas').select('*').eq('id', polizaId).single()
+    // Borrar documentos del storage primero
+    const { data: docs } = await supabase.from('documentos').select('storage_path').eq('poliza_id', polizaId)
+    if (docs && docs.length > 0) {
+      await supabase.storage.from('documentos').remove(docs.map(d => d.storage_path))
+    }
+    // Borrar registros relacionados antes de la póliza
+    await supabase.from('pagos').delete().eq('poliza_id', polizaId)
+    await supabase.from('documentos').delete().eq('poliza_id', polizaId)
+    await supabase.from('poliza_campos').delete().eq('poliza_id', polizaId)
+    await supabase.from('siniestros').delete().eq('poliza_id', polizaId)
+    const { error } = await supabase.from('polizas').delete().eq('id', polizaId)
+    setEliminandoPoliza(false)
+    if (error) {
+      console.error('Error eliminando póliza:', error)
+      showToast(`Error: ${error.message}`)
+      return
+    }
+    setConfirmEliminarPoliza(null)
+    await registrarAudit({ accion: 'eliminar', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza eliminada: ${polAntes?.ramo} ${polAntes?.numero} — ${nombre}`, datosAntes: polAntes })
+    await fetchPolizas()
+  }
+
+  async function registrarPago() {
+    if (!showPagoModal) return
+    setSavingPago(true)
+    const { data: pagoData } = await supabase.from('pagos').upsert([{
+      poliza_id: showPagoModal.polizaId, cuota_num: showPagoModal.cuotaNum,
+      fecha: pagoForm.fecha, metodo: pagoForm.metodo, referencia: pagoForm.referencia,
+    }], { onConflict: 'poliza_id,cuota_num' }).select().single()
+    await registrarAudit({ accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id, descripcion: `Pago registrado: cuota ${showPagoModal.cuotaNum} — ${showPagoModal.ramo} — ${nombre}`, datosDespues: pagoData })
+    setShowPagoModal(null)
+    setSavingPago(false)
+    await fetchPolizas()
+  }
+
+  async function deshacerPago(polizaId: string, cuotaNum: number) {
+    if (!confirm('¿Deshacer este pago?')) return
+    await supabase.from('pagos').delete().eq('poliza_id', polizaId).eq('cuota_num', cuotaNum)
+    await fetchPolizas()
+  }
+
+  async function crearCorredor() {
+    if (!nuevoCorreder.trim()) return
+    await supabase.from('corredores').insert([{ nombre: nuevoCorreder.trim() }])
+    const { data } = await supabase.from('corredores').select('nombre').order('nombre')
+    setCatalogos(p => ({ ...p, corredores: (data || []).map((x: any) => x.nombre) }))
+    setPolizaForm(p => ({ ...p, corredor: nuevoCorreder.trim() }))
+    setShowNuevoCorreder(false); setNuevoCorreder('')
+  }
+
+  async function subirDoc(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadFile(file)
+    e.target.value = ''
+  }
+
+  async function confirmarSubida() {
+    if (!uploadFile || !uploadPolizaId) return
+    setUploadingDoc(uploadPolizaId)
+    setShowUploadModal(false)
+    const path = `${id}/${uploadPolizaId}/${Date.now()}_${uploadFile.name}`
+    await supabase.storage.from('documentos').upload(path, uploadFile)
+    await supabase.from('documentos').insert([{ cliente_id: id, poliza_id: uploadPolizaId, nombre: uploadFile.name, tipo: uploadTipoDoc, storage_path: path, tamanio_bytes: uploadFile.size }])
+    setUploadingDoc(null); setUploadPolizaId(null); setUploadFile(null)
+    await fetchPolizas(); showToast('Documento subido')
+  }
+
+  async function descargarDoc(doc: Doc) {
+    const { data } = await supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 60)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
+
+  async function eliminarDoc(doc: Doc) {
+    if (!confirm(`¿Eliminar "${doc.nombre}"?`)) return
+    await supabase.storage.from('documentos').remove([doc.storage_path])
+    await supabase.from('documentos').delete().eq('id', doc.id)
+    await fetchPolizas(); showToast('Documento eliminado')
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Clientes</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{nombre}</p>
+        </div>
+        <button className="btn-primary" onClick={() => setShowPolizaModal(true)}><Plus size={15} /> Nueva póliza</button>
+      </div>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, padding: 0 }}>
+        ← Volver a clientes
+      </button>
+
+      {/* Polizas */}
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{nombre}</div>
+          <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>{polizas.length}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>PÓLIZAS</div>
+          </div>
+        </div>
+
+        {loading ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando...</div>
+        : polizas.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin pólizas — creá la primera arriba</div>
+        : polizas.map(pol => {
+          const isOpen = !!openCards[pol.id]
+          const { label, cls } = estadoBadge(pol.vencimiento)
+          const pagosMap: Record<number, any> = {}
+          ;(pol.pagos ? Object.entries(pol.pagos) : []).forEach(([k, v]) => { pagosMap[Number(k)] = v })
+
+          return (
+            <div key={pol.id} className="poliza-card" style={{ transition: 'box-shadow .25s ease', boxShadow: isOpen ? '0 4px 20px rgba(15,30,53,.1)' : 'none' }}>
+              <div className="poliza-card-header"
+                onClick={() => setOpenCards(prev => ({ ...prev, [pol.id]: !prev[pol.id] }))}
+                style={{ transition: 'background .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+              >
+                <div className="ramo-dot" style={{ background: ramoDot(pol.ramo) }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="poliza-ramo">{pol.ramo}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="poliza-id">{pol.numero}</div>
+                    {pol.nota && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                        {pol.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <span className="badge badge-neutral" style={{ flexShrink: 0 }}>{pol.compania}</span>
+                <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{label}</span>
+                <button className="btn-outline btn-sm" style={{ fontSize: 11, padding: '3px 8px', flexShrink: 0 }}
+                  onClick={e => { e.stopPropagation(); abrirEditar(pol) }}>
+                  <Pencil size={11} /> Editar
+                </button>
+                <ChevronRight size={16} style={{ marginLeft: 4, color: 'var(--text-muted)', transition: 'transform .28s ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }} />
+              </div>
+
+              <div className="poliza-card-body" style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows .28s ease' }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <div className="poliza-grid">
+                    <div className="poliza-field"><div className="field-label">N° Póliza</div><div className="field-val" style={{ fontFamily: 'monospace' }}>{pol.numero}</div></div>
+                    <div className="poliza-field"><div className="field-label">Vencimiento</div><div className="field-val">{formatFecha(pol.vencimiento)}</div></div>
+                    <div className="poliza-field"><div className="field-label">Moneda</div><div className="field-val">{pol.moneda}</div></div>
+                    <div className="poliza-field"><div className="field-label">Corredor</div><div className="field-val">{pol.corredor}</div></div>
+                    <div className="poliza-field"><div className="field-label">Cuotas</div><div className="field-val">{pol.cuotas || '—'}</div></div>
+                  </div>
+
+                  {pol.nota && (
+                    <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, borderLeft: '3px solid var(--gold)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 4 }}>Nota</div>
+                      <div style={{ fontSize: 13.5, color: 'var(--text-main)' }}>{pol.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</div>
+                    </div>
+                  )}
+
+                  {pol.poliza_campos && pol.poliza_campos.filter(pc => pc.valor && pc.campos_ramo?.nombre).length > 0 && (
+                    <div style={{ background: 'var(--bg-card-alt)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Datos específicos — {pol.ramo}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                        {pol.poliza_campos.filter(pc => pc.valor && pc.campos_ramo?.nombre).map((pc, i) => (
+                          <div key={i}>
+                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{pc.campos_ramo.nombre}</div>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>{formatValor(pc.valor)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fechas por cuota */}
+                  {pol.cuota_mes && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>Fechas de vencimiento</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 10px' }}>
+                        {pol.cuota_mes.split(' - ').map((item, i) => {
+                          const pagado = pol.pagos && (pol.pagos as any)[i+1]
+                          return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, background: pagado ? '#E6F5EF' : '#F4F7FB', borderRadius: 7, padding: '4px 10px', fontSize: 12.5, fontWeight: 500, color: 'var(--text-main)' }}>
+                              <span style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: 11, minWidth: 14 }}>{i+1}</span>
+                              <span style={{ color: 'var(--border)', fontSize: 10 }}>|</span>
+                              <span>{item.split('/').slice(1).join('/')}</span>
+                              {pagado && <span style={{ fontSize: 10, color: '#1A7A4E', fontWeight: 700 }}>✓</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cuotas / Pagos */}
+                  {pol.cuotas > 0 && pol.cuota_mes && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Cuotas
+                      </div>
+                      {pol.cuota_mes.split(' - ').map((item, i) => {
+                        const n = i + 1
+                        const pago = pol.pagos && (pol.pagos as any)[n]
+                        const fechaStr = item.split('/').slice(1).join('/')
+                        return (
+                          <div key={n} className={`cuota-row ${pago ? 'paid' : ''}`}>
+                            <div className={`cuota-num ${pago ? 'paid' : 'pending'}`}>{n}</div>
+                            <div className="cuota-info">
+                              <div className="cuota-title">Cuota {n} — {fechaStr}</div>
+                              <div className="cuota-sub">{pago ? `Pagado ${pago.fecha} · ${pago.metodo}` : 'Pendiente'}</div>
+                            </div>
+                            {pago ? (
+                              <><span className="cuota-paid-tag">Pagada</span>
+                              <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => deshacerPago(pol.id, n)}>Deshacer</button></>
+                            ) : (
+                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: new Date().toISOString().slice(0,10), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
+                                + Registrar pago
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Documentos */}
+                  <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    {pol.docs && pol.docs.length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 6 }}>Documentos</div>
+                        {pol.docs.map((doc: Doc) => (
+                          <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F1F5FB' }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--bg-card-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Paperclip size={13} color="var(--slate)" />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doc.tipo}</div>
+                            </div>
+                            <button className="btn-outline btn-sm" onClick={() => descargarDoc(doc)} title="Descargar"><Download size={12} /></button>
+                            <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminarDoc(doc)} title="Eliminar"><Trash2 size={12} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button className="btn-outline btn-sm" onClick={() => { setUploadPolizaId(pol.id); setUploadFile(null); setShowUploadModal(true) }} disabled={uploadingDoc === pol.id}>
+                        <Upload size={13} /> {uploadingDoc === pol.id ? 'Subiendo...' : 'Subir doc'}
+                      </button>
+                      <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminarPoliza(pol)}>
+                        <Trash2 size={13} /> Eliminar póliza
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Hidden file input */}
+      <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={subirDoc} />
+
+      {/* Modal nueva póliza */}
+      {showPolizaModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowPolizaModal(false); setErrores({}); setCamposRamo([]); setValoresCampos({}) } }}>
+          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva póliza</h3>
+              <button onClick={() => { setShowPolizaModal(false); setErrores({}) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Cliente: {nombre}</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+              <div className="fgroup">
+                <label>Ramo *</label>
+                <select value={polizaForm.ramo} onChange={async e => {
+                  const r = e.target.value; setPolizaForm({ ...polizaForm, ramo: r }); setErrores(p => ({...p, ramo: false})); setValoresCampos({})
+                  if (r) { const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', r).single(); if (rd) { const { data: c } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden'); setCamposRamo(c || []) } else setCamposRamo([]) } else setCamposRamo([])
+                }} style={{ borderColor: errores.ramo ? 'var(--danger)' : undefined, color: polizaForm.ramo ? 'var(--navy)' : 'var(--slate)' }}>
+                  <option value="">— Seleccionar —</option>
+                  {catalogos.ramos.map(r => <option key={r}>{r}</option>)}
+                </select>
+                {errores.ramo && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+              </div>
+              <div className="fgroup">
+                <label>N° Póliza *</label>
+                <input value={polizaForm.numero} onChange={e => { setPolizaForm({ ...polizaForm, numero: e.target.value }); setErrores(p => ({...p, numero: false})) }} placeholder="Ej: 4309338" autoFocus style={{ borderColor: errores.numero ? 'var(--danger)' : undefined }} />
+                {errores.numero && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+              </div>
+              <div className="fgroup">
+                <label>Compañía *</label>
+                <select value={polizaForm.compania} onChange={e => { setPolizaForm({ ...polizaForm, compania: e.target.value }); setErrores(p => ({...p, compania: false})) }} style={{ borderColor: errores.compania ? 'var(--danger)' : undefined, color: polizaForm.compania ? 'var(--navy)' : 'var(--slate)' }}>
+                  <option value="">— Seleccionar —</option>
+                  {catalogos.companias.map(c => <option key={c}>{c}</option>)}
+                </select>
+                {errores.compania && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+              </div>
+              <div className="fgroup">
+                <label>Corredor *</label>
+                {showNuevoCorreder ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={nuevoCorreder} onChange={e => setNuevoCorreder(e.target.value)} onKeyDown={e => e.key === 'Enter' && crearCorredor()} placeholder="Nombre del corredor" autoFocus style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+                    <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
+                    <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorreder(false); setNuevoCorreder('') }} style={{ padding: '8px 12px' }}>×</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select value={polizaForm.corredor} onChange={e => { setPolizaForm({ ...polizaForm, corredor: e.target.value }); setErrores(p => ({...p, corredor: false})) }} style={{ flex: 1, color: polizaForm.corredor ? 'var(--navy)' : 'var(--slate)', borderColor: errores.corredor ? 'var(--danger)' : undefined }}>
+                      <option value="">— Seleccionar —</option>
+                      {catalogos.corredores.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorreder(true)} title="Crear corredor" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
+                  </div>
+                )}
+                {errores.corredor && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+              </div>
+              <div className="fgroup">
+                <label>Vencimiento *</label>
+                <div style={{ border: errores.vencimiento ? '1.5px solid var(--danger)' : '1.5px solid transparent', borderRadius: 9 }}>
+                  <DatePicker value={polizaForm.vencimiento} onChange={v => { setPolizaForm({ ...polizaForm, vencimiento: v }); setErrores(p => ({...p, vencimiento: false})) }} placeholder="Seleccionar fecha" />
+                </div>
+                {errores.vencimiento && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+              </div>
+              <div className="fgroup">
+                <label>Moneda *</label>
+                <select value={polizaForm.moneda} onChange={e => setPolizaForm({ ...polizaForm, moneda: e.target.value })} style={{ color: polizaForm.moneda ? 'var(--navy)' : 'var(--slate)' }}>
+                  <option value="">— Seleccionar —</option>
+                  {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div className="fgroup">
+                <label>Cantidad de cuotas *</label>
+                <input type="number" min="1" max="36" value={polizaForm.cuotas} onChange={e => { setPolizaForm({ ...polizaForm, cuotas: e.target.value, fechasCuotas: [] }); setErrores(p => ({...p, cuotas: false})) }} placeholder="Ej: 10" style={{ borderColor: errores.cuotas ? 'var(--danger)' : undefined }} />
+                {errores.cuotas && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Ingresá al menos 1 cuota</div>}
+              </div>
+              <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad primero</span></label>
+                {Object.keys(errores).some(k => k.startsWith('fecha_cuota')) && <div style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>Completá todas las fechas</div>}
+                <CuotasFechas cuotas={parseInt(polizaForm.cuotas) || 0} value={polizaForm.fechasCuotas} onChange={v => setPolizaForm({ ...polizaForm, fechasCuotas: v })} />
+              </div>
+
+              {camposRamo.length > 0 && (
+                <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>Datos específicos de {polizaForm.ramo}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                    {camposRamo.map(campo => (
+                      <div key={campo.id} className="fgroup">
+                        <label>{campo.nombre}</label>
+                        <CampoInput campo={campo} value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>(opcional)</span></label>
+                <textarea value={polizaForm.nota} onChange={e => setPolizaForm({ ...polizaForm, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
+                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
+              </div>
+            </div>
+            {/* Adjuntar documento opcional */}
+            <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
+                Documento adjunto <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
+              </div>
+              {docNueva ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📎 {docNueva.file.name}
+                  </div>
+                  <select value={docNueva.tipo} onChange={e => setDocNueva((d: any) => d ? { ...d, tipo: e.target.value } : null)}
+                    style={{ padding: '5px 8px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }}>
+                    {tiposDoc.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  <button onClick={() => setDocNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: '0 4px' }}>×</button>
+                </div>
+              ) : (
+                <button className="btn-outline btn-sm" onClick={() => fileRefNueva.current?.click()} style={{ width: '100%', justifyContent: 'center' }}>
+                  <Upload size={13} /> Adjuntar documento
+                </button>
+              )}
+              <input ref={fileRefNueva} type="file" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) setDocNueva({ file: f, tipo: tiposDoc[0] || 'Póliza' }); e.target.value = '' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => { setShowPolizaModal(false); setErrores({}) }}>Cancelar</button>
+              <button className="btn-primary" onClick={guardarPoliza} disabled={savingPoliza}>
+                {savingPoliza ? 'Guardando...' : 'Guardar póliza'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar póliza */}
+      {editandoPoliza && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditandoPoliza(null) }}>
+          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0 }} onClick={e => e.stopPropagation()}>
+            {/* Sticky header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Editar póliza</h3>
+              <button onClick={() => setEditandoPoliza(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
+            </div>
+            {/* Scrollable body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+              <div className="fgroup"><label>N° Póliza</label><input value={editPolizaForm.numero || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, numero: e.target.value}))} /></div>
+              <div className="fgroup"><label>Ramo</label>
+                <select value={editPolizaForm.ramo || ''} onChange={async e => {
+                  const nuevoRamo = e.target.value
+                  setEditPolizaForm((p: any) => ({...p, ramo: nuevoRamo}))
+                  setEditValoresCampos({})
+                  if (nuevoRamo) {
+                    const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()
+                    if (rd) {
+                      const { data: campos } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden')
+                      setEditCamposRamo(campos || [])
+                    } else setEditCamposRamo([])
+                  } else setEditCamposRamo([])
+                }}>
+                  {catalogos.ramos.map(r => <option key={r}>{r}</option>)}
+                </select></div>
+              <div className="fgroup"><label>Compañía</label>
+                <select value={editPolizaForm.compania || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, compania: e.target.value}))}>
+                  {catalogos.companias.map(c => <option key={c}>{c}</option>)}
+                </select></div>
+              <div className="fgroup"><label>Corredor</label>
+                <select value={editPolizaForm.corredor || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, corredor: e.target.value}))}>
+                  {catalogos.corredores.map(c => <option key={c}>{c}</option>)}
+                </select></div>
+              <div className="fgroup"><label>Vencimiento</label>
+                <DatePicker value={editPolizaForm.vencimiento || ''} onChange={v => setEditPolizaForm((p: any) => ({...p, vencimiento: v}))} /></div>
+              <div className="fgroup"><label>Moneda</label>
+                <select value={editPolizaForm.moneda || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, moneda: e.target.value}))}>
+                  {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
+                </select></div>
+              <div className="fgroup">
+                <label>Cantidad de cuotas</label>
+                <input type="number" value={editPolizaForm.cuotas || ''} min={editPagosCount} max={36}
+                  onChange={e => {
+                    const n = parseInt(e.target.value) || 0
+                    if (n < editPagosCount) return
+                    setEditPolizaForm((p: any) => ({...p, cuotas: n}))
+                    if (n > editFechasCuotas.length) {
+                      const base = editFechasCuotas[0] || ''
+                      setEditFechasCuotas(Array.from({ length: n }, (_, i) => editFechasCuotas[i] || (base ? addMonthsAndDays(base, i) : '')))
+                    } else {
+                      setEditFechasCuotas(prev => prev.slice(0, n))
+                    }
+                  }} />
+                {editPagosCount > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
+                    Mínimo {editPagosCount} ({editPagosCount} ya pagada{editPagosCount > 1 ? 's' : ''})
+                  </div>
+                )}
+              </div>
+              <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nota (opcional)</label>
+                <textarea value={editPolizaForm.nota || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, nota: e.target.value}))} rows={2}
+                  style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)' }} /></div>
+            </div>
+            {editCamposRamo.length > 0 && (
+              <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>Datos específicos — {editPolizaForm.ramo}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                  {editCamposRamo.map(campo => (
+                    <div key={campo.id} className="fgroup">
+                      <label>{campo.nombre}</label>
+                      <CampoInput campo={campo} value={editValoresCampos[campo.id] || ''} onChange={v => setEditValoresCampos(p => ({...p, [campo.id]: v}))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {editFechasCuotas.length > 0 && (
+              <div className="fgroup" style={{ marginTop: 8 }}>
+                <label>Fechas de vencimiento por cuota</label>
+                <CuotasFechas cuotas={Number(editPolizaForm.cuotas) || editFechasCuotas.length} value={editFechasCuotas} onChange={setEditFechasCuotas} />
+              </div>
+            )}
+            </div>
+            {/* Sticky footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-card)', borderRadius: '0 0 14px 14px' }}>
+              <button className="btn-outline" onClick={() => setEditandoPoliza(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={guardarEditPoliza} disabled={savingEditPoliza}>
+                {savingEditPoliza ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal registrar pago */}
+      {showPagoModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowPagoModal(null) }}>
+          <div className="pago-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar pago</h3>
+              <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}
+            </div>
+            <div className="fgroup"><label>Fecha de pago</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
+            <div className="fgroup"><label>Método de pago</label>
+              <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
+                {catalogos.metodos.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="fgroup"><label>Referencia</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Comprobante (opcional)" /></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowPagoModal(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={registrarPago} disabled={savingPago}>
+                {savingPago ? 'Guardando...' : 'Confirmar pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal subir documento */}
+      {showUploadModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowUploadModal(false); setUploadFile(null) } }}>
+          <div className="pago-modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Subir documento</h3>
+              <button onClick={() => { setShowUploadModal(false); setUploadFile(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            {/* File preview or drop zone */}
+            {uploadFile ? (
+              <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Paperclip size={16} color="var(--gold)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploadFile.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{(uploadFile.size / 1024).toFixed(0)} KB</div>
+                </div>
+                <button onClick={() => setUploadFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16 }}>×</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="file"
+                  id="upload-doc-input-cliente"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f); e.target.value = '' }}
+                />
+                <div
+                  onClick={() => (document.getElementById('upload-doc-input-cliente') as HTMLInputElement)?.click()}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                  onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setUploadFile(file) }}
+                  style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', marginBottom: 16, transition: 'all .15s' }}
+                >
+                  <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá el documento acá</div>
+                </div>
+              </>
+            )}
+            <div className="fgroup">
+              <label>Tipo de documento</label>
+              <select value={uploadTipoDoc} onChange={e => setUploadTipoDoc(e.target.value)}>
+                {tiposDoc.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => { setShowUploadModal(false); setUploadFile(null) }}>Cancelar</button>
+              <button className="btn-primary" onClick={confirmarSubida} disabled={!uploadFile}>
+                <Upload size={14} /> Subir archivo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar póliza */}
+      {confirmEliminarPoliza && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminandoPoliza) setConfirmEliminarPoliza(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar esta póliza?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 4 }}>
+                Estás por eliminar la póliza <strong style={{ color: 'var(--text-main)' }}>{confirmEliminarPoliza.numero}</strong> ({confirmEliminarPoliza.ramo}).
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginBottom: 20 }}>
+                Esta acción no se puede deshacer. Se eliminarán también sus cuotas, pagos y documentos adjuntos.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarPoliza(null)} disabled={eliminandoPoliza}>
+                Cancelar
+              </button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarPoliza}
+                disabled={eliminandoPoliza}
+              >
+                {eliminandoPoliza ? <>Eliminando...</> : <><Trash2 size={14} /> Eliminar definitivamente</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 300, background: 'var(--navy)', color: 'white', padding: '12px 20px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,.2)', borderLeft: '3px solid var(--gold)' }}>
+          {toast}
+        </div>
+      )}
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+      `}</style>
+    </div>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/clientes/ClienteDetalle.tsx'
+
+git add .
+git commit -m 'fix boton subir doc y drag drop modal documentos'
+git push
