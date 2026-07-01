@@ -161,7 +161,7 @@ function CuotasFechas({ cuotas, value, onChange }: { cuotas: number; value: stri
 
 type Poliza = {
   id: string; numero: string; ramo: string; compania: string; vencimiento: string | null
-  corredor: string; moneda: string; cuotas: number; cuota_mes: string; nota: string
+  corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string
   poliza_campos?: { valor: string; campos_ramo: { nombre: string } }[]
   pagos?: Record<number, { fecha: string; metodo: string; referencia: string }>
   docs?: Doc[]
@@ -182,7 +182,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   // Nueva póliza
   const [showPolizaModal, setShowPolizaModal] = useState(false)
-  const [polizaForm, setPolizaForm]           = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
+  const [polizaForm, setPolizaForm]           = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
   const [camposRamo, setCamposRamo]           = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
   const [valoresCampos, setValoresCampos]     = useState<Record<string, string>>({})
   const [errores, setErrores]                 = useState<Record<string, boolean>>({})
@@ -289,7 +289,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function abrirEditar(pol: Poliza) {
     setEditandoPoliza(pol)
-    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas })
+    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, corredor_nombre: pol.corredor_nombre || '', corredor_tel: pol.corredor_tel || '', moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas })
     setEditFechasCuotas(parseFechasCuotaMes(pol.cuota_mes || ''))
     // Load pagos count
     const { count } = await supabase.from('pagos').select('id', { count: 'exact', head: true }).eq('poliza_id', pol.id)
@@ -319,6 +319,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await supabase.from('polizas').update({
       numero: editPolizaForm.numero, ramo: editPolizaForm.ramo,
       compania: editPolizaForm.compania, corredor: editPolizaForm.corredor,
+      corredor_nombre: editPolizaForm.corredor === 'Otro' ? editPolizaForm.corredor_nombre : null,
+      corredor_tel:    editPolizaForm.corredor === 'Otro' ? editPolizaForm.corredor_tel    : null,
       moneda: editPolizaForm.moneda, vencimiento: editPolizaForm.vencimiento || null,
       nota: editPolizaForm.nota || null,
       cuotas: nCuotas, cuota_mes: nuevasCuotaMes,
@@ -354,6 +356,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       cliente_id: id, ramo: polizaForm.ramo, compania: polizaForm.compania,
       numero: polizaForm.numero, vencimiento: polizaForm.vencimiento || null,
       corredor: polizaForm.corredor, moneda: polizaForm.moneda, cuotas: nCuotas,
+      corredor_nombre: polizaForm.corredor === 'Otro' ? polizaForm.corredor_nombre : null,
+      corredor_tel:    polizaForm.corredor === 'Otro' ? polizaForm.corredor_tel    : null,
       cuota_mes: fechasACuotaMes(polizaForm.fechasCuotas), nota: polizaForm.nota || null,
     }]).select().single()
     if (!error && polData) {
@@ -377,7 +381,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       await registrarAudit({ accion: 'crear', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza creada: ${polizaForm.ramo} ${polizaForm.numero} — ${nombre}`, datosDespues: polData })
       setShowPolizaModal(false)
       setCamposRamo([]); setValoresCampos({})
-      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
+      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
       await fetchPolizas()
     }
     setSavingPoliza(false)
@@ -535,7 +539,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     <div className="poliza-field"><div className="field-label">N° Póliza</div><div className="field-val" style={{ fontFamily: 'monospace' }}>{pol.numero}</div></div>
                     <div className="poliza-field"><div className="field-label">Vencimiento</div><div className="field-val">{formatFecha(pol.vencimiento)}</div></div>
                     <div className="poliza-field"><div className="field-label">Moneda</div><div className="field-val">{pol.moneda}</div></div>
-                    <div className="poliza-field"><div className="field-label">Corredor</div><div className="field-val">{pol.corredor}</div></div>
+                    <div className="poliza-field"><div className="field-label">Corredor</div><div className="field-val">{pol.corredor === 'Otro' && pol.corredor_nombre ? `${pol.corredor_nombre}${pol.corredor_tel ? ' · ' + pol.corredor_tel : ''}` : pol.corredor}</div></div>
                     <div className="poliza-field"><div className="field-label">Cuotas</div><div className="field-val">{pol.cuotas || '—'}</div></div>
                   </div>
 
@@ -705,6 +709,16 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   </div>
                 )}
                 {errores.corredor && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+                {polizaForm.corredor === 'Otro' && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input value={polizaForm.corredor_nombre} onChange={e => setPolizaForm(f => ({ ...f, corredor_nombre: e.target.value }))}
+                      placeholder="Nombre del corredor"
+                      style={{ flex: 2, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                    <input value={polizaForm.corredor_tel} onChange={e => setPolizaForm(f => ({ ...f, corredor_tel: e.target.value }))}
+                      placeholder="Teléfono"
+                      style={{ flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                  </div>
+                )}
               </div>
               <div className="fgroup">
                 <label>Vencimiento *</label>
@@ -830,9 +844,21 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   {catalogos.companias.map(c => <option key={c}>{c}</option>)}
                 </select></div>
               <div className="fgroup"><label>Corredor</label>
-                <select value={editPolizaForm.corredor || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, corredor: e.target.value}))}>
+                <select value={editPolizaForm.corredor || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, corredor: e.target.value, corredor_nombre: '', corredor_tel: ''}))}>
                   {catalogos.corredores.map(c => <option key={c}>{c}</option>)}
-                </select></div>
+                  <option value="Otro">Otro (ingresar manualmente)</option>
+                </select>
+                {editPolizaForm.corredor === 'Otro' && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input value={editPolizaForm.corredor_nombre || ''} onChange={e => setEditPolizaForm((p: any) => ({ ...p, corredor_nombre: e.target.value }))}
+                      placeholder="Nombre del corredor"
+                      style={{ flex: 2, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                    <input value={editPolizaForm.corredor_tel || ''} onChange={e => setEditPolizaForm((p: any) => ({ ...p, corredor_tel: e.target.value }))}
+                      placeholder="Teléfono"
+                      style={{ flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                  </div>
+                )}
+                </div>
               <div className="fgroup"><label>Vencimiento</label>
                 <DatePicker value={editPolizaForm.vencimiento || ''} onChange={v => setEditPolizaForm((p: any) => ({...p, vencimiento: v}))} /></div>
               <div className="fgroup"><label>Moneda</label>
