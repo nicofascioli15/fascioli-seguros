@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/clientes'
+cat > 'app/(app)/clientes/ClienteDetalle.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
@@ -994,3 +998,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'feat adjuntar documento al crear poliza desde clientes'
+git push
