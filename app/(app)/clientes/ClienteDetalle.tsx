@@ -440,10 +440,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function subirDoc(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !uploadPolizaId) return
+    if (!file) return
     setUploadFile(file)
-    setShowUploadModal(true)
-    // Reset input so same file can be selected again
     e.target.value = ''
   }
 
@@ -636,7 +634,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <button className="btn-outline btn-sm" onClick={() => { setUploadPolizaId(pol.id); fileRef.current?.click() }} disabled={uploadingDoc === pol.id}>
+                      <button className="btn-outline btn-sm" onClick={() => { setUploadPolizaId(pol.id); setUploadFile(null); setShowUploadModal(true) }} disabled={uploadingDoc === pol.id}>
                         <Upload size={13} /> {uploadingDoc === pol.id ? 'Subiendo...' : 'Subir doc'}
                       </button>
                       <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminarPoliza(pol)}>
@@ -915,23 +913,38 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       )}
 
       {/* Modal subir documento */}
-      {showUploadModal && uploadFile && (
+      {showUploadModal && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowUploadModal(false); setUploadFile(null) } }}>
           <div className="pago-modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Subir documento</h3>
               <button onClick={() => { setShowUploadModal(false); setUploadFile(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            {/* File preview */}
-            <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Paperclip size={16} color="var(--gold)" />
+            {/* File preview or drop zone */}
+            {uploadFile ? (
+              <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Paperclip size={16} color="var(--gold)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploadFile.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{(uploadFile.size / 1024).toFixed(0)} KB</div>
+                </div>
+                <button onClick={() => setUploadFile(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16 }}>×</button>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uploadFile.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{(uploadFile.size / 1024).toFixed(0)} KB</div>
+            ) : (
+              <div
+                onClick={() => fileRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
+                onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setUploadFile(file) }}
+                style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', marginBottom: 16, transition: 'all .15s' }}
+              >
+                <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá el documento acá</div>
               </div>
-            </div>
+            )}
             <div className="fgroup">
               <label>Tipo de documento</label>
               <select value={uploadTipoDoc} onChange={e => setUploadTipoDoc(e.target.value)}>
@@ -940,7 +953,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => { setShowUploadModal(false); setUploadFile(null) }}>Cancelar</button>
-              <button className="btn-primary" onClick={confirmarSubida}>
+              <button className="btn-primary" onClick={confirmarSubida} disabled={!uploadFile}>
                 <Upload size={14} /> Subir archivo
               </button>
             </div>
