@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/dashboard'
+cat > 'app/(app)/dashboard/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
@@ -213,3 +217,7 @@ export default function DashboardPage() {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'feat dashboard panel vencimiento cuotas separado de polizas'
+git push
