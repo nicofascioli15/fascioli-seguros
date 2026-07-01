@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/pagos'
+cat > 'app/(app)/pagos/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -352,3 +356,7 @@ export default function PagosPage() {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'fix vencimiento cuotas usa fecha individual no fecha poliza y ordena asc'
+git push
