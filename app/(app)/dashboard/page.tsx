@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   async function fetchStats() {
     const [{ data: polizasData }, { count: siniestros }, { data: pagosData }] = await Promise.all([
-      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, clientes(nombre)'),
+      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, clientes(nombre, id)'),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
       supabase.from('pagos').select('poliza_id, cuota_num'),
     ])
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         if (!fecha) continue
         const d = diasHasta(fecha)
         if (d !== null && d >= 0 && d <= 90) {
-          cuotaRows.push({ poliza_id: pol.id, cuota_num: n, ramo: pol.ramo, cliente: (pol.clientes as any)?.nombre, fecha, dias: d })
+          cuotaRows.push({ poliza_id: pol.id, numero: pol.numero, cuota_num: n, ramo: pol.ramo, cliente: (pol.clientes as any)?.nombre, fecha, dias: d })
         }
       }
     }
@@ -151,11 +151,16 @@ export default function DashboardPage() {
             const d = diasHasta(p.vencimiento)
             const cls = d !== null && d <= 7 ? 'badge-danger' : d !== null && d <= 30 ? 'badge-warning' : 'badge-success'
             return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border-soft)', overflow: 'hidden' }}>
+              <a key={p.id} href={`/polizas?open=${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border-soft)', overflow: 'hidden', textDecoration: 'none', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span className="badge badge-neutral" style={{ flexShrink: 0 }}>{p.ramo}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(p.clientes as any)?.nombre}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>{(p.clientes as any)?.nombre}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Póliza {p.numero}</div>
+                </div>
                 <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{d}d</span>
-              </div>
+              </a>
             )
           })}
           {vencProximas.length > 0 && (
@@ -173,13 +178,18 @@ export default function DashboardPage() {
           ) : cuotasProximas.map((c, i) => {
             const cls = c.dias <= 7 ? 'badge-danger' : c.dias <= 30 ? 'badge-warning' : 'badge-success'
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border-soft)', overflow: 'hidden' }}>
+              <a key={i} href={`/polizas?open=${c.poliza_id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border-soft)', overflow: 'hidden', textDecoration: 'none', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span className="badge badge-neutral" style={{ flexShrink: 0 }}>{c.ramo}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {c.cliente} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11 }}>· C{c.cuota_num}</span>
-                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                    {c.cliente} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11 }}>· Cuota {c.cuota_num}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Póliza {c.numero}</div>
+                </div>
                 <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{c.dias}d</span>
-              </div>
+              </a>
             )
           })}
           {cuotasProximas.length > 0 && (
