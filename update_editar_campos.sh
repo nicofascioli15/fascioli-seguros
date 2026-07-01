@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/configuracion'
+cat > 'app/(app)/configuracion/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -477,3 +481,7 @@ export default function ConfiguracionPage() {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'feat editar campos adicionales por ramo'
+git push
