@@ -133,7 +133,10 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         ><ChevronLeft size={16} /></button>
 
         <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-main)', display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span>{MESES[viewMonth]}</span>
+          <select value={viewMonth} onChange={e => setViewMonth(+e.target.value)}
+            style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--text-main)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+            {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
           <select value={viewYear} onChange={e => setViewYear(+e.target.value)}
             style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--text-main)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
             {Array.from({ length: 15 }, (_, i) => today.getFullYear() - 2 + i).map(y =>
