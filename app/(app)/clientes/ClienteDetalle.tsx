@@ -769,9 +769,19 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   <button onClick={() => setDocNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: '0 4px' }}>×</button>
                 </div>
               ) : (
-                <button className="btn-outline btn-sm" onClick={() => fileRefNueva.current?.click()} style={{ width: '100%', justifyContent: 'center' }}>
-                  <Upload size={13} /> Adjuntar documento
-                </button>
+                <>
+                  <input type="file" id="adj-doc-input-clientes" style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) setDocNueva({ file: f, tipo: tiposDoc[0] || 'Póliza' }); e.target.value = '' }} />
+                  <div
+                    onClick={() => (document.getElementById('adj-doc-input-clientes') as HTMLInputElement)?.click()}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                    onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
+                    onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setDocNueva({ file, tipo: tiposDoc[0] || 'Póliza' }) }}
+                    style={{ border: '2px dashed var(--border)', borderRadius: 9, padding: '14px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}
+                  >
+                    <Upload size={14} /> Adjuntar documento o arrastrar acá
+                  </div>
+                </>
               )}
               <input ref={fileRefNueva} type="file" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) setDocNueva({ file: f, tipo: tiposDoc[0] || 'Póliza' }); e.target.value = '' }} />
