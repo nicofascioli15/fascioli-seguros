@@ -10,11 +10,12 @@ import {
   Bell, AlertTriangle, FolderOpen, Settings, LogOut, Menu, X, History, UserCog, Sun, Moon
 } from 'lucide-react'
 
-const navItems = [
+type NavItem = { href: string; icon: any; label: string; urgent?: boolean }
+const navItems: NavItem[] = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/clientes',     icon: Users,           label: 'Clientes' },
   { href: '/polizas',      icon: FileText,        label: 'Pólizas' },
-  { href: '/pagos',        icon: CreditCard,      label: 'Pagos y cuotas' },
+  { href: '/pagos',        icon: CreditCard,      label: 'Pagos y cuotas', urgent: true },
   { href: '/vencimientos', icon: Bell,            label: 'Vencim. pólizas' },
   { href: '/siniestros',   icon: AlertTriangle,   label: 'Siniestros' },
   { href: '/documentos',   icon: FolderOpen,      label: 'Documentos' },
@@ -42,11 +43,39 @@ export default function Sidebar() {
   const { esSuperAdmin } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
-  const [open, setOpen]         = useState(false)
-  const [usedBytes, setUsedBytes] = useState<number | null>(null)
+  const [open, setOpen]           = useState(false)
+  const [usedBytes, setUsedBytes]   = useState<number | null>(null)
+  const [urgentCount, setUrgentCount] = useState(0)
 
-  useEffect(() => { fetchStorageUsage() }, [])
+  useEffect(() => { fetchStorageUsage(); fetchUrgentCuotas() }, [])
   useEffect(() => { setOpen(false) }, [pathname])
+
+  async function fetchUrgentCuotas() {
+    try {
+      const hoy = new Date(); hoy.setHours(0,0,0,0)
+      const en2dias = new Date(hoy); en2dias.setDate(en2dias.getDate() + 5)
+      const { data: polizas } = await supabase.from('polizas').select('id, cuotas, cuota_mes')
+      const { data: pagos } = await supabase.from('pagos').select('poliza_id, cuota_num')
+      if (!polizas) return
+      const pagosSet = new Set((pagos || []).map((pg: any) => `${pg.poliza_id}-${pg.cuota_num}`))
+      const meses: Record<string,number> = { Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12 }
+      let count = 0
+      for (const pol of polizas) {
+        if (!pol.cuota_mes) continue
+        const items = pol.cuota_mes.split(' - ')
+        for (let n = 1; n <= pol.cuotas; n++) {
+          if (pagosSet.has(`${pol.id}-${n}`)) continue
+          const item = items[n-1]; if (!item) continue
+          const parts = item.split('/')
+          if (parts.length < 4) continue
+          const d = parseInt(parts[1]), m = meses[parts[2]] || 1, y = 2000 + parseInt(parts[3])
+          const fecha = new Date(y, m-1, d)
+          if (fecha >= hoy && fecha <= en2dias) count++
+        }
+      }
+      setUrgentCount(count)
+    } catch {}
+  }
 
   async function fetchStorageUsage() {
     try {
@@ -90,7 +119,14 @@ export default function Sidebar() {
         {bottomNavItems.map(item => (
           <Link key={item.href} href={item.href}
             className={`bottom-nav-item ${pathname.startsWith(item.href) ? 'active' : ''}`}>
-            <item.icon size={19} />
+            <div style={{ position: 'relative' }}>
+              <item.icon size={19} />
+              {item.href === '/pagos' && urgentCount > 0 && (
+                <span style={{ position: 'absolute', top: -4, right: -6, background: '#DC2626', color: 'white', borderRadius: 8, fontSize: 9, fontWeight: 800, padding: '0 4px', minWidth: 14, textAlign: 'center', lineHeight: '14px' }}>
+                  {urgentCount}
+                </span>
+              )}
+            </div>
             <span>{item.label}</span>
           </Link>
         ))}
@@ -119,6 +155,11 @@ export default function Sidebar() {
               className={`nav-item ${pathname.startsWith(item.href) ? 'active' : ''}`}>
               <item.icon size={17} />
               {item.label}
+              {item.urgent && urgentCount > 0 && (
+                <span style={{ marginLeft: 'auto', background: '#DC2626', color: 'white', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>
+                  {urgentCount}
+                </span>
+              )}
             </Link>
           ))}
           <div className="nav-section" style={{ marginTop: 10 }}>Sistema</div>
