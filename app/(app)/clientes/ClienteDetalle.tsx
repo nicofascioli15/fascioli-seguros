@@ -203,6 +203,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   // Pago
   const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
+  const [confirmDeshacer, setConfirmDeshacer] = useState<{ polizaId: string; cuotaNum: number } | null>(null)
   const [pagoForm, setPagoForm]             = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
   const [savingPago, setSavingPago]         = useState(false)
 
@@ -428,7 +429,6 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   async function deshacerPago(polizaId: string, cuotaNum: number) {
-    if (!confirm('¿Deshacer este pago?')) return
     await supabase.from('pagos').delete().eq('poliza_id', polizaId).eq('cuota_num', cuotaNum)
     await fetchPolizas()
   }
@@ -609,7 +609,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                             </div>
                             {pago ? (
                               <><span className={`cuota-paid-tag`} style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{esControlado ? 'Controlado' : 'Pagada'}</span>
-                              <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => deshacerPago(pol.id, n)}>Deshacer</button></>
+                              <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDeshacer({ polizaId: pol.id, cuotaNum: n })}>Deshacer</button></>
                             ) : (
                               <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: new Date().toISOString().slice(0,10), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
                                 + Registrar pago
@@ -1035,6 +1035,30 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 disabled={eliminandoPoliza}
               >
                 {eliminandoPoliza ? <>Eliminando...</> : <><Trash2 size={14} /> Eliminar definitivamente</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar deshacer pago */}
+      {confirmDeshacer && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setConfirmDeshacer(null) }}>
+          <div className="pago-modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <span style={{ fontSize: 22 }}>↩️</span>
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Deshacer este pago?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+                Se eliminará el registro de pago de la <strong>Cuota {confirmDeshacer.cuotaNum}</strong>. La cuota volverá a quedar pendiente.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmDeshacer(null)}>Cancelar</button>
+              <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--warning)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { deshacerPago(confirmDeshacer.polizaId, confirmDeshacer.cuotaNum); setConfirmDeshacer(null) }}>
+                Deshacer pago
               </button>
             </div>
           </div>
