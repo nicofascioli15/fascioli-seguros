@@ -7,9 +7,10 @@ import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
 
 const estadoColor: Record<string, string> = {
-  'Cobrado':   'badge-success',
-  'Pendiente': 'badge-warning',
-  'Vencido':   'badge-danger',
+  'Cobrado':    'badge-success',
+  'Controlado': 'badge-blue',
+  'Pendiente':  'badge-warning',
+  'Vencido':    'badge-danger',
 }
 
 // Metodos loaded from Supabase
@@ -155,8 +156,17 @@ export default function PagosPage() {
     await fetchCuotas()
   }
 
+  const hoy = new Date(); hoy.setHours(0,0,0,0)
+
   const getEstado = (c: Cuota) => {
-    if (c.pago_id) return 'Cobrado'
+    if (c.pago_id) {
+      if (c.pago_fecha) {
+        const [py, pm, pd] = c.pago_fecha.split('-').map(Number)
+        const fechaPago = new Date(py, pm - 1, pd)
+        if (fechaPago > hoy) return 'Controlado'
+      }
+      return 'Cobrado'
+    }
     const d = diasHasta(c.vencimiento)
     if (d !== null && d < 0) return 'Vencido'
     return 'Pendiente'
@@ -169,9 +179,10 @@ export default function PagosPage() {
            (filtro === 'Todos' || estado === filtro)
   })
 
-  const totalCobrado   = cuotas.filter(c => c.pago_id).length
-  const totalPendiente = cuotas.filter(c => !c.pago_id && (diasHasta(c.vencimiento) ?? 1) >= 0).length
-  const totalVencido   = cuotas.filter(c => !c.pago_id && (diasHasta(c.vencimiento) ?? 1) < 0).length
+  const totalCobrado    = cuotas.filter(c => getEstado(c) === 'Cobrado').length
+  const totalControlado = cuotas.filter(c => getEstado(c) === 'Controlado').length
+  const totalPendiente  = cuotas.filter(c => getEstado(c) === 'Pendiente').length
+  const totalVencido    = cuotas.filter(c => getEstado(c) === 'Vencido').length
 
   return (
     <div>
@@ -210,9 +221,10 @@ export default function PagosPage() {
       {/* Resumen */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Cuotas cobradas',   value: totalCobrado,   bg: '#E6F5EF', color: '#1A7A4E' },
-          { label: 'Cuotas pendientes', value: totalPendiente, bg: '#FEF3C7', color: '#92400E' },
-          { label: 'Cuotas vencidas',   value: totalVencido,   bg: '#FEE2E2', color: '#991B1B' },
+          { label: 'Cuotas cobradas',    value: totalCobrado,    bg: '#E6F5EF', color: '#1A7A4E' },
+          { label: 'Cuotas controladas', value: totalControlado, bg: '#DBEAFE', color: '#1E40AF' },
+          { label: 'Cuotas pendientes',  value: totalPendiente,  bg: '#FEF3C7', color: '#92400E' },
+          { label: 'Cuotas vencidas',    value: totalVencido,    bg: '#FEE2E2', color: '#991B1B' },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '18px 20px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: s.color, marginBottom: 6 }}>{s.label}</div>
@@ -229,7 +241,7 @@ export default function PagosPage() {
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {['Todos','Cobrado','Pendiente','Vencido'].map(t =>
+          {['Todos','Cobrado','Controlado','Pendiente','Vencido'].map(t =>
             <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
           )}
         </div>
@@ -274,7 +286,7 @@ export default function PagosPage() {
                   <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
                   <td>
-                    {estado !== 'Cobrado'
+                    {(estado !== 'Cobrado' && estado !== 'Controlado')
                       ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
                         </button>
@@ -303,9 +315,9 @@ export default function PagosPage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {c.pago_fecha ? `Cobrado ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
+                    {c.pago_fecha ? `${getEstado(c) === 'Controlado' ? 'Controlado' : 'Cobrado'} ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
-                  {estado !== 'Cobrado' && (
+                  {(estado !== 'Cobrado' && estado !== 'Controlado') && (
                     <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                       Cobrar
                     </button>
