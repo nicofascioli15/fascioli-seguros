@@ -851,8 +851,8 @@ export default function PolizasPage() {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setConfirmDeshacerCuota(null) }}>
           <div className="pago-modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 4px' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                <span style={{ fontSize: 22 }}>↩️</span>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D94F4F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
               </div>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Deshacer este pago?</h3>
               <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
@@ -861,7 +861,7 @@ export default function PolizasPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmDeshacerCuota(null)}>Cancelar</button>
-              <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--warning)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+              <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
                 onClick={() => { deshacerPago(confirmDeshacerCuota!); setConfirmDeshacerCuota(null) }}>
                 Deshacer pago
               </button>
