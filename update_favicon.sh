@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p public
+cat > public/favicon.svg << 'FILEEOF'
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 198.43 113.39">
   <rect width="198.43" height="113.39" fill="#0F1E35" rx="14"/>
   <defs><style>.st0{fill:#fff}</style></defs>
@@ -25,3 +29,7 @@
   </g>
 </svg>
 
+FILEEOF
+git add .
+git commit -m 'feat favicon logo fascioli con fondo navy'
+git push
