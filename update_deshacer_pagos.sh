@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p 'app/(app)/pagos'
+cat > 'app/(app)/pagos/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
@@ -392,3 +396,7 @@ export default function PagosPage() {
 }
 
 
+FILEEOF
+git add .
+git commit -m 'feat modal confirmacion deshacer pago en pagos y cuotas'
+git push
