@@ -196,6 +196,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [valoresCampos, setValoresCampos]     = useState<Record<string, string>>({})
   const [errores, setErrores]                 = useState<Record<string, boolean>>({})
   const [savingPoliza, setSavingPoliza]       = useState(false)
+  const [numeroExiste, setNumeroExiste]       = useState(false)
+  const [checkingNumero, setCheckingNumero]   = useState(false)
   const [showNuevoCorreder, setShowNuevoCorreder] = useState(false)
   const [nuevoCorreder, setNuevoCorreder]     = useState('')
 
@@ -344,6 +346,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setSavingEditPoliza(false)
     showToast('Póliza actualizada')
     await fetchPolizas()
+  }
+
+  async function checkNumeroExiste(numero: string) {
+    if (!numero.trim()) { setNumeroExiste(false); return }
+    setCheckingNumero(true)
+    const { data } = await supabase.from('polizas').select('id').eq('numero', numero.trim()).maybeSingle()
+    setNumeroExiste(!!data)
+    setCheckingNumero(false)
   }
 
   async function guardarPoliza() {
@@ -671,11 +681,11 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
       {/* Modal nueva póliza */}
       {showPolizaModal && (
-        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowPolizaModal(false); setErrores({}); setCamposRamo([]); setValoresCampos({}) } }}>
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowPolizaModal(false); setErrores({}); setNumeroExiste(false); setCamposRamo([]); setValoresCampos({}) } }}>
           <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva póliza</h3>
-              <button onClick={() => { setShowPolizaModal(false); setErrores({}) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+              <button onClick={() => { setShowPolizaModal(false); setErrores({}); setNumeroExiste(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Cliente: {nombre}</div>
 
@@ -694,7 +704,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>N° Póliza *</label>
                 <input value={polizaForm.numero} onChange={e => { setPolizaForm({ ...polizaForm, numero: e.target.value }); setErrores(p => ({...p, numero: false})) }} placeholder="Ej: 4309338" autoFocus style={{ borderColor: errores.numero ? 'var(--danger)' : undefined }} />
-                {errores.numero && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
+                
               </div>
               <div className="fgroup">
                 <label>Compañía *</label>
@@ -815,8 +825,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <button className="btn-outline" onClick={() => { setShowPolizaModal(false); setErrores({}) }}>Cancelar</button>
-              <button className="btn-primary" onClick={guardarPoliza} disabled={savingPoliza}>
+              <button className="btn-outline" onClick={() => { setShowPolizaModal(false); setErrores({}); setNumeroExiste(false) }}>Cancelar</button>
+              <button className="btn-primary" onClick={guardarPoliza} disabled={savingPoliza || numeroExiste}>
                 {savingPoliza ? 'Guardando...' : 'Guardar póliza'}
               </button>
             </div>
