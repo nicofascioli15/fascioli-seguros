@@ -149,6 +149,14 @@ function formatBytes(b: number) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
+function cuotaFechaISO(item: string): string {
+  const parts = item.split('/')
+  if (parts.length < 4) return new Date().toISOString().slice(0,10)
+  const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
+  const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
+  return `${y}-${m}-${d}`
+}
+
 export default function PolizasPage() {
   const supabase = createClient()
   const searchParams = useSearchParams()
@@ -619,7 +627,7 @@ export default function PolizasPage() {
                     </>
                   ) : (
                     <button className="btn-primary btn-sm"
-                      onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodos[0] || 'Transferencia', referencia: '' }); setShowPagoModal(n) }}>
+                      onClick={() => { setPagoForm({ fecha: cuotaFechaISO(item), metodo: metodos[0] || 'Transferencia', referencia: '' }); setShowPagoModal(n) }}>
                       + Registrar pago
                     </button>
                   )}

@@ -288,7 +288,7 @@ export default function PagosPage() {
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
                   <td>
                     {(estado !== 'Cobrado' && estado !== 'Controlado')
-                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
                         </button>
                       : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={() => setConfirmDeshacer(c)}>Deshacer</button>
@@ -319,7 +319,7 @@ export default function PagosPage() {
                     {c.pago_fecha ? `${getEstado(c) === 'Controlado' ? 'Controlado' : 'Cobrado'} ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
                   {(estado !== 'Cobrado' && estado !== 'Controlado') && (
-                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                       Cobrar
                     </button>
                   )}

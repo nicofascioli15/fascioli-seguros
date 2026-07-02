@@ -171,6 +171,15 @@ type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tam
 
 interface Props { id: string; nombre: string; onBack: () => void }
 
+
+function cuotaFechaISO(item: string): string {
+  const parts = item.split('/')
+  if (parts.length < 4) return new Date().toISOString().slice(0,10)
+  const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
+  const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
+  return `${y}-${m}-${d}`
+}
+
 export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const supabase = createClient()
 
@@ -611,7 +620,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                               <><span className={`cuota-paid-tag`} style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{esControlado ? 'Controlado' : 'Pagada'}</span>
                               <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDeshacer({ polizaId: pol.id, cuotaNum: n })}>Deshacer</button></>
                             ) : (
-                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: new Date().toISOString().slice(0,10), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
+                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: cuotaFechaISO(item), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
                                 + Registrar pago
                               </button>
                             )}
