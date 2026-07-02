@@ -599,8 +599,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                         const hoy = new Date(); hoy.setHours(0,0,0,0)
                         const esControlado = pago?.fecha && (() => { const [py,pm,pd] = pago.fecha.split('-').map(Number); return new Date(py,pm-1,pd) > hoy })()
                         return (
-                          <div key={n} className={`cuota-row ${pago ? 'paid' : ''}`}>
-                            <div className={`cuota-num ${pago ? 'paid' : 'pending'}`}>{n}</div>
+                          <div key={n} className={`cuota-row ${pago ? 'paid' : ''}`}
+                            style={esControlado ? { background: '#EFF6FF', borderColor: '#BFDBFE' } : undefined}>
+                            <div className={`cuota-num ${pago ? 'paid' : 'pending'}`}
+                              style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{n}</div>
                             <div className="cuota-info">
                               <div className="cuota-title">Cuota {n} — {fechaStr}</div>
                               <div className="cuota-sub">{pago ? `${esControlado ? 'Controlado' : 'Pagado'} ${pago.fecha} · ${pago.metodo}` : 'Pendiente'}</div>
