@@ -256,6 +256,8 @@ export default function PagosPage() {
             <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
           )}
         </div>
+        <DateRangeFilter value={dateVenc} onChange={setDateVenc} label="Vencim. cuota" />
+        <DateRangeFilter value={dateCobro} onChange={setDateCobro} label="Fecha cobro" />
       </div>
 
       {/* Tabla */}
@@ -268,8 +270,14 @@ export default function PagosPage() {
           </colgroup>
           <thead>
             <tr>
-              <th>Cliente</th><th>N° Póliza</th><th>Ramo</th><th>Compañía</th>
-              <th>Cuota</th><th>Vencimiento</th><th>Cobrado</th><th>Estado</th><th></th>
+              <SortHeader label="Cliente" col="cliente_nombre" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="N° Póliza" col="numero_poliza" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Ramo" col="ramo" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Compañía" col="compania" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Cuota" col="cuota_num" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Cobrado" col="pago_fecha" sort={sortState} onSort={toggleSort} />
+              <th>Estado</th><th></th>
             </tr>
           </thead>
           <tbody>
