@@ -91,15 +91,16 @@ function estadoBadge(venc: string | null) {
   return { label: formatFecha(venc), cls: 'badge-success' }
 }
 
-function CampoInput({ campo, value, onChange }: {
+function CampoInput({ campo, value, onChange, defaultMoneda }: {
   campo: { id: string; nombre: string; tipo: string; opciones: string | null }
   value: string
   onChange: (v: string) => void
+  defaultMoneda?: string
 }) {
   if (campo.tipo === 'numero_moneda') {
     const parts = value.split('|')
     const monto = parts[0] || ''
-    const moneda = parts[1] || 'U$S'
+    const moneda = parts[1] || defaultMoneda || 'U$S'
     return (
       <div style={{ display: 'flex', gap: 8 }}>
         <select value={moneda} onChange={e => onChange(`${monto}|${e.target.value}`)} style={{ flex: 1, minWidth: 70 }}>
@@ -775,7 +776,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     {camposRamo.map(campo => (
                       <div key={campo.id} className="fgroup">
                         <label>{campo.nombre}</label>
-                        <CampoInput campo={campo} value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} />
+                        <CampoInput campo={campo} value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} defaultMoneda={polizaForm.moneda} />
                       </div>
                     ))}
                   </div>
@@ -919,7 +920,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   {editCamposRamo.map(campo => (
                     <div key={campo.id} className="fgroup">
                       <label>{campo.nombre}</label>
-                      <CampoInput campo={campo} value={editValoresCampos[campo.id] || ''} onChange={v => setEditValoresCampos(p => ({...p, [campo.id]: v}))} />
+                      <CampoInput campo={campo} value={editValoresCampos[campo.id] || ''} onChange={v => setEditValoresCampos(p => ({...p, [campo.id]: v}))} defaultMoneda={editPolizaForm.moneda} />
                     </div>
                   ))}
                 </div>
