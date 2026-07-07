@@ -5,6 +5,7 @@ import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
+import { Pagination, paginate } from '@/components/Pagination'
 import { SortHeader } from '@/components/SortHeader'
 import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
 import { useSortFilter } from '@/hooks/useSortFilter'
@@ -60,6 +61,7 @@ export default function PagosPage() {
   const [dateVenc, setDateVenc]   = useState<DateRange>({ from: '', to: '' })
   const [dateCobro, setDateCobro] = useState<DateRange>({ from: '', to: '' })
   const [confirmDeshacer, setConfirmDeshacer] = useState<Cuota | null>(null)
+  const [page, setPage]                         = useState(1)
 
   const [metodoDefault, setMetodoDefault] = useState('Transferencia')
 
@@ -189,6 +191,7 @@ export default function PagosPage() {
            (!dateCobro.to   || !c.pago_fecha || c.pago_fecha <= dateCobro.to)
   })
   const { sort: sortState, toggleSort, sorted: filtradas } = useSortFilter<Cuota>(filtradasRaw)
+  const paginadas = paginate(filtradas, page)
 
   const totalCobrado    = cuotas.filter(c => getEstado(c) === 'Cobrado').length
   const totalControlado = cuotas.filter(c => getEstado(c) === 'Controlado').length
@@ -248,12 +251,12 @@ export default function PagosPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input placeholder="Buscar cliente, póliza o ramo..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder="Buscar cliente, póliza o ramo..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {['Todos','Cobrado','Controlado','Pendiente','Vencido'].map(t =>
-            <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
+            <button key={t} onClick={() => { setFiltro(t); setPage(1) }} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
           )}
         </div>
         <DateRangeFilter value={dateVenc} onChange={setDateVenc} label="Vencim. cuota" />
@@ -292,7 +295,7 @@ export default function PagosPage() {
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
                 <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
               </td></tr>
-            ) : filtradas.map((c, i) => {
+            ) : paginadas.map((c, i) => {
               const estado = getEstado(c)
               return (
                 <tr key={`${c.poliza_id}-${c.cuota_num}`}>
@@ -319,7 +322,7 @@ export default function PagosPage() {
         </table>
         {/* Mobile card list */}
         <div className="mobile-list" style={{ display: 'none' }}>
-          {filtradas.map((c, i) => {
+          {paginadas.map((c, i) => {
             const estado = getEstado(c)
             return (
               <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>

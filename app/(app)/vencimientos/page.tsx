@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import ExportButton from '@/components/ExportButton'
+import { Pagination, paginate } from '@/components/Pagination'
 import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
 
 function diasHasta(iso: string | null) {
@@ -40,6 +41,7 @@ export default function VencimientosPage() {
   const [search, setSearch]   = useState('')
   const [filtro, setFiltro]   = useState(90)
   const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
+  const [page, setPage]           = useState(1)
 
   useEffect(() => { fetchVencimientos() }, [])
 
@@ -79,10 +81,11 @@ export default function VencimientosPage() {
     return matchFiltro && matchFecha
   })
 
-  const urgentes   = filtrados.filter(v => v.dias !== null && v.dias >= 0 && v.dias <= 7)
-  const proximos   = filtrados.filter(v => v.dias !== null && v.dias > 7 && v.dias <= 30)
-  const planificados = filtrados.filter(v => v.dias !== null && v.dias > 30)
-  const vencidas   = filtrados.filter(v => v.dias !== null && v.dias < 0)
+  const paginados    = paginate(filtrados, page) as Item[]
+  const urgentes     = paginados.filter(v => v.dias !== null && v.dias >= 0 && v.dias <= 7)
+  const proximos     = paginados.filter(v => v.dias !== null && v.dias > 7 && v.dias <= 30)
+  const planificados = paginados.filter(v => v.dias !== null && v.dias > 30)
+  const vencidas     = paginados.filter(v => v.dias !== null && v.dias < 0)
 
   function Section({ title, items, dotColor }: { title: string; items: Item[]; dotColor: string }) {
     if (items.length === 0) return null

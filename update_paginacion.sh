@@ -1,3 +1,71 @@
+#!/bin/bash
+set -e
+mkdir -p components 'app/(app)/polizas' 'app/(app)/pagos' 'app/(app)/vencimientos'
+cat > 'components/Pagination.tsx' << 'FILEEOF'
+'use client'
+
+const PAGE_SIZE = 25
+
+export { PAGE_SIZE }
+
+export function paginate<T>(data: T[], page: number): T[] {
+  return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+}
+
+export function Pagination({ page, total, onChange }: {
+  page: number
+  total: number
+  onChange: (p: number) => void
+}) {
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+  if (totalPages <= 1) return null
+
+  // Build page numbers to show: always first, last, current ±1, with ellipsis
+  const pages: (number | '...')[] = []
+  const around = new Set([1, totalPages, page - 1, page, page + 1].filter(p => p >= 1 && p <= totalPages))
+  const sorted = [...around].sort((a, b) => a - b)
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) pages.push('...')
+    pages.push(p)
+  })
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, padding: '12px 0', borderTop: '1px solid var(--border-soft)' }}>
+      <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+        Mostrando {Math.min((page - 1) * PAGE_SIZE + 1, total)}–{Math.min(page * PAGE_SIZE, total)} de <strong>{total}</strong>
+      </span>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <button
+          onClick={() => onChange(page - 1)}
+          disabled={page === 1}
+          style={{ width: 34, height: 34, borderRadius: 8, border: '1.5px solid var(--border-soft)', background: 'var(--bg-card)', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)' }}>
+          ‹
+        </button>
+        {pages.map((p, i) =>
+          p === '...' ? (
+            <span key={`dots-${i}`} style={{ width: 34, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>…</span>
+          ) : (
+            <button key={p} onClick={() => onChange(p as number)}
+              style={{ width: 34, height: 34, borderRadius: 8, border: `1.5px solid ${page === p ? 'var(--navy)' : 'var(--border-soft)'}`, background: page === p ? 'var(--navy)' : 'var(--bg-card)', color: page === p ? 'white' : 'var(--text-main)', cursor: 'pointer', fontSize: 13, fontWeight: page === p ? 700 : 400, fontFamily: 'inherit' }}>
+              {p}
+            </button>
+          )
+        )}
+        <button
+          onClick={() => onChange(page + 1)}
+          disabled={page === totalPages}
+          style={{ width: 34, height: 34, borderRadius: 8, border: '1.5px solid var(--border-soft)', background: 'var(--bg-card)', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)' }}>
+          ›
+        </button>
+      </div>
+    </div>
+  )
+}
+
+FILEEOF
+echo '+ components/Pagination.tsx'
+
+cat > 'app/(app)/polizas/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
@@ -1360,3 +1428,661 @@ export default function PolizasPage() {
 
 
 
+FILEEOF
+echo '+ app/(app)/polizas/page.tsx'
+
+cat > 'app/(app)/pagos/page.tsx' << 'FILEEOF'
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react'
+import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import DatePicker from '@/components/DatePicker'
+import ExportButton from '@/components/ExportButton'
+import { Pagination, paginate } from '@/components/Pagination'
+import { SortHeader } from '@/components/SortHeader'
+import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
+import { useSortFilter } from '@/hooks/useSortFilter'
+
+const estadoColor: Record<string, string> = {
+  'Cobrado':    'badge-success',
+  'Controlado': 'badge-blue',
+  'Pendiente':  'badge-warning',
+  'Vencido':    'badge-danger',
+}
+
+// Metodos loaded from Supabase
+
+function diasHasta(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso), hoy = new Date()
+  hoy.setHours(0,0,0,0)
+  return Math.round((d.getTime() - hoy.getTime()) / 86400000)
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  const [y,m,d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+type Cuota = {
+  poliza_id: string
+  cuota_num: number
+  numero_poliza: string
+  ramo: string
+  compania: string
+  cliente_nombre: string
+  vencimiento: string | null
+  cuota_mes?: string | null
+  moneda: string
+  pago_id: string | null
+  pago_fecha: string | null
+  pago_metodo: string | null
+  pago_ref: string | null
+}
+
+export default function PagosPage() {
+  const supabase = createClient()
+  const [metodos, setMetodos] = useState<string[]>([])
+  const [cuotas, setCuotas]     = useState<Cuota[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [filtro, setFiltro]     = useState('Todos')
+  const [showModal, setShowModal] = useState<Cuota | null>(null)
+  const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
+  const [saving, setSaving]     = useState(false)
+  const [dateVenc, setDateVenc]   = useState<DateRange>({ from: '', to: '' })
+  const [dateCobro, setDateCobro] = useState<DateRange>({ from: '', to: '' })
+  const [confirmDeshacer, setConfirmDeshacer] = useState<Cuota | null>(null)
+  const [page, setPage]                         = useState(1)
+
+  const [metodoDefault, setMetodoDefault] = useState('Transferencia')
+
+  useEffect(() => {
+    fetchCuotas()
+    supabase.from('metodos_pago').select('nombre').order('nombre')
+      .then(({ data }) => {
+        if (data) {
+          const nombres = data.map((x:any) => x.nombre)
+          setMetodos(nombres)
+          supabase.from('configuracion_sistema').select('valor').eq('clave', 'metodo_pago_default').single()
+            .then(({ data: cfg }) => {
+              const def = cfg?.valor && nombres.includes(cfg.valor) ? cfg.valor : (nombres[0] || 'Transferencia')
+              setMetodoDefault(def)
+            })
+        }
+      })
+  }, [])
+
+  function getFechaCuota(cuotaMes: string | null, n: number): string | null {
+    if (!cuotaMes) return null
+    const items = cuotaMes.split(' - ')
+    const item = items[n - 1]
+    if (!item) return null
+    const parts = item.split('/')
+    if (parts.length < 4) return null
+    const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
+    const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
+    return `${y}-${m}-${d}`
+  }
+
+  async function fetchCuotas() {
+    setLoading(true)
+    // Traer todas las polizas con sus clientes
+    const { data: polizas } = await supabase
+      .from('polizas')
+      .select('id, numero, ramo, compania, vencimiento, moneda, cuotas, cuota_mes, cliente_id, clientes(nombre)')
+      .order('created_at', { ascending: false })
+
+    if (!polizas) { setLoading(false); return }
+
+    // Traer todos los pagos
+    const polizaIds = polizas.map(p => p.id)
+    const { data: pagos } = await supabase
+      .from('pagos')
+      .select('*')
+      .in('poliza_id', polizaIds)
+
+    // Expandir cuotas
+    const rows: Cuota[] = []
+    for (const pol of polizas) {
+      const nCuotas = pol.cuotas || 0
+      if (nCuotas === 0) continue
+      for (let n = 1; n <= nCuotas; n++) {
+        const pago = pagos?.find(pg => pg.poliza_id === pol.id && pg.cuota_num === n)
+        const fechaCuota = getFechaCuota(pol.cuota_mes, n)
+        rows.push({
+          poliza_id:       pol.id,
+          cuota_num:       n,
+          numero_poliza:   pol.numero,
+          ramo:            pol.ramo,
+          compania:        pol.compania,
+          cliente_nombre:  (pol.clientes as any)?.nombre || '—',
+          vencimiento:     fechaCuota,
+          moneda:          pol.moneda,
+          pago_id:         pago?.id || null,
+          pago_fecha:      pago?.fecha || null,
+          pago_metodo:     pago?.metodo || null,
+          pago_ref:        pago?.referencia || null,
+        })
+      }
+    }
+    rows.sort((a, b) => {
+      if (!a.vencimiento && !b.vencimiento) return 0
+      if (!a.vencimiento) return 1
+      if (!b.vencimiento) return -1
+      return a.vencimiento.localeCompare(b.vencimiento)
+    })
+    setCuotas(rows)
+    setLoading(false)
+  }
+
+  async function cobrar() {
+    if (!showModal) return
+    setSaving(true)
+    await supabase.from('pagos').upsert([{
+      poliza_id:  showModal.poliza_id,
+      cuota_num:  showModal.cuota_num,
+      fecha:      pagoForm.fecha,
+      metodo:     pagoForm.metodo,
+      referencia: pagoForm.referencia,
+    }], { onConflict: 'poliza_id,cuota_num' })
+    setShowModal(null)
+    setSaving(false)
+    await fetchCuotas()
+  }
+
+  async function deshacer(c: Cuota) {
+    await supabase.from('pagos').delete().eq('poliza_id', c.poliza_id).eq('cuota_num', c.cuota_num)
+    await fetchCuotas()
+  }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0)
+
+  const getEstado = (c: Cuota) => {
+    if (c.pago_id) {
+      if (c.pago_fecha) {
+        const [py, pm, pd] = c.pago_fecha.split('-').map(Number)
+        const fechaPago = new Date(py, pm - 1, pd)
+        if (fechaPago > hoy) return 'Controlado'
+      }
+      return 'Cobrado'
+    }
+    const d = diasHasta(c.vencimiento)
+    if (d !== null && d < 0) return 'Vencido'
+    return 'Pendiente'
+  }
+
+  const filtradasRaw = cuotas.filter(c => {
+    const q = search.toLowerCase()
+    const estado = getEstado(c)
+    return (!q || c.cliente_nombre.toLowerCase().includes(q) || c.numero_poliza.toLowerCase().includes(q) || c.ramo.toLowerCase().includes(q)) &&
+           (filtro === 'Todos' || estado === filtro) &&
+           (!dateVenc.from || !c.vencimiento || c.vencimiento >= dateVenc.from) &&
+           (!dateVenc.to   || !c.vencimiento || c.vencimiento <= dateVenc.to) &&
+           (!dateCobro.from || !c.pago_fecha || c.pago_fecha >= dateCobro.from) &&
+           (!dateCobro.to   || !c.pago_fecha || c.pago_fecha <= dateCobro.to)
+  })
+  const { sort: sortState, toggleSort, sorted: filtradas } = useSortFilter<Cuota>(filtradasRaw)
+  const paginadas = paginate(filtradas, page)
+
+  const totalCobrado    = cuotas.filter(c => getEstado(c) === 'Cobrado').length
+  const totalControlado = cuotas.filter(c => getEstado(c) === 'Controlado').length
+  const totalPendiente  = cuotas.filter(c => getEstado(c) === 'Pendiente').length
+  const totalVencido    = cuotas.filter(c => getEstado(c) === 'Vencido').length
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Pagos y vencimiento de cuotas</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Seguimiento de cuotas por póliza</p>
+        </div>
+        <ExportButton
+          titulo="Reporte de cobros"
+          subtitulo={`${filtradas.length} cuotas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Cuota', key: 'cuota', width: 40 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Estado', key: 'estado', width: 70 },
+            { header: 'Fecha de pago', key: 'fechaPago', width: 80 },
+            { header: 'Método', key: 'metodo', width: 80 },
+          ]}
+          filas={filtradas.map(c => ({
+            cliente: c.cliente_nombre,
+            numero: c.numero_poliza,
+            ramo: c.ramo,
+            cuota: c.cuota_num,
+            vencimiento: formatFecha(c.vencimiento),
+            estado: getEstado(c),
+            fechaPago: c.pago_fecha ? formatFecha(c.pago_fecha) : '—',
+            metodo: c.pago_metodo || '—',
+          }))}
+          filename="reporte-cobros-fascioli"
+        />
+      </div>
+
+      {/* Resumen */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+        {[
+          { label: 'Cuotas cobradas',    value: totalCobrado,    bg: '#E6F5EF', color: '#1A7A4E' },
+          { label: 'Cuotas controladas', value: totalControlado, bg: '#DBEAFE', color: '#1E40AF' },
+          { label: 'Cuotas pendientes',  value: totalPendiente,  bg: '#FEF3C7', color: '#92400E' },
+          { label: 'Cuotas vencidas',    value: totalVencido,    bg: '#FEE2E2', color: '#991B1B' },
+        ].map(s => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: s.color, marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente, póliza o ramo..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['Todos','Cobrado','Controlado','Pendiente','Vencido'].map(t =>
+            <button key={t} onClick={() => { setFiltro(t); setPage(1) }} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
+          )}
+        </div>
+        <DateRangeFilter value={dateVenc} onChange={setDateVenc} label="Vencim. cuota" />
+        <DateRangeFilter value={dateCobro} onChange={setDateCobro} label="Fecha cobro" />
+      </div>
+
+      {/* Tabla */}
+      <div className="table-card">
+        <table>
+          <colgroup>
+            <col style={{ width: 180 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} />
+            <col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} />
+            <col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <SortHeader label="Cliente" col="cliente_nombre" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="N° Póliza" col="numero_poliza" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Ramo" col="ramo" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Compañía" col="compania" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Cuota" col="cuota_num" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Cobrado" col="pago_fecha" sort={sortState} onSort={toggleSort} />
+              <th>Estado</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
+                Cargando pagos...
+              </td></tr>
+            ) : filtradas.length === 0 ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}></div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
+                <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
+              </td></tr>
+            ) : paginadas.map((c, i) => {
+              const estado = getEstado(c)
+              return (
+                <tr key={`${c.poliza_id}-${c.cuota_num}`}>
+                  <td style={{ fontWeight: 600 }}>{c.cliente_nombre}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
+                  <td><span className="badge badge-neutral">{c.ramo}</span></td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.compania}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.cuota_num}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(c.vencimiento)}</td>
+                  <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
+                  <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
+                  <td>
+                    {(estado !== 'Cobrado' && estado !== 'Controlado')
+                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                          <CheckCircle size={12} /> Cobrar
+                        </button>
+                      : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={() => setConfirmDeshacer(c)}>Deshacer</button>
+                    }
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {/* Mobile card list */}
+        <div className="mobile-list" style={{ display: 'none' }}>
+          {paginadas.map((c, i) => {
+            const estado = getEstado(c)
+            return (
+              <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{c.cliente_nombre}</div>
+                  <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                  <span className="badge badge-neutral" style={{ marginRight: 6 }}>{c.ramo}</span>
+                  <span style={{ fontFamily: 'monospace' }}>{c.numero_poliza}</span>
+                  {' · '}Cuota {c.cuota_num}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {c.pago_fecha ? `${getEstado(c) === 'Controlado' ? 'Controlado' : 'Cobrado'} ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
+                  </div>
+                  {(estado !== 'Cobrado' && estado !== 'Controlado') && (
+                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                      Cobrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Modal cobrar */}
+      {showModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(null) }}>
+          <div className="pago-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar cobro</h3>
+              <button onClick={() => setShowModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {showModal.cliente_nombre} · {showModal.ramo} · Cuota {showModal.cuota_num}
+            </div>
+            <div className="fgroup"><label>Fecha de cobro</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
+            <div className="fgroup">
+              <label>Método</label>
+              <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
+                {metodos.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="fgroup"><label>Referencia</label><input value={pagoForm.referencia} onChange={e => setPagoForm({ ...pagoForm, referencia: e.target.value })} placeholder="Comprobante (opcional)" /></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowModal(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={cobrar} disabled={saving}>
+                {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Confirmar cobro'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar deshacer pago */}
+      {confirmDeshacer && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setConfirmDeshacer(null) }}>
+          <div className="pago-modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D94F4F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Deshacer este pago?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 4 }}>
+                <strong>{confirmDeshacer.cliente_nombre}</strong> — Póliza {confirmDeshacer.numero_poliza}
+              </p>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+                Cuota {confirmDeshacer.cuota_num} volverá a quedar pendiente.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmDeshacer(null)}>Cancelar</button>
+              <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { deshacer(confirmDeshacer); setConfirmDeshacer(null) }}>
+                Deshacer pago
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/pagos/page.tsx'
+
+cat > 'app/(app)/vencimientos/page.tsx' << 'FILEEOF'
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react'
+import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import ExportButton from '@/components/ExportButton'
+import { Pagination, paginate } from '@/components/Pagination'
+import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
+
+function diasHasta(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso), hoy = new Date()
+  hoy.setHours(0,0,0,0)
+  return Math.round((d.getTime() - hoy.getTime()) / 86400000)
+}
+
+function formatFecha(iso: string | null) {
+  if (!iso) return '—'
+  const [y,m,d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+type Item = {
+  id: string
+  numero: string
+  ramo: string
+  compania: string
+  vencimiento: string | null
+  corredor: string
+  moneda: string
+  cliente_nombre: string
+  cliente_tel: string
+  cliente_email: string
+  dias: number | null
+}
+
+export default function VencimientosPage() {
+  const supabase = createClient()
+  const [items, setItems]     = useState<Item[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch]   = useState('')
+  const [filtro, setFiltro]   = useState(90)
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
+  const [page, setPage]           = useState(1)
+
+  useEffect(() => { fetchVencimientos() }, [])
+
+  async function fetchVencimientos() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('polizas')
+      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, clientes(nombre, tel, email)')
+      .order('vencimiento', { ascending: true })
+
+    if (data) {
+      setItems(data.map(p => ({
+        id:              p.id,
+        numero:          p.numero,
+        ramo:            p.ramo,
+        compania:        p.compania,
+        vencimiento:     p.vencimiento,
+        corredor:        p.corredor,
+        moneda:          p.moneda,
+        cliente_nombre:  (p.clientes as any)?.nombre || '—',
+        cliente_tel:     (p.clientes as any)?.tel || '',
+        cliente_email:   (p.clientes as any)?.email || '',
+        dias:            diasHasta(p.vencimiento),
+      })))
+    }
+    setLoading(false)
+  }
+
+  const filtrados = items.filter(v => {
+    const q = search.toLowerCase()
+    const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
+    const matchFiltro = filtro === 0 ? (matchQ && v.dias !== null && v.dias < 0)
+      : filtro === -1 ? matchQ
+      : (matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro)
+    const matchFecha = (!dateRange.from && !dateRange.to) ||
+      (!v.vencimiento ? false : (!dateRange.from || v.vencimiento >= dateRange.from) && (!dateRange.to || v.vencimiento <= dateRange.to))
+    return matchFiltro && matchFecha
+  })
+
+  const paginados    = paginate(filtrados, page) as Item[]
+  const urgentes     = paginados.filter(v => v.dias !== null && v.dias >= 0 && v.dias <= 7)
+  const proximos     = paginados.filter(v => v.dias !== null && v.dias > 7 && v.dias <= 30)
+  const planificados = paginados.filter(v => v.dias !== null && v.dias > 30)
+  const vencidas     = paginados.filter(v => v.dias !== null && v.dias < 0)
+
+  function Section({ title, items, dotColor }: { title: string; items: Item[]; dotColor: string }) {
+    if (items.length === 0) return null
+    return (
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
+        </div>
+        {items.map(v => (
+          <div key={v.id} style={{
+            background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)',
+            padding: '16px 18px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14,
+            borderLeft: `3px solid ${dotColor}`
+          }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+              background: v.dias !== null && v.dias < 0 ? '#FEE2E2' : v.dias !== null && v.dias <= 7 ? '#FEE2E2' : v.dias !== null && v.dias <= 30 ? '#FEF3C7' : '#EEF2F8',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: v.dias !== null && v.dias < 0 ? '#991B1B' : v.dias !== null && v.dias <= 7 ? '#991B1B' : v.dias !== null && v.dias <= 30 ? '#92400E' : 'var(--navy)' }}>
+                {v.dias !== null ? Math.abs(v.dias) : '?'}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', opacity: .7, color: 'var(--text-muted)' }}>
+                {v.dias !== null && v.dias < 0 ? 'venc.' : 'días'}
+              </span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{v.cliente_nombre}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span className="badge badge-neutral">{v.ramo}</span>
+                <span style={{ fontFamily: 'monospace' }}>{v.numero}</span>
+                <span>{v.compania}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Vence</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{formatFecha(v.vencimiento)}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+                {v.cliente_tel && <a href={`tel:${v.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>}
+                {v.cliente_email && <a href={`mailto:${v.cliente_email}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Mail size={12} /></a>}
+                {v.cliente_tel && <a href={`https://wa.me/${(() => { const n = v.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Vencimiento de pólizas</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Pólizas ordenadas por proximidad de vencimiento</p>
+        </div>
+        <ExportButton
+          titulo="Vencimientos de pólizas"
+          subtitulo={`${filtrados.length} pólizas`}
+          columnas={[
+            { header: 'Cliente', key: 'cliente', width: 150 },
+            { header: 'N° Póliza', key: 'numero', width: 80 },
+            { header: 'Ramo', key: 'ramo', width: 80 },
+            { header: 'Compañía', key: 'compania', width: 80 },
+            { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+            { header: 'Días', key: 'dias', width: 50 },
+            { header: 'Teléfono', key: 'telefono', width: 90 },
+          ]}
+          filas={filtrados.map(v => ({
+            cliente: v.cliente_nombre,
+            numero: v.numero,
+            ramo: v.ramo,
+            compania: v.compania,
+            vencimiento: formatFecha(v.vencimiento),
+            dias: v.dias !== null ? (v.dias < 0 ? `Vencida (${Math.abs(v.dias)}d)` : `${v.dias}d`) : '—',
+            telefono: v.cliente_tel,
+          }))}
+          filename="vencimientos-fascioli"
+        />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} label="Vencimiento" />
+      </div>
+      {/* Resumen */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Vencidas',    count: vencidas.length,    bg: '#FEE2E2', color: '#991B1B' },
+          { label: '≤ 7 días',   count: urgentes.length,    bg: '#FEE2E2', color: '#991B1B' },
+          { label: '8–30 días',  count: proximos.length,    bg: '#FEF3C7', color: '#92400E' },
+          { label: '31–90 días', count: planificados.length, bg: '#EEF2F8', color: 'var(--text-main)' },
+        ].map(s => (
+          <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '10px 18px' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.count}</div>
+            <div style={{ fontSize: 11, color: s.color, opacity: .8 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar cliente o N° póliza..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[{l:'30 días',v:30},{l:'90 días',v:90},{l:'180 días',v:180},{l:'Vencidas',v:0},{l:'Todas',v:-1}].map(t =>
+            <button key={t.v} onClick={() => setFiltro(t.v)} className={`filter-btn ${filtro === t.v ? 'active' : ''}`}>{t.l}</button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+          <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
+          Cargando vencimientos...
+        </div>
+      ) : filtrados.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}></div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin vencimientos en este rango</div>
+          <div style={{ fontSize: 12 }}>Probá cambiando el filtro o agregando pólizas con fecha de vencimiento</div>
+        </div>
+      ) : (
+        <>
+          <Section title="Vencidas" items={vencidas} dotColor="#D94F4F" />
+          <Section title="Urgentes — vencen en 7 días o menos" items={urgentes} dotColor="#D94F4F" />
+          <Section title="Próximas — 8 a 30 días" items={proximos} dotColor="#D97706" />
+          <Section title="Planificadas — 31 a 90 días" items={planificados} dotColor="#4A80D4" />
+        </>
+      )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
+  )
+}
+
+
+FILEEOF
+echo '+ app/(app)/vencimientos/page.tsx'
+
+git add .
+git commit -m 'feat paginacion 25 registros en polizas pagos y vencimientos'
+git push
