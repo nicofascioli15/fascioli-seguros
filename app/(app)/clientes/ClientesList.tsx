@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download, Phone, Mail, MessageCircle, Pencil, Trash2, AlertTriangle, Building2, User } from 'lucide-react'
+import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 
@@ -157,10 +158,11 @@ export default function ClientesList({ onSelect }: Props) {
     setImporting(false); setImportDone({ ok, skip }); await fetchClientes()
   }
 
-  const filtrados = clientes.filter(c =>
+  const filtradosBase = clientes.filter(c =>
     c.nombre.toLowerCase().includes(search.toLowerCase()) ||
     (c.direccion || '').toLowerCase().includes(search.toLowerCase())
   )
+  const { sort: sortState, toggleSort, sorted: filtrados } = useSortFilter<Cliente>(filtradosBase)
 
   return (
     <div>

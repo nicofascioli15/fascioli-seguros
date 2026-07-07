@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import ExportButton from '@/components/ExportButton'
+import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -38,6 +39,7 @@ export default function VencimientosPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
   const [filtro, setFiltro]   = useState(90)
+  const [dateRange, setDateRange] = useState<DateRange>({ from: '', to: '' })
 
   useEffect(() => { fetchVencimientos() }, [])
 
@@ -69,9 +71,12 @@ export default function VencimientosPage() {
   const filtrados = items.filter(v => {
     const q = search.toLowerCase()
     const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
-    if (filtro === 0)  return matchQ && v.dias !== null && v.dias < 0
-    if (filtro === -1) return matchQ
-    return matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro
+    const matchFiltro = filtro === 0 ? (matchQ && v.dias !== null && v.dias < 0)
+      : filtro === -1 ? matchQ
+      : (matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro)
+    const matchFecha = (!dateRange.from && !dateRange.to) ||
+      (!v.vencimiento ? false : (!dateRange.from || v.vencimiento >= dateRange.from) && (!dateRange.to || v.vencimiento <= dateRange.to))
+    return matchFiltro && matchFecha
   })
 
   const urgentes   = filtrados.filter(v => v.dias !== null && v.dias >= 0 && v.dias <= 7)
@@ -161,6 +166,9 @@ export default function VencimientosPage() {
         />
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} label="Vencimiento" />
+      </div>
       {/* Resumen */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[

@@ -5,6 +5,9 @@ import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
+import { SortHeader } from '@/components/SortHeader'
+import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
+import { useSortFilter } from '@/hooks/useSortFilter'
 
 const estadoColor: Record<string, string> = {
   'Cobrado':    'badge-success',
@@ -54,6 +57,8 @@ export default function PagosPage() {
   const [showModal, setShowModal] = useState<Cuota | null>(null)
   const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
   const [saving, setSaving]     = useState(false)
+  const [dateVenc, setDateVenc]   = useState<DateRange>({ from: '', to: '' })
+  const [dateCobro, setDateCobro] = useState<DateRange>({ from: '', to: '' })
   const [confirmDeshacer, setConfirmDeshacer] = useState<Cuota | null>(null)
 
   const [metodoDefault, setMetodoDefault] = useState('Transferencia')
@@ -173,12 +178,17 @@ export default function PagosPage() {
     return 'Pendiente'
   }
 
-  const filtradas = cuotas.filter(c => {
+  const filtradasRaw = cuotas.filter(c => {
     const q = search.toLowerCase()
     const estado = getEstado(c)
     return (!q || c.cliente_nombre.toLowerCase().includes(q) || c.numero_poliza.toLowerCase().includes(q) || c.ramo.toLowerCase().includes(q)) &&
-           (filtro === 'Todos' || estado === filtro)
+           (filtro === 'Todos' || estado === filtro) &&
+           (!dateVenc.from || !c.vencimiento || c.vencimiento >= dateVenc.from) &&
+           (!dateVenc.to   || !c.vencimiento || c.vencimiento <= dateVenc.to) &&
+           (!dateCobro.from || !c.pago_fecha || c.pago_fecha >= dateCobro.from) &&
+           (!dateCobro.to   || !c.pago_fecha || c.pago_fecha <= dateCobro.to)
   })
+  const { sort: sortState, toggleSort, sorted: filtradas } = useSortFilter<Cuota>(filtradasRaw)
 
   const totalCobrado    = cuotas.filter(c => getEstado(c) === 'Cobrado').length
   const totalControlado = cuotas.filter(c => getEstado(c) === 'Controlado').length
