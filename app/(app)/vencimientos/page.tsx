@@ -221,6 +221,7 @@ export default function VencimientosPage() {
         </>
       )}
 
+      <Pagination page={page} total={filtrados.length} onChange={p => setPage(p)} />
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )

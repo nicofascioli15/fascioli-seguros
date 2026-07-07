@@ -407,6 +407,7 @@ export default function PagosPage() {
         </div>
       )}
 
+      <Pagination page={page} total={filtradas.length} onChange={p => setPage(p)} />
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )
