@@ -27,6 +27,7 @@ type Item = {
   created_at: string
   dias: number | null
   vigente: boolean
+  docsCount: number
 }
 type ClienteOpt = { id: string; nombre: string }
 
@@ -112,6 +113,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         created_at: r.created_at,
         dias: diasHasta(r.vencimiento),
         vigente: false,
+        docsCount: 0,
       }))
       // Vigente = gestión más reciente por edificio (fecha de servicio, si no hay, fecha de alta)
       const porCliente: Record<string, Item[]> = {}
@@ -120,6 +122,17 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         const masReciente = [...arr].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
         if (masReciente) masReciente.vigente = true
       })
+
+      // Conteo de documentos adjuntos por registro
+      const fkCol = tabla === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+      const ids = mapped.map(it => it.id)
+      if (ids.length > 0) {
+        const { data: docsData } = await supabase.from('mant_documentos').select(fkCol).in(fkCol, ids)
+        const counts: Record<string, number> = {}
+        ;(docsData || []).forEach((d: any) => { const k = d[fkCol]; if (k) counts[k] = (counts[k] || 0) + 1 })
+        mapped.forEach(it => { it.docsCount = counts[it.id] || 0 })
+      }
+
       setItems(mapped)
     }
     if (clientesData) setClientes(clientesData)
@@ -302,14 +315,16 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <td>{it.empresa || '—'}</td>
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <ActionsMenu actions={[
-                        { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
-                        { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
-                        { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
-                        { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
-                        { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
-                        { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
-                      ]} />
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
+                        <ActionsMenu actions={[
+                          { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
+                          { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                          { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
+                          { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
+                          { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
+                        ]} />
+                      </div>
                     </td>
                   </tr>
                 )
@@ -326,9 +341,9 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{it.cliente_nombre}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className={`badge ${b.cls}`}>{b.label}</span>
+                      <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                       <ActionsMenu actions={[
                         { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
-                        { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
                         { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
@@ -452,6 +467,29 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
+  )
+}
+
+function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      title={count > 0 ? `${count} documento${count > 1 ? 's' : ''} adjunto${count > 1 ? 's' : ''}` : 'Sin documentos — click para adjuntar'}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{
+        position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+        color: count > 0 ? 'var(--gold)' : 'var(--text-muted)', padding: '4px 6px',
+        display: 'inline-flex', alignItems: 'center', borderRadius: 6, opacity: count > 0 ? 1 : 0.55,
+      }}
+    >
+      <Paperclip size={15} fill={count > 0 ? 'currentColor' : 'none'} fillOpacity={count > 0 ? 0.15 : 0} />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -1, right: -1, background: 'var(--gold)', color: 'var(--navy)',
+          fontSize: 9, fontWeight: 800, borderRadius: 8, minWidth: 13, height: 13, lineHeight: '13px',
+          textAlign: 'center', padding: '0 2px',
+        }}>{count}</span>
+      )}
+    </button>
   )
 }
 

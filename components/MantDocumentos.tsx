@@ -29,6 +29,7 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
   const [loading, setLoading]   = useState(true)
   const [uploading, setUploading] = useState(false)
   const [tipoSel, setTipoSel]   = useState(tiposSugeridos[0] || '')
+  const [drag, setDrag]         = useState(false)
 
   useEffect(() => { fetchDocs() }, [registroId])
 
@@ -75,18 +76,37 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>{clienteNombre}</div>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <select value={tipoSel} onChange={e => setTipoSel(e.target.value)}
-            style={{ flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--navy)' }}>
+        <div className="fgroup" style={{ margin: '0 0 10px' }}>
+          <label style={{ fontSize: 11 }}>Tipo de documento</label>
+          <select value={tipoSel} onChange={e => setTipoSel(e.target.value)}>
             {tiposSugeridos.map(t => <option key={t}>{t}</option>)}
           </select>
-          <button className="btn-primary" onClick={() => inputRef.current?.click()} disabled={uploading} style={{ flexShrink: 0 }}>
-            {uploading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={14} />}
-            Subir
-          </button>
-          <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-            onChange={e => { onFile(e.target.files); e.target.value = '' }} />
         </div>
+
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (!uploading) setDrag(true) }}
+          onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDrag(false) }}
+          onDrop={e => { e.preventDefault(); e.stopPropagation(); setDrag(false); if (!uploading) onFile(e.dataTransfer.files) }}
+          style={{
+            border: `2px dashed ${drag ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 10,
+            padding: '20px 16px', textAlign: 'center', marginBottom: 16, cursor: uploading ? 'default' : 'pointer',
+            background: drag ? 'var(--gold-pale)' : 'var(--bg-card-alt)', transition: 'all .15s',
+          }}
+        >
+          {uploading ? (
+            <><Loader2 size={20} style={{ margin: '0 auto 6px', display: 'block', color: 'var(--gold)', animation: 'spin 1s linear infinite' }} />
+              <div style={{ fontWeight: 600, color: 'var(--gold)', fontSize: 13 }}>Subiendo...</div></>
+          ) : (
+            <><Upload size={20} style={{ margin: '0 auto 6px', display: 'block', color: drag ? 'var(--gold)' : 'var(--text-muted)' }} />
+              <div style={{ fontWeight: 600, color: drag ? 'var(--gold)' : 'var(--navy)', fontSize: 13 }}>
+                {drag ? 'Soltá el archivo acá' : 'Arrastrá un archivo o hacé click'}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>PDF, JPG, PNG, Word, Excel</div></>
+          )}
+        </div>
+        <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+          onChange={e => { onFile(e.target.files); e.target.value = '' }} />
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /></div>

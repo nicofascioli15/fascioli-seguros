@@ -184,7 +184,7 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
   )
 }
 
-type RegItem = { id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string; created_at: string; dias: number | null; vigente: boolean }
+type RegItem = { id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string; created_at: string; dias: number | null; vigente: boolean; docsCount: number }
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -203,6 +203,29 @@ function vencBadge(dias: number | null): { label: string; cls: string } {
   if (dias <= 7) return { label: `${dias}d`, cls: 'badge-danger' }
   if (dias <= 30) return { label: `${dias}d`, cls: 'badge-warning' }
   return { label: `${dias}d`, cls: 'badge-success' }
+}
+
+function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      title={count > 0 ? `${count} documento${count > 1 ? 's' : ''} adjunto${count > 1 ? 's' : ''}` : 'Sin documentos — click para adjuntar'}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{
+        position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+        color: count > 0 ? 'var(--gold)' : 'var(--text-muted)', padding: '4px 6px',
+        display: 'inline-flex', alignItems: 'center', borderRadius: 6, opacity: count > 0 ? 1 : 0.55,
+      }}
+    >
+      <Paperclip size={15} fill={count > 0 ? 'currentColor' : 'none'} fillOpacity={count > 0 ? 0.15 : 0} />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -1, right: -1, background: 'var(--gold)', color: 'var(--navy)',
+          fontSize: 9, fontWeight: 800, borderRadius: 8, minWidth: 13, height: 13, lineHeight: '13px',
+          textAlign: 'center', padding: '0 2px',
+        }}>{count}</span>
+      )}
+    </button>
+  )
 }
 
 function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => void }) {
@@ -256,10 +279,20 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   }
 
   function marcarVigente(rows: any[]): RegItem[] {
-    const mapped: RegItem[] = rows.map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false }))
+    const mapped: RegItem[] = rows.map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0 }))
     const masReciente = [...mapped].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
     if (masReciente) masReciente.vigente = true
     return mapped
+  }
+
+  async function aplicarConteoDocs(tipo: 'mant_extintores' | 'mant_tanques', items: RegItem[]) {
+    const ids = items.map(i => i.id)
+    if (ids.length === 0) return
+    const fkCol = tipo === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+    const { data } = await supabase.from('mant_documentos').select(fkCol).in(fkCol, ids)
+    const counts: Record<string, number> = {}
+    ;(data || []).forEach((d: any) => { const k = d[fkCol]; if (k) counts[k] = (counts[k] || 0) + 1 })
+    items.forEach(it => { it.docsCount = counts[it.id] || 0 })
   }
 
   async function fetchRegistros() {
@@ -268,8 +301,11 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       supabase.from('mant_extintores').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
       supabase.from('mant_tanques').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
     ])
-    setExtintores(marcarVigente(ext || []))
-    setTanques(marcarVigente(tan || []))
+    const extMapped = marcarVigente(ext || [])
+    const tanMapped = marcarVigente(tan || [])
+    await Promise.all([aplicarConteoDocs('mant_extintores', extMapped), aplicarConteoDocs('mant_tanques', tanMapped)])
+    setExtintores(extMapped)
+    setTanques(tanMapped)
     setLoading(false)
   }
 
@@ -304,10 +340,10 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                   {it.empresa && <span style={{ color: 'var(--text-muted)' }}> · {it.empresa}</span>}
                   {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginLeft: 8 }}>{it.estado}</span>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className={`badge ${b.cls}`}>{b.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span className={`badge ${b.cls}`} style={{ marginRight: 6 }}>{b.label}</span>
+                  <DocsClip count={it.docsCount} onClick={() => setDocsFor({ tipo, item: it })} />
                   <ActionsMenu actions={[
-                    { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor({ tipo, item: it }) },
                     { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor({ tipo, item: it }) },
                     { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditarItem(tipo, it) },
                     { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminarItem({ tipo, item: it }), danger: true },
