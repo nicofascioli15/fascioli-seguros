@@ -188,7 +188,7 @@ type RegItem = {
   id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string
   created_at: string; dias: number | null; vigente: boolean; docsCount: number
   cant_co2: number; cant_8kg: number; cant_4kg: number; cant_espuma: number
-  cant_ensayo_hidrostatico: number; vencimiento_ensayo: string | null; extras: string[]; dias_ensayo: number | null
+  cant_ensayo_hidrostatico: number; vencimiento_ensayo: string | null; extras: Record<string, number>; dias_ensayo: number | null
 }
 
 function diasHasta(iso: string | null) {
@@ -259,7 +259,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       ...emptyMantForm,
       fecha_servicio: item.fecha_servicio || '', vencimiento: item.vencimiento || '', empresa: item.empresa, estado: item.estado || 'No realizado',
       cant_co2: item.cant_co2 || 0, cant_8kg: item.cant_8kg || 0, cant_4kg: item.cant_4kg || 0, cant_espuma: item.cant_espuma || 0,
-      cant_ensayo_hidrostatico: item.cant_ensayo_hidrostatico || 0, vencimiento_ensayo: item.vencimiento_ensayo || '', extras: item.extras || [],
+      cant_ensayo_hidrostatico: item.cant_ensayo_hidrostatico || 0, vencimiento_ensayo: item.vencimiento_ensayo || '', extras: item.extras || {},
     })
   }
 
@@ -279,7 +279,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       payload.cant_espuma = editItemForm.cant_espuma || 0
       payload.cant_ensayo_hidrostatico = editItemForm.cant_ensayo_hidrostatico || 0
       payload.vencimiento_ensayo = editItemForm.vencimiento_ensayo || null
-      payload.extras = editItemForm.extras || []
+      payload.extras = editItemForm.extras || {}
     }
     await supabase.from(editItem.tipo).update(payload).eq('id', editItem.item.id)
     await registrarAudit({ accion: 'editar', tabla: editItem.tipo, registroId: editItem.item.id, descripcion: 'Registro editado desde ficha de cliente', datosDespues: editItemForm })
@@ -303,7 +303,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0,
       cant_co2: r.cant_co2 || 0, cant_8kg: r.cant_8kg || 0, cant_4kg: r.cant_4kg || 0, cant_espuma: r.cant_espuma || 0,
       cant_ensayo_hidrostatico: r.cant_ensayo_hidrostatico || 0, vencimiento_ensayo: r.vencimiento_ensayo || null,
-      extras: r.extras || [], dias_ensayo: diasHasta(r.vencimiento_ensayo || null),
+      extras: r.extras || {}, dias_ensayo: diasHasta(r.vencimiento_ensayo || null),
     }))
     const masReciente = [...mapped].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
     if (masReciente) masReciente.vigente = true
@@ -351,7 +351,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       payload.cant_espuma = addForm.cant_espuma || 0
       payload.cant_ensayo_hidrostatico = addForm.cant_ensayo_hidrostatico || 0
       payload.vencimiento_ensayo = addForm.vencimiento_ensayo || null
-      payload.extras = addForm.extras || []
+      payload.extras = addForm.extras || {}
     }
     await supabase.from(addTipo).insert([payload])
     setSaving(false)

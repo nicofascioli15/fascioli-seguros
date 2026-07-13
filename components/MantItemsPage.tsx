@@ -34,7 +34,7 @@ type Item = {
   cant_espuma: number
   cant_ensayo_hidrostatico: number
   vencimiento_ensayo: string | null
-  extras: string[]
+  extras: Record<string, number>
   dias_ensayo: number | null
 }
 type ClienteOpt = { id: string; nombre: string }
@@ -75,7 +75,7 @@ export const emptyForm = {
   cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '',
   cant_co2: 0, cant_8kg: 0, cant_4kg: 0, cant_espuma: 0,
   cant_ensayo_hidrostatico: 0, vencimiento_ensayo: '',
-  extras: [] as string[],
+  extras: {} as Record<string, number>,
 }
 
 export default function MantItemsPage({ tabla, titulo, singular }: Props) {
@@ -135,7 +135,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         cant_espuma: r.cant_espuma || 0,
         cant_ensayo_hidrostatico: r.cant_ensayo_hidrostatico || 0,
         vencimiento_ensayo: r.vencimiento_ensayo || null,
-        extras: r.extras || [],
+        extras: r.extras || {},
         dias_ensayo: diasHasta(r.vencimiento_ensayo || null),
       }))
       // Vigente = gestión más reciente por edificio (fecha de servicio, si no hay, fecha de alta)
@@ -180,7 +180,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       payload.cant_espuma = form.cant_espuma || 0
       payload.cant_ensayo_hidrostatico = form.cant_ensayo_hidrostatico || 0
       payload.vencimiento_ensayo = form.vencimiento_ensayo || null
-      payload.extras = form.extras || []
+      payload.extras = form.extras || {}
     }
     const { error, data } = await supabase.from(tabla).insert([payload]).select().single()
     if (!error && data) {
@@ -208,7 +208,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       cant_espuma: it.cant_espuma || 0,
       cant_ensayo_hidrostatico: it.cant_ensayo_hidrostatico || 0,
       vencimiento_ensayo: it.vencimiento_ensayo || '',
-      extras: it.extras || [],
+      extras: it.extras || {},
     })
   }
 
@@ -236,7 +236,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       payload.cant_espuma = editForm.cant_espuma || 0
       payload.cant_ensayo_hidrostatico = editForm.cant_ensayo_hidrostatico || 0
       payload.vencimiento_ensayo = editForm.vencimiento_ensayo || null
-      payload.extras = editForm.extras || []
+      payload.extras = editForm.extras || {}
     }
     await supabase.from(tabla).update(payload).eq('id', editando.id)
     await registrarAudit({ accion: 'editar', tabla, registroId: editando.id, descripcion: `${singular} editado`, datosDespues: editForm })
@@ -603,43 +603,43 @@ export function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { fo
 
       {tabla === 'mant_extintores' && (
         <>
-          <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-            <label>Extintores recargados por tipo</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          <div className="fgroup" style={{ gridColumn: 'span 2', marginBottom: -4 }}>
+            <label style={{ fontSize: 12 }}>Extintores recargados por tipo</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
               {TIPOS_EXTINTOR.map(t => (
                 <div key={t.key}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{t.label}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>{t.label}</div>
                   <input type="number" min={0} value={form[t.key]}
                     onChange={e => setForm((p: any) => ({ ...p, [t.key]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
-              Total recargados: {form.cant_co2 + form.cant_8kg + form.cant_4kg + form.cant_espuma}
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              Total: {form.cant_co2 + form.cant_8kg + form.cant_4kg + form.cant_espuma}
             </div>
           </div>
 
-          <div className="fgroup"><label>Ensayos hidrostáticos realizados</label>
+          <div className="fgroup" style={{ gridColumn: 'span 2', marginBottom: -4 }}>
+            <label style={{ fontSize: 12 }}>Extras</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+              {EXTRAS_EXTINTORES.map(ex => (
+                <div key={ex.key}>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 }}>{ex.label}</div>
+                  <input type="number" min={0} value={form.extras[ex.key] || 0}
+                    onChange={e => { const val = Math.max(0, parseInt(e.target.value) || 0); setForm((p: any) => ({ ...p, extras: { ...p.extras, [ex.key]: val } })) }}
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="fgroup"><label style={{ fontSize: 12 }}>Ensayos hidrostáticos realizados</label>
             <input type="number" min={0} value={form.cant_ensayo_hidrostatico}
               onChange={e => setForm((p: any) => ({ ...p, cant_ensayo_hidrostatico: Math.max(0, parseInt(e.target.value) || 0) }))}
               placeholder="0" /></div>
-          <div className="fgroup"><label>Próximo ensayo hidrostático</label>
-            <DatePicker value={form.vencimiento_ensayo} onChange={v => setForm((p: any) => ({ ...p, vencimiento_ensayo: v }))} placeholder="Se calcula solo (+4 años)" />
-            {form.fecha_servicio && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Ciclo de {VENCIMIENTO_ENSAYO_ANIOS} años — se puede ajustar</div>}
-          </div>
-
-          <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-            <label>Extras</label>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {EXTRAS_EXTINTORES.map(ex => (
-                <label key={ex} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--navy)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.extras.includes(ex)}
-                    onChange={() => setForm((p: any) => ({ ...p, extras: p.extras.includes(ex) ? p.extras.filter((x: string) => x !== ex) : [...p.extras, ex] }))} />
-                  {ex}
-                </label>
-              ))}
-            </div>
+          <div className="fgroup"><label style={{ fontSize: 12 }}>Próximo ensayo hidrostático</label>
+            <DatePicker value={form.vencimiento_ensayo} onChange={v => setForm((p: any) => ({ ...p, vencimiento_ensayo: v }))} placeholder="+4 años" />
           </div>
         </>
       )}

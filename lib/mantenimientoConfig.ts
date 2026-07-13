@@ -28,9 +28,14 @@ export const TIPOS_EXTINTOR: { key: 'cant_co2' | 'cant_8kg' | 'cant_4kg' | 'cant
   { key: 'cant_espuma', label: 'Espuma' },
 ]
 
-// Lista de "extras" seleccionables al registrar una recarga de extintores.
-// Agregar más ítems acá no requiere cambios de esquema (se guarda como array de texto).
-export const EXTRAS_EXTINTORES = ['Mangueras revisadas']
+// Lista de "extras" con cantidad al registrar una recarga de extintores.
+// Agregar más ítems acá no requiere cambios de esquema (se guarda como jsonb).
+export const EXTRAS_EXTINTORES: { key: string; label: string }[] = [
+  { key: 'mangueras', label: 'Mangueras' },
+  { key: 'valvulas', label: 'Válvulas' },
+  { key: 'carteles', label: 'Carteles' },
+  { key: 'colocacion', label: 'Colocación' },
+]
 
 export function estadoBadgeClass(estado: string): string {
   if (estado === 'Completado') return 'badge-success'
