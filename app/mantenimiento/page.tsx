@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Flame, Droplets, Loader2, Phone, Gauge, AlertTriangle, Bell, Calendar, ClipboardList } from 'lucide-react'
+import { Flame, Droplets, Loader2, Phone, Gauge, AlertTriangle, Bell, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -38,7 +38,6 @@ function soloVigentes(rows: RegRaw[]): RegRaw[] {
 export default function MantenimientoDashboard() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ extintores: 0, tanques: 0 })
   const [alertas, setAlertas] = useState<Alerta[]>([])
 
   useEffect(() => { fetchAll() }, [])
@@ -66,7 +65,6 @@ export default function MantenimientoDashboard() {
       vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
     }))
 
-    setStats({ extintores: extVigentes.length, tanques: tanVigentes.length })
     setAlertas([...extAlertas, ...ensayoAlertas, ...tanAlertas].sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
     setLoading(false)
   }
@@ -85,11 +83,16 @@ export default function MantenimientoDashboard() {
   const urgentesTan = alertasTan.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
   const proximosTan = alertasTan.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
 
-  const statCards: { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string }[] = [
-    { label: 'Vencidos',                    value: loading ? '—' : vencidos.length, sub: 'Necesitan atención ya',       icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F' },
-    { label: 'Urgentes — 7 días o menos',   value: loading ? '—' : urgentes.length, sub: 'Esta semana',                 icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F' },
-    { label: 'Próximos vencimientos',       value: loading ? '—' : proximos.length, sub: 'Entre 8 y 30 días',           icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706' },
-    { label: 'En seguimiento',              value: loading ? '—' : stats.extintores + stats.tanques, sub: 'Extintores + tanques vigentes', icon: ClipboardList, bg: '#E6F5F9', iconColor: '#0E7490' },
+  type StatCard = { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string; href: string }
+  const extCards: StatCard[] = [
+    { label: 'Vencidos',    value: loading ? '—' : vencidosExt.length, sub: 'Necesitan atención ya', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/extintores?dias=0' },
+    { label: 'Urgentes',    value: loading ? '—' : urgentesExt.length, sub: '7 días o menos',        icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/extintores?dias=7' },
+    { label: 'Próximos',    value: loading ? '—' : proximosExt.length, sub: 'Entre 8 y 30 días',      icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706', href: '/mantenimiento/extintores?dias=30' },
+  ]
+  const tanCards: StatCard[] = [
+    { label: 'Vencidos',    value: loading ? '—' : vencidosTan.length, sub: 'Necesitan atención ya', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/tanques?dias=0' },
+    { label: 'Urgentes',    value: loading ? '—' : urgentesTan.length, sub: '7 días o menos',        icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/tanques?dias=7' },
+    { label: 'Próximos',    value: loading ? '—' : proximosTan.length, sub: 'Entre 8 y 30 días',      icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706', href: '/mantenimiento/tanques?dias=30' },
   ]
 
   function iconoTipo(tipo: Alerta['tipo']) {
@@ -180,9 +183,13 @@ export default function MantenimientoDashboard() {
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Control de extintores, tanques de agua y ensayos</p>
       </div>
 
-      <div className="dashboard-stats">
-        {statCards.map(s => (
-          <div key={s.label} className="stat-card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Flame size={15} color="#D97706" />
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>Extintores</span>
+      </div>
+      <div className="dashboard-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 22 }}>
+        {extCards.map(s => (
+          <a key={s.label} href={s.href} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>
             <div className="stat-card-inner">
               <div className="stat-card-text">
                 <div className="label">{s.label}</div>
@@ -193,7 +200,28 @@ export default function MantenimientoDashboard() {
                 <s.icon size={20} color={s.iconColor} />
               </div>
             </div>
-          </div>
+          </a>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Droplets size={15} color="#0E7490" />
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>Tanques de agua</span>
+      </div>
+      <div className="dashboard-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 22 }}>
+        {tanCards.map(s => (
+          <a key={s.label} href={s.href} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <div className="stat-card-inner">
+              <div className="stat-card-text">
+                <div className="label">{s.label}</div>
+                <div className="value">{s.value}</div>
+                <div className="sub">{s.sub}</div>
+              </div>
+              <div className="stat-card-icon" style={{ background: s.bg }}>
+                <s.icon size={20} color={s.iconColor} />
+              </div>
+            </div>
+          </a>
         ))}
       </div>
 

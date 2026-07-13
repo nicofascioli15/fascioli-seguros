@@ -1,6 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
@@ -80,6 +81,8 @@ export const emptyForm = {
 
 export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
   const [items, setItems]       = useState<Item[]>([])
   const [clientes, setClientes] = useState<ClienteOpt[]>([])
@@ -110,6 +113,16 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const [exportScope, setExportScope] = useState<'vigentes' | 'completados' | 'historial'>('vigentes')
 
   useEffect(() => { fetchAll() }, [tabla])
+
+  // Si se llega con ?dias=X (ej. desde una card del dashboard), aplicar ese filtro y limpiar la URL
+  useEffect(() => {
+    const diasParam = searchParams.get('dias')
+    if (diasParam !== null) {
+      const n = parseInt(diasParam)
+      if (!isNaN(n)) setFiltroDias(n)
+      router.replace(tabla === 'mant_extintores' ? '/mantenimiento/extintores' : '/mantenimiento/tanques')
+    }
+  }, [searchParams])
 
   async function fetchAll() {
     setLoading(true)
@@ -355,7 +368,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 260, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[{ l: '30 días', v: 30 }, { l: '90 días', v: 90 }, { l: 'Vencidos', v: 0 }, { l: 'Todos', v: -1 }].map(t =>
+          {[{ l: 'Vencidos', v: 0 }, { l: '7 días', v: 7 }, { l: '30 días', v: 30 }, { l: '90 días', v: 90 }, { l: 'Todos', v: -1 }].map(t =>
             <button key={t.v} onClick={() => { setFiltroDias(t.v); setPage(1) }} className={`filter-btn ${filtroDias === t.v ? 'active' : ''}`}>{t.l}</button>
           )}
         </div>
