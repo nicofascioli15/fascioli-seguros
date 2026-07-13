@@ -288,7 +288,12 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     { value: 'historial',  label: 'Historial completo (todas las gestiones)' },
   ]
   const itemsExport = (() => {
-    let base = items.filter(matchFiltros)
+    // Acá solo se respeta la búsqueda por edificio/empresa — el filtro de días y el de estado
+    // son de la vista en pantalla y no deben cruzarse con el alcance elegido (si no, "completados"
+    // podía dar 0 resultados por chocar con el filtro de días o de estado activo).
+    const q = search.toLowerCase()
+    const matchQ = (it: Item) => !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
+    let base = items.filter(matchQ)
     if (exportScope === 'vigentes') base = base.filter(it => it.vigente)
     else if (exportScope === 'completados') base = base.filter(it => it.vigente && it.estado === 'Completado')
     return [...base].sort((a, b) => {
