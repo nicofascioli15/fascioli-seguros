@@ -23,7 +23,7 @@ export default function LoginPage() {
       setError('Email o contraseña incorrectos.')
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push('/hub')
       router.refresh()
     }
   }
@@ -166,4 +166,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
 

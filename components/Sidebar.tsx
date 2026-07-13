@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/AuthProvider'
 import { useTheme } from '@/lib/ThemeProvider'
 import {
   LayoutDashboard, Users, FileText, CreditCard,
-  Bell, AlertTriangle, FolderOpen, Settings, LogOut, Menu, X, History, UserCog, Sun, Moon
+  Bell, AlertTriangle, FolderOpen, Settings, LogOut, Menu, X, History, UserCog, Sun, Moon, LayoutGrid
 } from 'lucide-react'
 
 type NavItem = { href: string; icon: any; label: string; urgent?: boolean }
@@ -149,6 +149,10 @@ export default function Sidebar() {
         </div>
 
         <nav style={{ flex: 1, padding: '10px 0', overflowY: 'auto' }}>
+          <Link href="/hub" className="nav-item" style={{ borderBottom: '1px solid rgba(255,255,255,.07)', paddingBottom: 12, marginBottom: 12 }}>
+            <LayoutGrid size={16} />
+            Inicio · Portal
+          </Link>
           <div className="nav-section">Menú</div>
           {navItems.map(item => (
             <Link key={item.href} href={item.href}
@@ -214,5 +218,6 @@ export default function Sidebar() {
     </>
   )
 }
+
 
 

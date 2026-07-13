@@ -1,0 +1,266 @@
+'use client'
+export const dynamic = 'force-dynamic'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+
+const NAVY = '#0F1E35'
+const GOLD = '#C9A84C'
+
+type Module = {
+  id: string
+  label: string
+  description: string
+  route: string
+  ready: boolean
+  accent: string
+  icon: React.ReactNode
+  stats?: { label: string; value: string | number }[]
+}
+
+function IconShield() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  )
+}
+function IconWrench() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+  )
+}
+function IconFile() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  )
+}
+function IconBuilding() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M9 22V12h6v10"/>
+      <path d="M9 7h1M14 7h1M9 11h1M14 11h1"/>
+    </svg>
+  )
+}
+function IconArrow() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  )
+}
+
+export default function HubPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [userName, setUserName] = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, pendientes: 0 })
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      setUserName(user.email?.split('@')[0] || 'Usuario')
+
+      // Load seguros stats
+      const [{ count: polizas }, { data: pagosData }] = await Promise.all([
+        supabase.from('polizas').select('*', { count: 'exact', head: true }),
+        supabase.from('pagos').select('poliza_id, cuota_num'),
+      ])
+      const hoy = new Date()
+      const en30 = new Date(); en30.setDate(en30.getDate() + 30)
+      const { count: vencen30 } = await supabase.from('polizas').select('*', { count: 'exact', head: true })
+        .gte('vencimiento', hoy.toISOString().slice(0,10))
+        .lte('vencimiento', en30.toISOString().slice(0,10))
+
+      setStats({
+        polizas: polizas || 0,
+        vencen30: vencen30 || 0,
+        pendientes: 0,
+      })
+      setLoading(false)
+    }
+    init()
+  }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const modules: Module[] = [
+    {
+      id: 'seguros',
+      label: 'Seguros',
+      description: 'Pólizas, pagos, vencimientos, siniestros y documentos',
+      route: '/dashboard',
+      ready: true,
+      accent: GOLD,
+      icon: <IconShield />,
+      stats: [
+        { label: 'Pólizas', value: stats.polizas },
+        { label: 'Vencen en 30d', value: stats.vencen30 },
+      ],
+    },
+    {
+      id: 'mantenimiento',
+      label: 'Mantenimiento',
+      description: 'Control de extintores, tanques de agua y ensayos',
+      route: '/mantenimiento',
+      ready: false,
+      accent: '#4FBE8C',
+      icon: <IconWrench />,
+    },
+    {
+      id: 'contratos',
+      label: 'Contratos',
+      description: 'Gestión de contratos y proveedores',
+      route: '/contratos',
+      ready: false,
+      accent: '#9D7FD4',
+      icon: <IconFile />,
+    },
+    {
+      id: 'edificios',
+      label: 'Edificios',
+      description: 'Gestión de propiedades y administración',
+      route: '/edificios',
+      ready: false,
+      accent: '#E2A84C',
+      icon: <IconBuilding />,
+    },
+  ]
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#F4F7FB', fontFamily: "'Inter', system-ui, sans-serif" }}>
+
+      {/* Topbar */}
+      <div style={{ background: NAVY, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', boxShadow: '0 2px 8px rgba(0,0,0,.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src="/logo-fascioli.svg" alt="Fascioli" style={{ height: 26 }} />
+          <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.15)', margin: '0 4px' }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase' }}>Intranet</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ fontSize: 12.5, color: '#B8C5D6' }}>{userName}</span>
+          <button onClick={handleLogout}
+            style={{ fontSize: 12, color: '#8A9BB5', background: 'none', border: '1px solid rgba(255,255,255,.1)', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Salir
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '52px 24px' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+            Portal de gestión
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: NAVY, margin: '0 0 10px', lineHeight: 1.2 }}>
+            ¿A qué módulo querés ingresar?
+          </h1>
+          <p style={{ fontSize: 13.5, color: '#8A9BB5', margin: 0, lineHeight: 1.6 }}>
+            Seleccioná el área de trabajo. Cada módulo tiene su propio panel de gestión.
+          </p>
+        </div>
+
+        {/* Module grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+        {modules.map(mod => (
+            <ModuleCard key={mod.id} mod={mod} loading={loading} onClick={() => { if (mod.ready) router.push(mod.route) }} />
+          ))}
+        </div>
+
+        <div style={{ marginTop: 40, textAlign: 'center', fontSize: 12, color: '#B8C5D6' }}>
+          Fascioli Administraciones · Sistema interno de gestión
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModuleCard({ mod, loading, onClick }: { mod: Module; loading: any; onClick: () => void; key?: string }) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
+      style={{
+        background: 'white',
+        borderRadius: 16,
+        border: `2px solid ${hovered && mod.ready ? mod.accent : '#E2E8F0'}`,
+        padding: '26px 24px',
+        cursor: mod.ready ? 'pointer' : 'default',
+        transition: 'all .18s ease',
+        boxShadow: hovered && mod.ready ? '0 8px 28px rgba(15,30,53,.1)' : '0 1px 3px rgba(15,30,53,.05)',
+        transform: hovered && mod.ready ? 'translateY(-2px)' : 'none',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: 18,
+        opacity: mod.ready ? 1 : 0.65,
+      }}>
+
+      {/* Icon + badge */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div style={{ width: 50, height: 50, borderRadius: 13, background: mod.ready ? NAVY : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mod.ready ? mod.accent : '#94A3B8', flexShrink: 0 }}>
+          {mod.icon}
+        </div>
+        {!mod.ready && (
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#94A3B8', background: '#F1F5F9', padding: '3px 9px', borderRadius: 6 }}>
+            Próximamente
+          </span>
+        )}
+      </div>
+
+      {/* Text */}
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 5 }}>{mod.label}</div>
+        <div style={{ fontSize: 13, color: '#8A9BB5', lineHeight: 1.5 }}>{mod.description}</div>
+      </div>
+
+      {/* Stats */}
+      {mod.ready && mod.stats && mod.stats.length > 0 && (
+        <div style={{ display: 'flex', gap: 20, borderTop: '1px solid #F1F5F9', paddingTop: 16 }}>
+          {mod.stats.map(s => (
+            <div key={s.label}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>
+                {loading ? '—' : s.value}
+              </div>
+              <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 2 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CTA */}
+      {mod.ready && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: hovered ? NAVY : '#94A3B8', transition: 'color .15s' }}>
+            Ingresar al módulo
+          </span>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: hovered ? NAVY : '#F4F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hovered ? 'white' : '#94A3B8', transition: 'all .15s', flexShrink: 0 }}>
+            <IconArrow />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
