@@ -1,3 +1,7 @@
+#!/bin/bash
+set -e
+mkdir -p app/hub
+cat > 'app/hub/page.tsx' << 'FILEEOF'
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
@@ -247,3 +251,7 @@ function ModuleCard({ mod, loading, onClick }: { mod: Module; loading: any; onCl
   )
 }
 
+FILEEOF
+git add .
+git commit -m 'fix: hub responsive en mobile (grid auto-fit + clamp en paddings/fuentes)'
+git push
