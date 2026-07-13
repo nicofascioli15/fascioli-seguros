@@ -57,6 +57,7 @@ export default function HubPage() {
   const [userName, setUserName] = useState('')
   const [loading, setLoading]   = useState(true)
   const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, pendientes: 0 })
+  const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
 
   useEffect(() => {
     async function init() {
@@ -64,22 +65,34 @@ export default function HubPage() {
       if (!user) { router.push('/login'); return }
       setUserName(user.email?.split('@')[0] || 'Usuario')
 
+      const hoy = new Date()
+      const en30 = new Date(); en30.setDate(en30.getDate() + 30)
+      const hoyStr = hoy.toISOString().slice(0,10)
+      const en30Str = en30.toISOString().slice(0,10)
+
       // Load seguros stats
       const [{ count: polizas }, { data: pagosData }] = await Promise.all([
         supabase.from('polizas').select('*', { count: 'exact', head: true }),
         supabase.from('pagos').select('poliza_id, cuota_num'),
       ])
-      const hoy = new Date()
-      const en30 = new Date(); en30.setDate(en30.getDate() + 30)
       const { count: vencen30 } = await supabase.from('polizas').select('*', { count: 'exact', head: true })
-        .gte('vencimiento', hoy.toISOString().slice(0,10))
-        .lte('vencimiento', en30.toISOString().slice(0,10))
+        .gte('vencimiento', hoyStr)
+        .lte('vencimiento', en30Str)
 
       setStats({
         polizas: polizas || 0,
         vencen30: vencen30 || 0,
         pendientes: 0,
       })
+
+      // Load mantenimiento stats
+      const [{ count: edificios }, { count: extVence }, { count: tanVence }] = await Promise.all([
+        supabase.from('mant_clientes').select('*', { count: 'exact', head: true }),
+        supabase.from('mant_extintores').select('*', { count: 'exact', head: true }).gte('vencimiento', hoyStr).lte('vencimiento', en30Str),
+        supabase.from('mant_tanques').select('*', { count: 'exact', head: true }).gte('vencimiento', hoyStr).lte('vencimiento', en30Str),
+      ])
+      setMantStats({ edificios: edificios || 0, vencen30: (extVence || 0) + (tanVence || 0) })
+
       setLoading(false)
     }
     init()
@@ -109,9 +122,13 @@ export default function HubPage() {
       label: 'Mantenimiento',
       description: 'Control de extintores, tanques de agua y ensayos',
       route: '/mantenimiento',
-      ready: false,
+      ready: true,
       accent: '#4FBE8C',
       icon: <IconWrench />,
+      stats: [
+        { label: 'Edificios', value: mantStats.edificios },
+        { label: 'Vencen en 30d', value: mantStats.vencen30 },
+      ],
     },
     {
       id: 'contratos',

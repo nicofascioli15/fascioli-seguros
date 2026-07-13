@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase'
 
 type Accion = 'crear' | 'editar' | 'eliminar'
-type Tabla  = 'clientes' | 'polizas' | 'pagos' | 'siniestros' | 'documentos'
+type Tabla  = 'clientes' | 'polizas' | 'pagos' | 'siniestros' | 'documentos' | 'mant_clientes' | 'mant_extintores' | 'mant_tanques'
 
 export async function registrarAudit({
   accion,
