@@ -85,13 +85,24 @@ export default function HubPage() {
         pendientes: 0,
       })
 
-      // Load mantenimiento stats
-      const [{ count: edificios }, { count: extVence }, { count: tanVence }] = await Promise.all([
+      // Load mantenimiento stats (solo el registro vigente de cada edificio, no todo el histórico)
+      function soloVigentes(rows: any[]): any[] {
+        const porCliente: Record<string, any[]> = {}
+        rows.forEach(r => { if (r.cliente_id) (porCliente[r.cliente_id] ||= []).push(r) })
+        return Object.values(porCliente).map(arr =>
+          [...arr].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
+        )
+      }
+      const [{ count: edificios }, { data: extRaw }, { data: tanRaw }] = await Promise.all([
         supabase.from('mant_clientes').select('*', { count: 'exact', head: true }),
-        supabase.from('mant_extintores').select('*', { count: 'exact', head: true }).gte('vencimiento', hoyStr).lte('vencimiento', en30Str),
-        supabase.from('mant_tanques').select('*', { count: 'exact', head: true }).gte('vencimiento', hoyStr).lte('vencimiento', en30Str),
+        supabase.from('mant_extintores').select('id, cliente_id, fecha_servicio, vencimiento, created_at'),
+        supabase.from('mant_tanques').select('id, cliente_id, fecha_servicio, vencimiento, created_at'),
       ])
-      setMantStats({ edificios: edificios || 0, vencen30: (extVence || 0) + (tanVence || 0) })
+      const extVigentes = soloVigentes(extRaw || [])
+      const tanVigentes = soloVigentes(tanRaw || [])
+      const enRango = (v: string | null) => !!v && v >= hoyStr && v <= en30Str
+      const vencen30Mant = extVigentes.filter(r => enRango(r.vencimiento)).length + tanVigentes.filter(r => enRango(r.vencimiento)).length
+      setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant })
 
       setLoading(false)
     }

@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Building2, Flame, Droplets, Loader2, Phone, Mail } from 'lucide-react'
+import { Building2, Flame, Droplets, Loader2, Phone, Gauge } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -18,11 +18,21 @@ function formatFecha(iso: string | null) {
 
 type Alerta = {
   id: string
-  tipo: 'Extintor' | 'Tanque'
+  tipo: 'Extintor' | 'Tanque' | 'Ensayo hidrostático'
   cliente_nombre: string
   cliente_tel: string
   vencimiento: string | null
   dias: number | null
+}
+
+type RegRaw = { id: string; cliente_id: string | null; fecha_servicio: string | null; vencimiento: string | null; vencimiento_ensayo?: string | null; created_at: string; mant_clientes: { nombre: string; tel: string } | null }
+
+function soloVigentes(rows: RegRaw[]): RegRaw[] {
+  const porCliente: Record<string, RegRaw[]> = {}
+  rows.forEach(r => { if (r.cliente_id) (porCliente[r.cliente_id] ||= []).push(r) })
+  return Object.values(porCliente).map(arr =>
+    [...arr].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
+  )
 }
 
 export default function MantenimientoDashboard() {
@@ -35,23 +45,30 @@ export default function MantenimientoDashboard() {
 
   async function fetchAll() {
     setLoading(true)
-    const [{ count: edificios }, { data: ext }, { data: tan }] = await Promise.all([
+    const [{ count: edificios }, { data: extRaw }, { data: tanRaw }] = await Promise.all([
       supabase.from('mant_clientes').select('*', { count: 'exact', head: true }),
-      supabase.from('mant_extintores').select('id, vencimiento, mant_clientes(nombre, tel)'),
-      supabase.from('mant_tanques').select('id, vencimiento, mant_clientes(nombre, tel)'),
+      supabase.from('mant_extintores').select('id, cliente_id, fecha_servicio, vencimiento, vencimiento_ensayo, created_at, mant_clientes(nombre, tel)'),
+      supabase.from('mant_tanques').select('id, cliente_id, fecha_servicio, vencimiento, created_at, mant_clientes(nombre, tel)'),
     ])
 
-    const extAlertas: Alerta[] = (ext || []).map((r: any) => ({
+    const extVigentes = soloVigentes((extRaw || []) as any)
+    const tanVigentes = soloVigentes((tanRaw || []) as any)
+
+    const extAlertas: Alerta[] = extVigentes.map((r: any) => ({
       id: r.id, tipo: 'Extintor', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
       vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
     }))
-    const tanAlertas: Alerta[] = (tan || []).map((r: any) => ({
+    const ensayoAlertas: Alerta[] = extVigentes.filter((r: any) => r.vencimiento_ensayo).map((r: any) => ({
+      id: `${r.id}-ensayo`, tipo: 'Ensayo hidrostático', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
+      vencimiento: r.vencimiento_ensayo, dias: diasHasta(r.vencimiento_ensayo),
+    }))
+    const tanAlertas: Alerta[] = tanVigentes.map((r: any) => ({
       id: r.id, tipo: 'Tanque', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
       vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
     }))
 
-    setStats({ edificios: edificios || 0, extintores: ext?.length || 0, tanques: tan?.length || 0 })
-    setAlertas([...extAlertas, ...tanAlertas].sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
+    setStats({ edificios: edificios || 0, extintores: extVigentes.length, tanques: tanVigentes.length })
+    setAlertas([...extAlertas, ...ensayoAlertas, ...tanAlertas].sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
     setLoading(false)
   }
 
@@ -59,6 +76,17 @@ export default function MantenimientoDashboard() {
   const urgentes = alertas.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
   const proximos = alertas.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
   const vencen30 = vencidos.length + urgentes.length + proximos.length
+
+  function iconoTipo(tipo: Alerta['tipo']) {
+    if (tipo === 'Extintor') return <Flame size={18} color="#D97706" />
+    if (tipo === 'Ensayo hidrostático') return <Gauge size={18} color="#7C3AED" />
+    return <Droplets size={18} color="#0E7490" />
+  }
+  function bgTipo(tipo: Alerta['tipo']) {
+    if (tipo === 'Extintor') return '#FEF3C7'
+    if (tipo === 'Ensayo hidrostático') return '#EDE9FE'
+    return '#E6F5F9'
+  }
 
   function Section({ title, items, dotColor }: { title: string; items: Alerta[]; dotColor: string }) {
     if (items.length === 0) return null
@@ -76,10 +104,10 @@ export default function MantenimientoDashboard() {
             borderLeft: `3px solid ${dotColor}`,
           }}>
             <div style={{
-              width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: a.tipo === 'Extintor' ? '#FEF3C7' : '#E6F5F9',
+              width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: bgTipo(a.tipo),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {a.tipo === 'Extintor' ? <Flame size={18} color="#D97706" /> : <Droplets size={18} color="#0E7490" />}
+              {iconoTipo(a.tipo)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5 }}>{a.cliente_nombre}</div>

@@ -5,11 +5,11 @@ import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
-import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import ActionsMenu from '@/components/ActionsMenu'
-import { ACCION, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
+import { ItemForm, emptyForm as emptyMantForm } from '@/components/MantItemsPage'
+import { ACCION, estadoBadgeClass } from '@/lib/mantenimientoConfig'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
 const emptyCliente = { nombre: '', direccion: '', contacto: '', tel: '', email: '' }
@@ -184,7 +184,12 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
   )
 }
 
-type RegItem = { id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string; created_at: string; dias: number | null; vigente: boolean; docsCount: number }
+type RegItem = {
+  id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string
+  created_at: string; dias: number | null; vigente: boolean; docsCount: number
+  cant_co2: number; cant_8kg: number; cant_4kg: number; cant_espuma: number
+  cant_ensayo_hidrostatico: number; vencimiento_ensayo: string | null; extras: string[]; dias_ensayo: number | null
+}
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -234,13 +239,13 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [tanques, setTanques]       = useState<RegItem[]>([])
   const [loading, setLoading]       = useState(true)
   const [addTipo, setAddTipo]       = useState<'mant_extintores' | 'mant_tanques' | null>(null)
-  const [addForm, setAddForm]       = useState({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' })
+  const [addForm, setAddForm]       = useState(emptyMantForm)
   const [saving, setSaving]         = useState(false)
   const [docsFor, setDocsFor]       = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
   const [reclamosFor, setReclamosFor] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
 
   const [editItem, setEditItem]         = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
-  const [editItemForm, setEditItemForm] = useState({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' })
+  const [editItemForm, setEditItemForm] = useState(emptyMantForm)
   const [savingEditItem, setSavingEditItem] = useState(false)
 
   const [confirmEliminarItem, setConfirmEliminarItem] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
@@ -250,18 +255,33 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
 
   function abrirEditarItem(tipo: 'mant_extintores' | 'mant_tanques', item: RegItem) {
     setEditItem({ tipo, item })
-    setEditItemForm({ fecha_servicio: item.fecha_servicio || '', vencimiento: item.vencimiento || '', empresa: item.empresa, estado: item.estado || 'No realizado' })
+    setEditItemForm({
+      ...emptyMantForm,
+      fecha_servicio: item.fecha_servicio || '', vencimiento: item.vencimiento || '', empresa: item.empresa, estado: item.estado || 'No realizado',
+      cant_co2: item.cant_co2 || 0, cant_8kg: item.cant_8kg || 0, cant_4kg: item.cant_4kg || 0, cant_espuma: item.cant_espuma || 0,
+      cant_ensayo_hidrostatico: item.cant_ensayo_hidrostatico || 0, vencimiento_ensayo: item.vencimiento_ensayo || '', extras: item.extras || [],
+    })
   }
 
   async function guardarEdicionItem() {
     if (!editItem) return
     setSavingEditItem(true)
-    await supabase.from(editItem.tipo).update({
+    const payload: any = {
       fecha_servicio: editItemForm.fecha_servicio || null,
       vencimiento: editItemForm.vencimiento || null,
       empresa: editItemForm.empresa || null,
       estado: editItemForm.estado || null,
-    }).eq('id', editItem.item.id)
+    }
+    if (editItem.tipo === 'mant_extintores') {
+      payload.cant_co2 = editItemForm.cant_co2 || 0
+      payload.cant_8kg = editItemForm.cant_8kg || 0
+      payload.cant_4kg = editItemForm.cant_4kg || 0
+      payload.cant_espuma = editItemForm.cant_espuma || 0
+      payload.cant_ensayo_hidrostatico = editItemForm.cant_ensayo_hidrostatico || 0
+      payload.vencimiento_ensayo = editItemForm.vencimiento_ensayo || null
+      payload.extras = editItemForm.extras || []
+    }
+    await supabase.from(editItem.tipo).update(payload).eq('id', editItem.item.id)
     await registrarAudit({ accion: 'editar', tabla: editItem.tipo, registroId: editItem.item.id, descripcion: 'Registro editado desde ficha de cliente', datosDespues: editItemForm })
     setEditItem(null)
     setSavingEditItem(false)
@@ -279,7 +299,12 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   }
 
   function marcarVigente(rows: any[]): RegItem[] {
-    const mapped: RegItem[] = rows.map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0 }))
+    const mapped: RegItem[] = rows.map(r => ({
+      ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0,
+      cant_co2: r.cant_co2 || 0, cant_8kg: r.cant_8kg || 0, cant_4kg: r.cant_4kg || 0, cant_espuma: r.cant_espuma || 0,
+      cant_ensayo_hidrostatico: r.cant_ensayo_hidrostatico || 0, vencimiento_ensayo: r.vencimiento_ensayo || null,
+      extras: r.extras || [], dias_ensayo: diasHasta(r.vencimiento_ensayo || null),
+    }))
     const masReciente = [...mapped].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
     if (masReciente) masReciente.vigente = true
     return mapped
@@ -298,7 +323,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   async function fetchRegistros() {
     setLoading(true)
     const [{ data: ext }, { data: tan }] = await Promise.all([
-      supabase.from('mant_extintores').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
+      supabase.from('mant_extintores').select('id, fecha_servicio, vencimiento, empresa, estado, created_at, cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras').eq('cliente_id', cliente.id).order('vencimiento'),
       supabase.from('mant_tanques').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
     ])
     const extMapped = marcarVigente(ext || [])
@@ -312,10 +337,26 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   async function guardarNuevo() {
     if (!addTipo) return
     setSaving(true)
-    await supabase.from(addTipo).insert([{ cliente_id: cliente.id, fecha_servicio: addForm.fecha_servicio || null, vencimiento: addForm.vencimiento || null, empresa: addForm.empresa || null, estado: addForm.estado || null }])
+    const payload: any = {
+      cliente_id: cliente.id,
+      fecha_servicio: addForm.fecha_servicio || null,
+      vencimiento: addForm.vencimiento || null,
+      empresa: addForm.empresa || null,
+      estado: addForm.estado || null,
+    }
+    if (addTipo === 'mant_extintores') {
+      payload.cant_co2 = addForm.cant_co2 || 0
+      payload.cant_8kg = addForm.cant_8kg || 0
+      payload.cant_4kg = addForm.cant_4kg || 0
+      payload.cant_espuma = addForm.cant_espuma || 0
+      payload.cant_ensayo_hidrostatico = addForm.cant_ensayo_hidrostatico || 0
+      payload.vencimiento_ensayo = addForm.vencimiento_ensayo || null
+      payload.extras = addForm.extras || []
+    }
+    await supabase.from(addTipo).insert([payload])
     setSaving(false)
     setAddTipo(null)
-    setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' })
+    setAddForm(emptyMantForm)
     await fetchRegistros()
   }
 
@@ -324,7 +365,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>{icon} {titulo} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({items.length})</span></div>
-          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' }) }}><Plus size={13} /> Nueva {ACCION[tipo]}</button>
+          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm(emptyMantForm) }}><Plus size={13} /> Nueva {ACCION[tipo]}</button>
         </div>
         {items.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros para este edificio</div>
@@ -339,6 +380,14 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                   <span style={{ fontWeight: 600 }}>Vence {formatFecha(it.vencimiento)}</span>
                   {it.empresa && <span style={{ color: 'var(--text-muted)' }}> · {it.empresa}</span>}
                   {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginLeft: 8 }}>{it.estado}</span>}
+                  {tipo === 'mant_extintores' && (it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma > 0) && (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                      {it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma} recargados
+                      {it.vencimiento_ensayo && (
+                        <> · Ensayo hidrostático {formatFecha(it.vencimiento_ensayo)} <span className={`badge ${vencBadge(it.dias_ensayo).cls}`}>{vencBadge(it.dias_ensayo).label}</span></>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span className={`badge ${b.cls}`} style={{ marginRight: 6 }}>{b.label}</span>
@@ -385,28 +434,12 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
 
       {addTipo && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setAddTipo(null) }}>
-          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva {addTipo ? ACCION[addTipo] : ''} {addTipo === 'mant_extintores' ? 'de extintores' : 'de tanques de agua'}</h3>
               <button onClick={() => setAddTipo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 12px' }}>
-              <div className="fgroup"><label>Fecha del servicio</label>
-                <DatePicker value={addForm.fecha_servicio} onChange={v => setAddForm(p => ({
-                  ...p,
-                  fecha_servicio: v,
-                  vencimiento: v && addTipo ? sumarAnios(v, VENCIMIENTO_ANIOS[addTipo]) : p.vencimiento,
-                }))} placeholder="¿Cuándo se hizo?" /></div>
-              <div className="fgroup"><label>Próximo vencimiento</label>
-                <DatePicker value={addForm.vencimiento} onChange={v => setAddForm(p => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
-            </div>
-            <div className="fgroup"><label>Empresa</label>
-              <input value={addForm.empresa} onChange={e => setAddForm(p => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
-            <div className="fgroup"><label>Estado</label>
-              <select value={addForm.estado} onChange={e => setAddForm(p => ({ ...p, estado: e.target.value }))}>
-                {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}
-              </select>
-            </div>
+            <ItemForm form={addForm} setForm={setAddForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={addTipo!} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setAddTipo(null)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarNuevo} disabled={saving}>
@@ -438,28 +471,12 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
 
       {editItem && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditItem(null) }}>
-          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar {ACCION[editItem.tipo]}</h3>
               <button onClick={() => setEditItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 12px' }}>
-              <div className="fgroup"><label>Fecha del servicio</label>
-                <DatePicker value={editItemForm.fecha_servicio} onChange={v => setEditItemForm(p => ({
-                  ...p,
-                  fecha_servicio: v,
-                  vencimiento: v ? sumarAnios(v, VENCIMIENTO_ANIOS[editItem.tipo]) : p.vencimiento,
-                }))} placeholder="¿Cuándo se hizo?" /></div>
-              <div className="fgroup"><label>Próximo vencimiento</label>
-                <DatePicker value={editItemForm.vencimiento} onChange={v => setEditItemForm(p => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
-            </div>
-            <div className="fgroup"><label>Empresa</label>
-              <input value={editItemForm.empresa} onChange={e => setEditItemForm(p => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
-            <div className="fgroup"><label>Estado</label>
-              <select value={editItemForm.estado} onChange={e => setEditItemForm(p => ({ ...p, estado: e.target.value }))}>
-                {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}
-              </select>
-            </div>
+            <ItemForm form={editItemForm} setForm={setEditItemForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={editItem.tipo} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}

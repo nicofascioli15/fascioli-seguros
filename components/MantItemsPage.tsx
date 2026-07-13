@@ -13,7 +13,7 @@ import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
-import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
+import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES } from '@/lib/mantenimientoConfig'
 
 type Item = {
   id: string
@@ -28,6 +28,14 @@ type Item = {
   dias: number | null
   vigente: boolean
   docsCount: number
+  cant_co2: number
+  cant_8kg: number
+  cant_4kg: number
+  cant_espuma: number
+  cant_ensayo_hidrostatico: number
+  vencimiento_ensayo: string | null
+  extras: string[]
+  dias_ensayo: number | null
 }
 type ClienteOpt = { id: string; nombre: string }
 
@@ -63,7 +71,12 @@ function vencBadge(dias: number | null): { label: string; cls: string } {
   return { label: `${dias}d`, cls: 'badge-success' }
 }
 
-const emptyForm = { cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '' }
+export const emptyForm = {
+  cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '',
+  cant_co2: 0, cant_8kg: 0, cant_4kg: 0, cant_espuma: 0,
+  cant_ensayo_hidrostatico: 0, vencimiento_ensayo: '',
+  extras: [] as string[],
+}
 
 export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const supabase = createClient()
@@ -96,8 +109,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
   async function fetchAll() {
     setLoading(true)
+    const baseCols  = 'id, cliente_id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
+    const extraCols = tabla === 'mant_extintores' ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras' : ''
     const [{ data: itemsData }, { data: clientesData }] = await Promise.all([
-      supabase.from(tabla).select('id, cliente_id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at, mant_clientes(nombre)').order('vencimiento', { ascending: true, nullsFirst: false }),
+      supabase.from(tabla).select(`${baseCols}${extraCols}, mant_clientes(nombre)`).order('vencimiento', { ascending: true, nullsFirst: false }),
       supabase.from('mant_clientes').select('id, nombre').order('nombre'),
     ])
     if (itemsData) {
@@ -114,6 +129,14 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         dias: diasHasta(r.vencimiento),
         vigente: false,
         docsCount: 0,
+        cant_co2: r.cant_co2 || 0,
+        cant_8kg: r.cant_8kg || 0,
+        cant_4kg: r.cant_4kg || 0,
+        cant_espuma: r.cant_espuma || 0,
+        cant_ensayo_hidrostatico: r.cant_ensayo_hidrostatico || 0,
+        vencimiento_ensayo: r.vencimiento_ensayo || null,
+        extras: r.extras || [],
+        dias_ensayo: diasHasta(r.vencimiento_ensayo || null),
       }))
       // Vigente = gestión más reciente por edificio (fecha de servicio, si no hay, fecha de alta)
       const porCliente: Record<string, Item[]> = {}
@@ -142,13 +165,22 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   async function guardar() {
     if (!form.cliente_id) return
     setSaving(true)
-    const payload = {
+    const payload: any = {
       cliente_id: form.cliente_id,
       fecha_servicio: form.fecha_servicio || null,
       vencimiento: form.vencimiento || null,
       empresa: form.empresa || null,
       estado: form.estado || null,
       comentarios: form.comentarios || null,
+    }
+    if (tabla === 'mant_extintores') {
+      payload.cant_co2 = form.cant_co2 || 0
+      payload.cant_8kg = form.cant_8kg || 0
+      payload.cant_4kg = form.cant_4kg || 0
+      payload.cant_espuma = form.cant_espuma || 0
+      payload.cant_ensayo_hidrostatico = form.cant_ensayo_hidrostatico || 0
+      payload.vencimiento_ensayo = form.vencimiento_ensayo || null
+      payload.extras = form.extras || []
     }
     const { error, data } = await supabase.from(tabla).insert([payload]).select().single()
     if (!error && data) {
@@ -170,6 +202,13 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       empresa: it.empresa,
       estado: it.estado,
       comentarios: it.comentarios,
+      cant_co2: it.cant_co2 || 0,
+      cant_8kg: it.cant_8kg || 0,
+      cant_4kg: it.cant_4kg || 0,
+      cant_espuma: it.cant_espuma || 0,
+      cant_ensayo_hidrostatico: it.cant_ensayo_hidrostatico || 0,
+      vencimiento_ensayo: it.vencimiento_ensayo || '',
+      extras: it.extras || [],
     })
   }
 
@@ -182,14 +221,24 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   async function guardarEdicion() {
     if (!editando || !editForm.cliente_id) return
     setSavingEdit(true)
-    await supabase.from(tabla).update({
+    const payload: any = {
       cliente_id: editForm.cliente_id,
       fecha_servicio: editForm.fecha_servicio || null,
       vencimiento: editForm.vencimiento || null,
       empresa: editForm.empresa || null,
       estado: editForm.estado || null,
       comentarios: editForm.comentarios || null,
-    }).eq('id', editando.id)
+    }
+    if (tabla === 'mant_extintores') {
+      payload.cant_co2 = editForm.cant_co2 || 0
+      payload.cant_8kg = editForm.cant_8kg || 0
+      payload.cant_4kg = editForm.cant_4kg || 0
+      payload.cant_espuma = editForm.cant_espuma || 0
+      payload.cant_ensayo_hidrostatico = editForm.cant_ensayo_hidrostatico || 0
+      payload.vencimiento_ensayo = editForm.vencimiento_ensayo || null
+      payload.extras = editForm.extras || []
+    }
+    await supabase.from(tabla).update(payload).eq('id', editando.id)
     await registrarAudit({ accion: 'editar', tabla, registroId: editando.id, descripcion: `${singular} editado`, datosDespues: editForm })
     setEditando(null)
     setSavingEdit(false)
@@ -236,6 +285,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               { header: 'Edificio', key: 'edificio', width: 140 },
               { header: 'Fecha servicio', key: 'fecha_servicio', width: 80 },
               { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+              ...(tabla === 'mant_extintores' ? [
+                { header: 'Cant. recargados', key: 'cantidad', width: 70 },
+                { header: 'Ensayo hidrostático', key: 'vencimiento_ensayo', width: 90 },
+              ] : []),
               { header: 'Empresa', key: 'empresa', width: 100 },
               { header: 'Estado', key: 'estado', width: 90 },
               { header: 'Comentarios', key: 'comentarios', width: 160 },
@@ -244,6 +297,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               edificio: it.cliente_nombre,
               fecha_servicio: formatFecha(it.fecha_servicio),
               vencimiento: formatFecha(it.vencimiento),
+              ...(tabla === 'mant_extintores' ? {
+                cantidad: it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma,
+                vencimiento_ensayo: formatFecha(it.vencimiento_ensayo),
+              } : {}),
               empresa: it.empresa,
               estado: it.estado,
               comentarios: it.comentarios,
@@ -293,6 +350,8 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               <tr>
                 <SortHeader label="Edificio" col="cliente_nombre" sort={sort} onSort={toggleSort} />
                 <SortHeader label="Vencimiento" col="vencimiento" sort={sort} onSort={toggleSort} />
+                {tabla === 'mant_extintores' && <th>Cant.</th>}
+                {tabla === 'mant_extintores' && <th>Ensayo hidrostático</th>}
                 <th>Estado</th>
                 <th>Empresa</th>
                 <th>Comentarios</th>
@@ -311,6 +370,21 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                         <span className={`badge ${b.cls}`}>{b.label}</span>
                       </div>
                     </td>
+                    {tabla === 'mant_extintores' && (
+                      <td style={{ color: 'var(--text-muted)' }}>
+                        {it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma || '—'}
+                      </td>
+                    )}
+                    {tabla === 'mant_extintores' && (
+                      <td>
+                        {it.vencimiento_ensayo ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>{formatFecha(it.vencimiento_ensayo)}</span>
+                            <span className={`badge ${vencBadge(it.dias_ensayo).cls}`}>{vencBadge(it.dias_ensayo).label}</span>
+                          </div>
+                        ) : '—'}
+                      </td>
+                    )}
                     <td>{it.estado ? <span className={`badge ${estadoBadgeClass(it.estado)}`}>{it.estado}</span> : '—'}</td>
                     <td>{it.empresa || '—'}</td>
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
@@ -355,6 +429,12 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginRight: 6 }}>{it.estado}</span>}
                     {it.empresa}{it.empresa && ' · '}{formatFecha(it.vencimiento)}
                   </div>
+                  {tabla === 'mant_extintores' && it.vencimiento_ensayo && (
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Ensayo hidrostático: {formatFecha(it.vencimiento_ensayo)}
+                      <span className={`badge ${vencBadge(it.dias_ensayo).cls}`}>{vencBadge(it.dias_ensayo).label}</span>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -493,7 +573,7 @@ function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
   )
 }
 
-function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null; tabla: Props['tabla'] }) {
+export function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null; tabla: 'mant_extintores' | 'mant_tanques' }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
@@ -514,11 +594,56 @@ function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typ
           ...p,
           fecha_servicio: v,
           vencimiento: v ? sumarAnios(v, VENCIMIENTO_ANIOS[tabla]) : p.vencimiento,
+          vencimiento_ensayo: v && tabla === 'mant_extintores' ? sumarAnios(v, VENCIMIENTO_ENSAYO_ANIOS) : p.vencimiento_ensayo,
         }))} placeholder="¿Cuándo se hizo?" /></div>
       <div className="fgroup"><label>Próximo vencimiento</label>
         <DatePicker value={form.vencimiento} onChange={v => setForm((p: any) => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" />
         {form.fecha_servicio && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se calcula solo (+{VENCIMIENTO_ANIOS[tabla]} {VENCIMIENTO_ANIOS[tabla] === 1 ? 'año' : 'años'}) — se puede ajustar</div>}
       </div>
+
+      {tabla === 'mant_extintores' && (
+        <>
+          <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+            <label>Extintores recargados por tipo</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {TIPOS_EXTINTOR.map(t => (
+                <div key={t.key}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{t.label}</div>
+                  <input type="number" min={0} value={form[t.key]}
+                    onChange={e => setForm((p: any) => ({ ...p, [t.key]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
+              Total recargados: {form.cant_co2 + form.cant_8kg + form.cant_4kg + form.cant_espuma}
+            </div>
+          </div>
+
+          <div className="fgroup"><label>Ensayos hidrostáticos realizados</label>
+            <input type="number" min={0} value={form.cant_ensayo_hidrostatico}
+              onChange={e => setForm((p: any) => ({ ...p, cant_ensayo_hidrostatico: Math.max(0, parseInt(e.target.value) || 0) }))}
+              placeholder="0" /></div>
+          <div className="fgroup"><label>Próximo ensayo hidrostático</label>
+            <DatePicker value={form.vencimiento_ensayo} onChange={v => setForm((p: any) => ({ ...p, vencimiento_ensayo: v }))} placeholder="Se calcula solo (+4 años)" />
+            {form.fecha_servicio && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Ciclo de {VENCIMIENTO_ENSAYO_ANIOS} años — se puede ajustar</div>}
+          </div>
+
+          <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+            <label>Extras</label>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              {EXTRAS_EXTINTORES.map(ex => (
+                <label key={ex} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--navy)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.extras.includes(ex)}
+                    onChange={() => setForm((p: any) => ({ ...p, extras: p.extras.includes(ex) ? p.extras.filter((x: string) => x !== ex) : [...p.extras, ex] }))} />
+                  {ex}
+                </label>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
         <input value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Estado</label>

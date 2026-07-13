@@ -18,6 +18,20 @@ export const ACCION_TITULO: Record<MantTabla, string> = {
 export const ESTADOS_GESTION = ['No realizado', 'En proceso', 'Completado'] as const
 export type EstadoGestion = typeof ESTADOS_GESTION[number]
 
+// El ensayo hidrostático vence cada 4 años, distinto del ciclo de recarga (2 años)
+export const VENCIMIENTO_ENSAYO_ANIOS = 4
+
+export const TIPOS_EXTINTOR: { key: 'cant_co2' | 'cant_8kg' | 'cant_4kg' | 'cant_espuma'; label: string }[] = [
+  { key: 'cant_co2', label: 'CO2' },
+  { key: 'cant_8kg', label: '8kg' },
+  { key: 'cant_4kg', label: '4kg' },
+  { key: 'cant_espuma', label: 'Espuma' },
+]
+
+// Lista de "extras" seleccionables al registrar una recarga de extintores.
+// Agregar más ítems acá no requiere cambios de esquema (se guarda como array de texto).
+export const EXTRAS_EXTINTORES = ['Mangueras revisadas']
+
 export function estadoBadgeClass(estado: string): string {
   if (estado === 'Completado') return 'badge-success'
   if (estado === 'En proceso') return 'badge-warning'
