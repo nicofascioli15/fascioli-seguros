@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip, MessageSquareWarning, Trash2, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip, MessageSquareWarning, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -22,6 +22,7 @@ export default function MantClientesPage() {
 
 function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
   const supabase = createClient()
+  const csvRef   = useRef<HTMLInputElement>(null)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -33,6 +34,12 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
   const [editando, setEditando] = useState<Cliente | null>(null)
   const [editForm, setEditForm] = useState(emptyCliente)
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // Importación CSV
+  const [showImport, setShowImport] = useState(false)
+  const [csvPreview, setCsvPreview] = useState<{ rows: Omit<Cliente, 'id'>[]; errors: string[] }>({ rows: [], errors: [] })
+  const [importing, setImporting]   = useState(false)
+  const [importDone, setImportDone] = useState<{ ok: number; skip: number } | null>(null)
 
   useEffect(() => { fetchClientes() }, [])
 
@@ -71,6 +78,45 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
     await fetchClientes()
   }
 
+  // CSV import
+  function descargarPlantilla() {
+    const csv = ['nombre;direccion;contacto;tel;email', 'Le Mans;Av. Italia 1234;Juan Pérez;099123456;juan@lemans.com.uy'].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'plantilla_edificios_fascioli.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+  function parseCsv(text: string) {
+    const lines = text.trim().split('\n').filter(l => l.trim())
+    if (lines.length < 2) return { rows: [], errors: ['El archivo está vacío'] }
+    const sep = lines[0].includes(';') ? ';' : ','
+    const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''))
+    const idx = { nombre: header.findIndex(h => h.includes('nombre')), direccion: header.findIndex(h => h.includes('direcci')), contacto: header.findIndex(h => h.includes('contacto')), tel: header.findIndex(h => h.includes('tel')), email: header.findIndex(h => h.includes('email') || h.includes('mail')) }
+    if (idx.nombre === -1) return { rows: [], errors: ['No se encontró columna "nombre"'] }
+    const rows: Omit<Cliente, 'id'>[] = []; const errors: string[] = []
+    lines.slice(1).forEach((line, i) => {
+      const cols = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
+      const nombre = cols[idx.nombre] || ''
+      if (!nombre) { errors.push(`Fila ${i + 2}: nombre vacío`); return }
+      rows.push({ nombre, direccion: idx.direccion >= 0 ? cols[idx.direccion] || '' : '', contacto: idx.contacto >= 0 ? cols[idx.contacto] || '' : '', tel: idx.tel >= 0 ? cols[idx.tel] || '' : '', email: idx.email >= 0 ? cols[idx.email] || '' : '' })
+    })
+    return { rows, errors }
+  }
+  function handleCsvFile(file: File) {
+    const reader = new FileReader()
+    reader.onload = e => { const result = parseCsv(e.target?.result as string); setCsvPreview(result); setShowImport(true); setImportDone(null) }
+    reader.readAsText(file, 'utf-8')
+  }
+  async function confirmarImport() {
+    if (!csvPreview.rows.length) return
+    setImporting(true)
+    const { data, error } = await supabase.from('mant_clientes').insert(csvPreview.rows).select()
+    let ok = 0, skip = 0
+    if (error) { for (const row of csvPreview.rows) { const { error: e } = await supabase.from('mant_clientes').insert([row]); if (e) skip++; else ok++ } }
+    else { ok = data?.length || csvPreview.rows.length }
+    setImporting(false); setImportDone({ ok, skip }); await fetchClientes()
+  }
+
   const filtradosBase = clientes.filter(c =>
     c.nombre.toLowerCase().includes(search.toLowerCase()) || (c.direccion || '').toLowerCase().includes(search.toLowerCase())
   )
@@ -83,7 +129,13 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Clientes</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{clientes.length} edificios registrados</p>
         </div>
-        <button className="btn-primary" onClick={() => { setForm(emptyCliente); setShowModal(true) }}><Plus size={15} /> Nuevo edificio</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-outline" onClick={() => { setShowImport(true); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>
+            <Upload size={15} /> Importar CSV
+          </button>
+          <input ref={csvRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleCsvFile(e.target.files[0]); e.target.value = '' }} />
+          <button className="btn-primary" onClick={() => { setForm(emptyCliente); setShowModal(true) }}><Plus size={15} /> Nuevo edificio</button>
+        </div>
       </div>
 
       <div style={{ marginBottom: 18 }}>
@@ -154,6 +206,81 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
                 {savingEdit ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal importar CSV */}
+      {showImport && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowImport(false); setCsvPreview({ rows: [], errors: [] }) } }}>
+          <div className="pago-modal" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Importar edificios desde CSV</h3>
+              <button onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            {importDone ? (
+              <div style={{ textAlign: 'center', padding: '28px 0' }}>
+                <CheckCircle size={40} color="var(--success)" style={{ display: 'block', margin: '0 auto 12px' }} />
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>Importación completada</div>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)' }}><span style={{ color: 'var(--success)', fontWeight: 700 }}>{importDone.ok} edificios importados</span>{importDone.skip > 0 && <span> · {importDone.skip} omitidos</span>}</div>
+                <button className="btn-primary" style={{ marginTop: 20 }} onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }); setImportDone(null) }}>Cerrar</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+                  <button className="btn-outline" onClick={descargarPlantilla} style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}>
+                    <Download size={14} /> Descargar plantilla CSV
+                  </button>
+                </div>
+                {csvPreview.errors.length > 0 && (
+                  <div style={{ background: '#FEF3C7', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+                    {csvPreview.errors.map((e, i) => <div key={i} style={{ fontSize: 12.5, color: '#92400E', display: 'flex', gap: 6 }}><AlertCircle size={14} /> {e}</div>)}
+                  </div>
+                )}
+                {csvPreview.rows.length === 0 ? (
+                  <div onClick={() => csvRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                    onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)' }}
+                    onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)'; const file = e.dataTransfer.files?.[0]; if (file) handleCsvFile(file) }}
+                    style={{ border: '2px dashed var(--border)', borderRadius: 10, padding: '28px 24px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-hover)', transition: 'all .15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)' }}>
+                    <Upload size={26} style={{ display: 'block', margin: '0 auto 10px', color: 'var(--text-muted)' }} />
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', marginBottom: 4 }}>Seleccionar archivo CSV</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Hacé click o arrastrá tu archivo</div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)', marginBottom: 10 }}>{csvPreview.rows.length} edificios a importar</div>
+                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border-soft)', borderRadius: 10, overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead><tr style={{ background: 'var(--bg-hover)' }}>
+                          {['Nombre', 'Dirección', 'Contacto', 'Tel', 'Email'].map(h => <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>{csvPreview.rows.map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #F1F5FB' }}>
+                            <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600 }}>{r.nombre}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.direccion || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.contacto || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.tel || '—'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)' }}>{r.email || '—'}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                      <button className="btn-outline" onClick={() => csvRef.current?.click()}><Upload size={14} /> Cambiar archivo</button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn-outline" onClick={() => { setShowImport(false); setCsvPreview({ rows: [], errors: [] }) }}>Cancelar</button>
+                        <button className="btn-primary" onClick={confirmarImport} disabled={importing}>
+                          {importing ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Importando...</> : <>Importar {csvPreview.rows.length} edificios</>}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
