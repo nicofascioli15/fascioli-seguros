@@ -190,14 +190,17 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-page); 
 .fgroup input, .fgroup select { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--navy); outline: none; transition: border-color .14s; background: var(--bg-card); }
 .fgroup input:focus, .fgroup select:focus { border-color: var(--gold); }
 
-/* ── SELECTS: reemplaza la apariencia nativa del navegador (Safari sobre todo) por una flecha propia ── */
+/* ── SELECTS: reemplaza la apariencia nativa del navegador (Safari sobre todo) por una flecha propia ──
+   Todo con !important porque muchos <select> del código traen `background`/`padding` inline,
+   que de otra forma pisa el ícono (el shorthand "background" inline resetea background-image). */
 select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238A9BB5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238A9BB5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-color: var(--bg-card) !important;
   padding-right: 30px !important;
   cursor: pointer;
 }
