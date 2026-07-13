@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Building2, Flame, Droplets, Loader2, Phone, Gauge } from 'lucide-react'
+import { Flame, Droplets, Loader2, Phone, Gauge, AlertTriangle, Bell, Calendar, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -38,15 +38,14 @@ function soloVigentes(rows: RegRaw[]): RegRaw[] {
 export default function MantenimientoDashboard() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ edificios: 0, extintores: 0, tanques: 0 })
+  const [stats, setStats] = useState({ extintores: 0, tanques: 0 })
   const [alertas, setAlertas] = useState<Alerta[]>([])
 
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
     setLoading(true)
-    const [{ count: edificios }, { data: extRaw }, { data: tanRaw }] = await Promise.all([
-      supabase.from('mant_clientes').select('*', { count: 'exact', head: true }),
+    const [{ data: extRaw }, { data: tanRaw }] = await Promise.all([
       supabase.from('mant_extintores').select('id, cliente_id, fecha_servicio, vencimiento, vencimiento_ensayo, created_at, mant_clientes(nombre, tel)'),
       supabase.from('mant_tanques').select('id, cliente_id, fecha_servicio, vencimiento, created_at, mant_clientes(nombre, tel)'),
     ])
@@ -67,7 +66,7 @@ export default function MantenimientoDashboard() {
       vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
     }))
 
-    setStats({ edificios: edificios || 0, extintores: extVigentes.length, tanques: tanVigentes.length })
+    setStats({ extintores: extVigentes.length, tanques: tanVigentes.length })
     setAlertas([...extAlertas, ...ensayoAlertas, ...tanAlertas].sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
     setLoading(false)
   }
@@ -75,7 +74,13 @@ export default function MantenimientoDashboard() {
   const vencidos = alertas.filter(a => a.dias !== null && a.dias < 0)
   const urgentes = alertas.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
   const proximos = alertas.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
-  const vencen30 = vencidos.length + urgentes.length + proximos.length
+
+  const statCards: { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string }[] = [
+    { label: 'Vencidos',                    value: loading ? '—' : vencidos.length, sub: 'Necesitan atención ya',       icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F' },
+    { label: 'Urgentes — 7 días o menos',   value: loading ? '—' : urgentes.length, sub: 'Esta semana',                 icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F' },
+    { label: 'Próximos vencimientos',       value: loading ? '—' : proximos.length, sub: 'Entre 8 y 30 días',           icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706' },
+    { label: 'En seguimiento',              value: loading ? '—' : stats.extintores + stats.tanques, sub: 'Extintores + tanques vigentes', icon: ClipboardList, bg: '#E6F5F9', iconColor: '#0E7490' },
+  ]
 
   function iconoTipo(tipo: Alerta['tipo']) {
     if (tipo === 'Extintor') return <Flame size={18} color="#D97706" />
@@ -137,23 +142,21 @@ export default function MantenimientoDashboard() {
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Control de extintores, tanques de agua y ensayos</p>
       </div>
 
-      <div className="stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
-        <div className="stat-card">
-          <div className="value">{loading ? '—' : stats.edificios}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><Building2 size={13} /> Edificios</div>
-        </div>
-        <div className="stat-card">
-          <div className="value">{loading ? '—' : stats.extintores}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><Flame size={13} /> Extintores</div>
-        </div>
-        <div className="stat-card">
-          <div className="value">{loading ? '—' : stats.tanques}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><Droplets size={13} /> Tanques de agua</div>
-        </div>
-        <div className="stat-card" style={{ borderColor: vencen30 > 0 ? 'var(--danger)' : undefined }}>
-          <div className="value" style={{ color: vencen30 > 0 ? 'var(--danger)' : undefined }}>{loading ? '—' : vencen30}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Vencen en 30 días</div>
-        </div>
+      <div className="dashboard-stats">
+        {statCards.map(s => (
+          <div key={s.label} className="stat-card">
+            <div className="stat-card-inner">
+              <div className="stat-card-text">
+                <div className="label">{s.label}</div>
+                <div className="value">{s.value}</div>
+                <div className="sub">{s.sub}</div>
+              </div>
+              <div className="stat-card-icon" style={{ background: s.bg }}>
+                <s.icon size={20} color={s.iconColor} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {loading ? (
