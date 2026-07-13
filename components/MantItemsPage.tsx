@@ -83,6 +83,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
   const [items, setItems]       = useState<Item[]>([])
   const [clientes, setClientes] = useState<ClienteOpt[]>([])
+  const [empresas, setEmpresas] = useState<string[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filtroDias, setFiltroDias] = useState(-1)
@@ -113,10 +114,12 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     setLoading(true)
     const baseCols  = 'id, cliente_id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
     const extraCols = tabla === 'mant_extintores' ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras' : ''
-    const [{ data: itemsData }, { data: clientesData }] = await Promise.all([
+    const [{ data: itemsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
       supabase.from(tabla).select(`${baseCols}${extraCols}, mant_clientes(nombre)`).order('vencimiento', { ascending: true, nullsFirst: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
+      supabase.from('mant_empresas').select('nombre').order('nombre'),
     ])
+    if (empresasData) setEmpresas(empresasData.map((e: any) => e.nombre))
     if (itemsData) {
       const mapped: Item[] = itemsData.map((r: any) => ({
         id: r.id,
@@ -510,7 +513,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
             {paso === 'gestion' && (
               <>
-                <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} tabla={tabla} />
+                <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} tabla={tabla} empresas={empresas} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar edificio</button>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -534,7 +537,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar {singular}</h3>
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={editForm} setForm={setEditForm} clientes={clientes} clienteLocked={null} tabla={tabla} />
+            <ItemForm form={editForm} setForm={setEditForm} clientes={clientes} clienteLocked={null} tabla={tabla} empresas={empresas} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -636,7 +639,7 @@ function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
   )
 }
 
-export function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null; tabla: 'mant_extintores' | 'mant_tanques' }) {
+export function ItemForm({ form, setForm, clientes, clienteLocked, tabla, empresas }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null; tabla: 'mant_extintores' | 'mant_tanques'; empresas: string[] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
@@ -708,7 +711,13 @@ export function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { fo
       )}
 
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
-        <input value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
+        <select value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} style={{ color: form.empresa ? 'var(--navy)' : 'var(--slate)' }}>
+          <option value="">— Seleccionar —</option>
+          {empresas.map(e => <option key={e} value={e}>{e}</option>)}
+          {form.empresa && !empresas.includes(form.empresa) && <option value={form.empresa}>{form.empresa}</option>}
+        </select>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se administran desde Configuración</div>
+      </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Estado</label>
         <select value={form.estado} onChange={e => setForm((p: any) => ({ ...p, estado: e.target.value }))}>
           {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}

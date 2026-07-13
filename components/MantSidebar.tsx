@@ -101,8 +101,8 @@ export default function MantSidebar() {
             </Link>
           ))}
           <div className="nav-section" style={{ marginTop: 10 }}>Sistema</div>
-          <Link href="/configuracion"
-            className={`nav-item ${pathname.startsWith('/configuracion') ? 'active' : ''}`}>
+          <Link href="/mantenimiento/configuracion"
+            className={`nav-item ${pathname.startsWith('/mantenimiento/configuracion') ? 'active' : ''}`}>
             <Settings size={17} />
             Configuración
           </Link>

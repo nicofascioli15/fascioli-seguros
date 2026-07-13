@@ -250,8 +250,14 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
 
   const [confirmEliminarItem, setConfirmEliminarItem] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
   const [eliminandoItem, setEliminandoItem] = useState(false)
+  const [empresas, setEmpresas] = useState<string[]>([])
 
   useEffect(() => { fetchRegistros() }, [cliente.id])
+  useEffect(() => {
+    supabase.from('mant_empresas').select('nombre').order('nombre').then(({ data }) => {
+      if (data) setEmpresas(data.map((e: any) => e.nombre))
+    })
+  }, [])
 
   function abrirEditarItem(tipo: 'mant_extintores' | 'mant_tanques', item: RegItem) {
     setEditItem({ tipo, item })
@@ -439,7 +445,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva {addTipo ? ACCION[addTipo] : ''} {addTipo === 'mant_extintores' ? 'de extintores' : 'de tanques de agua'}</h3>
               <button onClick={() => setAddTipo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={addForm} setForm={setAddForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={addTipo!} />
+            <ItemForm form={addForm} setForm={setAddForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={addTipo!} empresas={empresas} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setAddTipo(null)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarNuevo} disabled={saving}>
@@ -476,7 +482,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar {ACCION[editItem.tipo]}</h3>
               <button onClick={() => setEditItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={editItemForm} setForm={setEditItemForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={editItem.tipo} />
+            <ItemForm form={editItemForm} setForm={setEditItemForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} tabla={editItem.tipo} empresas={empresas} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
