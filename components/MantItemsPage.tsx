@@ -289,24 +289,30 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             titulo={titulo}
             subtitulo={`${filtrados.length} registros`}
             columnas={[
-              { header: 'Edificio', key: 'edificio', width: 140 },
-              { header: 'Fecha servicio', key: 'fecha_servicio', width: 80 },
-              { header: 'Vencimiento', key: 'vencimiento', width: 80 },
+              { header: 'Edificio', key: 'edificio', width: 120 },
+              { header: 'Fecha servicio', key: 'fecha_servicio', width: 62 },
+              { header: 'Vencimiento', key: 'vencimiento', width: 62 },
               ...(tabla === 'mant_extintores' ? [
-                { header: 'Cant. recargados', key: 'cantidad', width: 70 },
-                { header: 'Ensayo hidrostático', key: 'vencimiento_ensayo', width: 90 },
+                ...TIPOS_EXTINTOR.map(t => ({ header: t.label, key: t.key, width: 40 })),
+                { header: 'Total recargados', key: 'cantidad', width: 55 },
+                { header: 'Ensayos realizados', key: 'cant_ensayo_hidrostatico', width: 55 },
+                { header: 'Vcto. ensayo', key: 'vencimiento_ensayo', width: 62 },
+                ...EXTRAS_EXTINTORES.map(ex => ({ header: ex.label, key: `extra_${ex.key}`, width: 50 })),
               ] : []),
-              { header: 'Empresa', key: 'empresa', width: 100 },
-              { header: 'Estado', key: 'estado', width: 90 },
-              { header: 'Comentarios', key: 'comentarios', width: 160 },
+              { header: 'Empresa', key: 'empresa', width: 85 },
+              { header: 'Estado', key: 'estado', width: 75 },
+              { header: 'Comentarios', key: 'comentarios', width: 130 },
             ]}
             filas={filtrados.map(it => ({
               edificio: it.cliente_nombre,
               fecha_servicio: formatFecha(it.fecha_servicio),
               vencimiento: formatFecha(it.vencimiento),
               ...(tabla === 'mant_extintores' ? {
+                ...Object.fromEntries(TIPOS_EXTINTOR.map(t => [t.key, (it as any)[t.key] || 0])),
                 cantidad: it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma,
+                cant_ensayo_hidrostatico: it.cant_ensayo_hidrostatico || 0,
                 vencimiento_ensayo: formatFecha(it.vencimiento_ensayo),
+                ...Object.fromEntries(EXTRAS_EXTINTORES.map(ex => [`extra_${ex.key}`, it.extras?.[ex.key] || 0])),
               } : {}),
               empresa: it.empresa,
               estado: it.estado,
