@@ -190,6 +190,18 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-page); 
 .fgroup input, .fgroup select { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--navy); outline: none; transition: border-color .14s; background: var(--bg-card); }
 .fgroup input:focus, .fgroup select:focus { border-color: var(--gold); }
 
+/* ── SELECTS: reemplaza la apariencia nativa del navegador (Safari sobre todo) por una flecha propia ── */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238A9BB5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 30px !important;
+  cursor: pointer;
+}
+
 /* ── UPLOAD ZONE ── */
 .upload-zone { border: 1.5px dashed var(--slate-light); border-radius: 8px; padding: 12px 16px; text-align: center; color: var(--slate); font-size: 12.5px; cursor: pointer; margin-top: 12px; transition: all .14s; }
 .upload-zone:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-pale); }

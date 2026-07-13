@@ -264,14 +264,17 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
   const estadosDisponibles = Array.from(new Set([...ESTADOS_GESTION, ...items.map(i => i.estado).filter(Boolean)]))
 
-  const filtradosBase = items.filter(it => {
-    if (!it.vigente) return false
+  // Filtros de búsqueda/días/estado — se usan tanto para la tabla en pantalla como para la exportación,
+  // así lo que se exporta siempre respeta lo que está filtrado (edificio, estado, días).
+  function matchFiltros(it: Item) {
     const q = search.toLowerCase()
     const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
     const matchDias = filtroDias === -1 ? true : filtroDias === 0 ? (it.dias !== null && it.dias < 0) : (it.dias !== null && it.dias >= 0 && it.dias <= filtroDias)
     const matchEstado = !filtroEstado || it.estado === filtroEstado
     return matchQ && matchDias && matchEstado
-  })
+  }
+
+  const filtradosBase = items.filter(it => it.vigente && matchFiltros(it))
   const { sort, toggleSort, sorted: filtrados } = useSortFilter<Item>(filtradosBase)
   const paginados = paginate(filtrados, page) as Item[]
   const clientesFiltrados = clientes.filter(c =>
@@ -285,9 +288,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     { value: 'historial',  label: 'Historial completo (todas las gestiones)' },
   ]
   const itemsExport = (() => {
-    const q = search.toLowerCase()
-    const matchQ = (it: Item) => !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
-    let base = items.filter(matchQ)
+    let base = items.filter(matchFiltros)
     if (exportScope === 'vigentes') base = base.filter(it => it.vigente)
     else if (exportScope === 'completados') base = base.filter(it => it.vigente && it.estado === 'Completado')
     return [...base].sort((a, b) => {
@@ -308,7 +309,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={exportScope} onChange={e => setExportScope(e.target.value as typeof exportScope)}
-            style={{ padding: '9px 10px', border: '1.5px solid var(--border)', borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)' }}>
+            style={{ padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 12.5, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)' }}>
             {EXPORT_SCOPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           <ExportButton
