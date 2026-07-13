@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { estadoBadgeClass } from '@/lib/mantenimientoConfig'
+import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES } from '@/lib/mantenimientoConfig'
 
 type Registro = {
   id: string
@@ -11,6 +11,13 @@ type Registro = {
   empresa: string
   estado: string
   comentarios: string
+  cant_co2?: number
+  cant_8kg?: number
+  cant_4kg?: number
+  cant_espuma?: number
+  cant_ensayo_hidrostatico?: number
+  vencimiento_ensayo?: string | null
+  extras?: Record<string, number>
 }
 
 type Props = {
@@ -35,12 +42,14 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
 
   async function fetchHistorial() {
     setLoading(true)
+    const baseCols = 'id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
+    const extraCols = tabla === 'mant_extintores' ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras' : ''
     const { data } = await supabase.from(tabla)
-      .select('id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at')
+      .select(`${baseCols}${extraCols}`)
       .eq('cliente_id', clienteId)
       .order('created_at', { ascending: false })
-    const sorted = (data || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
-    setRegistros(sorted)
+    const sorted = ((data as any[]) || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
+    setRegistros(sorted as Registro[])
     setLoading(false)
   }
 
@@ -71,6 +80,40 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
                   Vence {formatFecha(r.vencimiento)}{r.empresa && ` · ${r.empresa}`}
                 </div>
+
+                {tabla === 'mant_extintores' && (() => {
+                  const cant = (r.cant_co2 || 0) + (r.cant_8kg || 0) + (r.cant_4kg || 0) + (r.cant_espuma || 0)
+                  const detalleTipos = TIPOS_EXTINTOR
+                    .map(t => ({ label: t.label, v: (r as any)[t.key] || 0 }))
+                    .filter(t => t.v > 0)
+                  const extrasActivos = EXTRAS_EXTINTORES
+                    .map(ex => ({ label: ex.label, v: r.extras?.[ex.key] || 0 }))
+                    .filter(ex => ex.v > 0)
+                  if (cant === 0 && !r.vencimiento_ensayo && extrasActivos.length === 0) return null
+                  return (
+                    <div style={{ fontSize: 12, color: 'var(--text-main)', marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border-soft)' }}>
+                      {cant > 0 && (
+                        <div style={{ marginBottom: 3 }}>
+                          <span style={{ fontWeight: 700 }}>Recargados ({cant}):</span>{' '}
+                          {detalleTipos.map(t => `${t.label} ${t.v}`).join(' · ') || '—'}
+                        </div>
+                      )}
+                      {r.vencimiento_ensayo && (
+                        <div style={{ marginBottom: 3 }}>
+                          <span style={{ fontWeight: 700 }}>Ensayo hidrostático:</span>{' '}
+                          {r.cant_ensayo_hidrostatico ? `${r.cant_ensayo_hidrostatico} realizados · ` : ''}vence {formatFecha(r.vencimiento_ensayo)}
+                        </div>
+                      )}
+                      {extrasActivos.length > 0 && (
+                        <div>
+                          <span style={{ fontWeight: 700 }}>Extras:</span>{' '}
+                          {extrasActivos.map(ex => `${ex.label} ${ex.v}`).join(' · ')}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 {r.comentarios && <div style={{ fontSize: 12.5, marginTop: 4 }}>{r.comentarios}</div>}
               </div>
             ))}

@@ -37,7 +37,7 @@ type Item = {
   extras: Record<string, number>
   dias_ensayo: number | null
 }
-type ClienteOpt = { id: string; nombre: string }
+type ClienteOpt = { id: string; nombre: string; direccion?: string }
 
 type Props = {
   tabla: 'mant_extintores' | 'mant_tanques'
@@ -90,6 +90,8 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const [page, setPage]         = useState(1)
 
   const [showModal, setShowModal] = useState(false)
+  const [paso, setPaso]           = useState<'cliente' | 'gestion'>('gestion')
+  const [clienteSearch, setClienteSearch] = useState('')
   const [clienteLocked, setClienteLocked] = useState<ClienteOpt | null>(null)
   const [form, setForm]           = useState(emptyForm)
   const [saving, setSaving]       = useState(false)
@@ -113,7 +115,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     const extraCols = tabla === 'mant_extintores' ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras' : ''
     const [{ data: itemsData }, { data: clientesData }] = await Promise.all([
       supabase.from(tabla).select(`${baseCols}${extraCols}, mant_clientes(nombre)`).order('vencimiento', { ascending: true, nullsFirst: false }),
-      supabase.from('mant_clientes').select('id, nombre').order('nombre'),
+      supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
     ])
     if (itemsData) {
       const mapped: Item[] = itemsData.map((r: any) => ({
@@ -215,6 +217,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   function abrirNuevaGestion(it: Item) {
     setForm({ ...emptyForm, cliente_id: it.cliente_id || '', empresa: it.empresa })
     setClienteLocked({ id: it.cliente_id || '', nombre: it.cliente_nombre })
+    setPaso('gestion')
     setShowModal(true)
   }
 
@@ -267,6 +270,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   })
   const { sort, toggleSort, sorted: filtrados } = useSortFilter<Item>(filtradosBase)
   const paginados = paginate(filtrados, page) as Item[]
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+    (c.direccion || '').toLowerCase().includes(clienteSearch.toLowerCase())
+  )
 
   return (
     <div>
@@ -307,7 +314,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             }))}
             filename={`${tabla}-fascioli`}
           />
-          <button className="btn-primary" onClick={() => { setForm(emptyForm); setClienteLocked(null); setShowModal(true) }}>
+          <button className="btn-primary" onClick={() => { setForm(emptyForm); setClienteLocked(null); setClienteSearch(''); setPaso('cliente'); setShowModal(true) }}>
             <Plus size={15} /> Nueva {ACCION[tabla]}
           </button>
         </div>
@@ -448,17 +455,67 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       {showModal && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>{clienteLocked ? `Nueva ${ACCION[tabla]} — ${clienteLocked.nombre}` : ACCION_TITULO[tabla]}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800 }}>{paso === 'cliente' ? 'Seleccionar edificio' : ACCION_TITULO[tabla]}</h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Paso {paso === 'cliente' ? '1' : '2'} de 2</div>
+                {paso === 'gestion' && clienteLocked && (
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold)', marginTop: 6, lineHeight: 1.2 }}>{clienteLocked.nombre}</div>
+                )}
+              </div>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} tabla={tabla} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <button className="btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn-primary" onClick={guardar} disabled={saving || !form.cliente_id}>
-                {saving ? <><Loader2 size={14} /> Guardando...</> : 'Guardar'}
-              </button>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+              {['cliente', 'gestion'].map((p, i) => {
+                const idx = ['cliente', 'gestion'].indexOf(paso)
+                return <div key={p} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= idx ? 'var(--gold)' : 'var(--border)', transition: 'background .2s' }} />
+              })}
             </div>
+
+            {paso === 'cliente' && (
+              <>
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input placeholder="Buscar edificio..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+                </div>
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {clientesFiltrados.map(c => (
+                    <div key={c.id} onClick={() => { setClienteLocked(c); setForm((p: any) => ({ ...p, cliente_id: c.id })); setPaso('gestion') }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'white' }}
+                    >
+                      <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: 14, flexShrink: 0 }}>
+                        {c.nombre.trim()[0]?.toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
+                      </div>
+                    </div>
+                  ))}
+                  {clientesFiltrados.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Sin edificios</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {paso === 'gestion' && (
+              <>
+                <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} tabla={tabla} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar edificio</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+                    <button className="btn-primary" onClick={guardar} disabled={saving || !form.cliente_id}>
+                      {saving ? <><Loader2 size={14} /> Guardando...</> : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
