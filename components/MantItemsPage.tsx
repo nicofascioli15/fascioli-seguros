@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -11,6 +11,7 @@ import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
 import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
 
@@ -72,7 +73,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const [search, setSearch]     = useState('')
   const [filtroDias, setFiltroDias] = useState(-1)
   const [filtroEstado, setFiltroEstado] = useState('')
-  const [verHistorial, setVerHistorial] = useState(false)
   const [page, setPage]         = useState(1)
 
   const [showModal, setShowModal] = useState(false)
@@ -89,6 +89,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
   const [docsFor, setDocsFor] = useState<Item | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Item | null>(null)
+  const [historialFor, setHistorialFor] = useState<Item | null>(null)
 
   useEffect(() => { fetchAll() }, [tabla])
 
@@ -195,7 +196,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const estadosDisponibles = Array.from(new Set([...ESTADOS_GESTION, ...items.map(i => i.estado).filter(Boolean)]))
 
   const filtradosBase = items.filter(it => {
-    if (!verHistorial && !it.vigente) return false
+    if (!it.vigente) return false
     const q = search.toLowerCase()
     const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
     const matchDias = filtroDias === -1 ? true : filtroDias === 0 ? (it.dias !== null && it.dias < 0) : (it.dias !== null && it.dias >= 0 && it.dias <= filtroDias)
@@ -211,7 +212,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>{titulo}</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-            {verHistorial ? `${items.length} gestiones registradas` : `${items.filter(i => i.vigente).length} edificios con seguimiento`}
+            {items.filter(i => i.vigente).length} edificios con seguimiento
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -260,9 +261,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             {estadosDisponibles.map(es => <option key={es} value={es}>{es}</option>)}
           </select>
         )}
-        <button className={`filter-btn ${verHistorial ? 'active' : ''}`} onClick={() => { setVerHistorial(v => !v); setPage(1) }} style={{ marginLeft: 'auto' }}>
-          {verHistorial ? 'Ver solo vigentes' : 'Ver historial completo'}
-        </button>
       </div>
 
       {loading ? (
@@ -281,7 +279,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             <thead>
               <tr>
                 <SortHeader label="Edificio" col="cliente_nombre" sort={sort} onSort={toggleSort} />
-                {verHistorial && <th>Servicio</th>}
                 <SortHeader label="Vencimiento" col="vencimiento" sort={sort} onSort={toggleSort} />
                 <th>Estado</th>
                 <th>Empresa</th>
@@ -294,11 +291,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                 const b = vencBadge(it.dias)
                 return (
                   <tr key={it.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      {it.cliente_nombre}
-                      {verHistorial && it.vigente && <span className="badge badge-gold" style={{ marginLeft: 6 }}>Vigente</span>}
-                    </td>
-                    {verHistorial && <td style={{ color: 'var(--text-muted)' }}>{formatFecha(it.fecha_servicio)}</td>}
+                    <td style={{ fontWeight: 600 }}>{it.cliente_nombre}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span>{formatFecha(it.vencimiento)}</span>
@@ -310,6 +303,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
                       <ActionsMenu actions={[
+                        { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                         { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
                         { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
@@ -329,10 +323,11 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               return (
                 <div key={it.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{it.cliente_nombre}{verHistorial && it.vigente && <span className="badge badge-gold" style={{ marginLeft: 6 }}>Vigente</span>}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{it.cliente_nombre}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className={`badge ${b.cls}`}>{b.label}</span>
                       <ActionsMenu actions={[
+                        { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                         { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
                         { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
@@ -442,6 +437,16 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
           registroId={reclamosFor.id}
           clienteNombre={reclamosFor.cliente_nombre}
           onClose={() => setReclamosFor(null)}
+        />
+      )}
+
+      {/* Modal historial */}
+      {historialFor && historialFor.cliente_id && (
+        <MantHistorial
+          tabla={tabla}
+          clienteId={historialFor.cliente_id}
+          clienteNombre={historialFor.cliente_nombre}
+          onClose={() => setHistorialFor(null)}
         />
       )}
 

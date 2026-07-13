@@ -41,7 +41,7 @@ export default function ActionsMenu({ actions }: { actions: MenuAction[] }) {
   return (
     <>
       <button ref={btnRef} onClick={e => { e.stopPropagation(); toggle() }} title="Acciones"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px 6px', display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px 6px', display: 'inline-flex', alignItems: 'center', borderRadius: 6, verticalAlign: 'middle' }}>
         <MoreHorizontal size={17} />
       </button>
       {open && typeof document !== 'undefined' && createPortal(
