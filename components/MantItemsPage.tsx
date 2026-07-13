@@ -13,7 +13,7 @@ import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
-import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES } from '@/lib/mantenimientoConfig'
+import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, detalleGestionTexto } from '@/lib/mantenimientoConfig'
 
 type Item = {
   id: string
@@ -107,6 +107,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const [docsFor, setDocsFor] = useState<Item | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Item | null>(null)
   const [historialFor, setHistorialFor] = useState<Item | null>(null)
+  const [exportScope, setExportScope] = useState<'vigentes' | 'completados' | 'historial'>('vigentes')
 
   useEffect(() => { fetchAll() }, [tabla])
 
@@ -278,6 +279,24 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     (c.direccion || '').toLowerCase().includes(clienteSearch.toLowerCase())
   )
 
+  const EXPORT_SCOPES: { value: typeof exportScope; label: string }[] = [
+    { value: 'vigentes',   label: 'Vigentes (todos los estados)' },
+    { value: 'completados', label: 'Vigentes completados' },
+    { value: 'historial',  label: 'Historial completo (todas las gestiones)' },
+  ]
+  const itemsExport = (() => {
+    const q = search.toLowerCase()
+    const matchQ = (it: Item) => !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
+    let base = items.filter(matchQ)
+    if (exportScope === 'vigentes') base = base.filter(it => it.vigente)
+    else if (exportScope === 'completados') base = base.filter(it => it.vigente && it.estado === 'Completado')
+    return [...base].sort((a, b) => {
+      const byCliente = a.cliente_nombre.localeCompare(b.cliente_nombre)
+      if (byCliente !== 0) return byCliente
+      return (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || '')
+    })
+  })()
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
@@ -287,41 +306,35 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             {items.filter(i => i.vigente).length} edificios con seguimiento
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={exportScope} onChange={e => setExportScope(e.target.value as typeof exportScope)}
+            style={{ padding: '9px 10px', border: '1.5px solid var(--border)', borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)' }}>
+            {EXPORT_SCOPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
           <ExportButton
-            titulo={titulo}
-            subtitulo={`${filtrados.length} registros`}
+            titulo={`${titulo} — ${EXPORT_SCOPES.find(s => s.value === exportScope)?.label}`}
+            subtitulo={`${itemsExport.length} registros`}
             columnas={[
-              { header: 'Edificio', key: 'edificio', width: 120 },
+              { header: 'Edificio', key: 'edificio', width: 110 },
+              ...(exportScope === 'historial' ? [{ header: 'Vigente', key: 'vigente', width: 40 }] : []),
               { header: 'Fecha servicio', key: 'fecha_servicio', width: 62 },
               { header: 'Vencimiento', key: 'vencimiento', width: 62 },
-              ...(tabla === 'mant_extintores' ? [
-                ...TIPOS_EXTINTOR.map(t => ({ header: t.label, key: t.key, width: 40 })),
-                { header: 'Total recargados', key: 'cantidad', width: 55 },
-                { header: 'Ensayos realizados', key: 'cant_ensayo_hidrostatico', width: 55 },
-                { header: 'Vcto. ensayo', key: 'vencimiento_ensayo', width: 62 },
-                ...EXTRAS_EXTINTORES.map(ex => ({ header: ex.label, key: `extra_${ex.key}`, width: 50 })),
-              ] : []),
-              { header: 'Empresa', key: 'empresa', width: 85 },
               { header: 'Estado', key: 'estado', width: 75 },
-              { header: 'Comentarios', key: 'comentarios', width: 130 },
+              { header: 'Empresa', key: 'empresa', width: 80 },
+              ...(tabla === 'mant_extintores' ? [{ header: 'Detalle', key: 'detalle' }] : []),
+              { header: 'Comentarios', key: 'comentarios' },
             ]}
-            filas={filtrados.map(it => ({
+            filas={itemsExport.map(it => ({
               edificio: it.cliente_nombre,
+              vigente: it.vigente ? 'Sí' : '—',
               fecha_servicio: formatFecha(it.fecha_servicio),
               vencimiento: formatFecha(it.vencimiento),
-              ...(tabla === 'mant_extintores' ? {
-                ...Object.fromEntries(TIPOS_EXTINTOR.map(t => [t.key, (it as any)[t.key] || 0])),
-                cantidad: it.cant_co2 + it.cant_8kg + it.cant_4kg + it.cant_espuma,
-                cant_ensayo_hidrostatico: it.cant_ensayo_hidrostatico || 0,
-                vencimiento_ensayo: formatFecha(it.vencimiento_ensayo),
-                ...Object.fromEntries(EXTRAS_EXTINTORES.map(ex => [`extra_${ex.key}`, it.extras?.[ex.key] || 0])),
-              } : {}),
-              empresa: it.empresa,
-              estado: it.estado,
-              comentarios: it.comentarios,
+              estado: it.estado || '—',
+              empresa: it.empresa || '—',
+              detalle: tabla === 'mant_extintores' ? (detalleGestionTexto(tabla, it) || '—') : undefined,
+              comentarios: it.comentarios || '—',
             }))}
-            filename={`${tabla}-fascioli`}
+            filename={`${tabla}-${exportScope}-fascioli`}
           />
           <button className="btn-primary" onClick={() => { setForm(emptyForm); setClienteLocked(null); setClienteSearch(''); setPaso('cliente'); setShowModal(true) }}>
             <Plus size={15} /> Nueva {ACCION[tabla]}

@@ -53,3 +53,33 @@ export function sumarAnios(fecha: string, anios: number): string {
   const dd = String(dt.getDate()).padStart(2, '0')
   return `${yy}-${mm}-${dd}`
 }
+
+export function formatFechaCorta(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
+// Arma un resumen legible (recargados por tipo, ensayo hidrostático, extras)
+// de una gestión de extintores. Usado tanto en el historial como en las exportaciones.
+export function detalleGestionTexto(tabla: MantTabla, r: {
+  cant_co2?: number; cant_8kg?: number; cant_4kg?: number; cant_espuma?: number
+  cant_ensayo_hidrostatico?: number; vencimiento_ensayo?: string | null
+  extras?: Record<string, number> | null
+}): string {
+  if (tabla !== 'mant_extintores') return ''
+  const partes: string[] = []
+  const cant = (r.cant_co2 || 0) + (r.cant_8kg || 0) + (r.cant_4kg || 0) + (r.cant_espuma || 0)
+  if (cant > 0) {
+    const detalleTipos = TIPOS_EXTINTOR.map(t => ({ label: t.label, v: (r as any)[t.key] || 0 })).filter(t => t.v > 0)
+    partes.push(`Recargados (${cant}): ${detalleTipos.map(t => `${t.label} ${t.v}`).join(' · ')}`)
+  }
+  if (r.vencimiento_ensayo) {
+    partes.push(`Ensayo hidrostático: ${r.cant_ensayo_hidrostatico ? `${r.cant_ensayo_hidrostatico} realizados · ` : ''}vence ${formatFechaCorta(r.vencimiento_ensayo)}`)
+  }
+  const extrasActivos = EXTRAS_EXTINTORES.map(ex => ({ label: ex.label, v: r.extras?.[ex.key] || 0 })).filter(ex => ex.v > 0)
+  if (extrasActivos.length > 0) {
+    partes.push(`Extras: ${extrasActivos.map(ex => `${ex.label} ${ex.v}`).join(' · ')}`)
+  }
+  return partes.join('\n')
+}
