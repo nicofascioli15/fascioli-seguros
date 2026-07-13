@@ -75,6 +75,16 @@ export default function MantenimientoDashboard() {
   const urgentes = alertas.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
   const proximos = alertas.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
 
+  // Extintores y ensayo hidrostático van juntos (son parte de la misma gestión); tanques por su lado.
+  const alertasExt = alertas.filter(a => a.tipo !== 'Tanque')
+  const alertasTan = alertas.filter(a => a.tipo === 'Tanque')
+  const vencidosExt = alertasExt.filter(a => a.dias !== null && a.dias < 0)
+  const urgentesExt = alertasExt.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
+  const proximosExt = alertasExt.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
+  const vencidosTan = alertasTan.filter(a => a.dias !== null && a.dias < 0)
+  const urgentesTan = alertasTan.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
+  const proximosTan = alertasTan.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
+
   const statCards: { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string }[] = [
     { label: 'Vencidos',                    value: loading ? '—' : vencidos.length, sub: 'Necesitan atención ya',       icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F' },
     { label: 'Urgentes — 7 días o menos',   value: loading ? '—' : urgentes.length, sub: 'Esta semana',                 icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F' },
@@ -96,7 +106,7 @@ export default function MantenimientoDashboard() {
   function Section({ title, items, dotColor }: { title: string; items: Alerta[]; dotColor: string }) {
     if (items.length === 0) return null
     return (
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor }} />
           <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
@@ -131,6 +141,34 @@ export default function MantenimientoDashboard() {
             </div>
           </div>
         ))}
+      </div>
+    )
+  }
+
+  function Panel({ title, icon, iconBg, vencidos, urgentes, proximos }: {
+    title: string; icon: React.ReactNode; iconBg: string; vencidos: Alerta[]; urgentes: Alerta[]; proximos: Alerta[]
+  }) {
+    const total = vencidos.length + urgentes.length + proximos.length
+    return (
+      <div className="dashboard-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {icon}
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>{title}</div>
+          {total > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{total}</span>
+          )}
+        </div>
+        {total === 0 ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin vencimientos en los próximos 30 días</div>
+        ) : (
+          <>
+            <Section title="Vencidos" items={vencidos} dotColor="#D94F4F" />
+            <Section title="Urgentes — 7 días o menos" items={urgentes} dotColor="#D94F4F" />
+            <Section title="Próximos — 8 a 30 días" items={proximos} dotColor="#D97706" />
+          </>
+        )}
       </div>
     )
   }
@@ -170,11 +208,12 @@ export default function MantenimientoDashboard() {
           <div style={{ fontSize: 12 }}>Empezá cargando edificios en Clientes y sus extintores/tanques</div>
         </div>
       ) : (
-        <>
-          <Section title="Vencidos" items={vencidos} dotColor="#D94F4F" />
-          <Section title="Urgentes — vencen en 7 días o menos" items={urgentes} dotColor="#D94F4F" />
-          <Section title="Próximos — 8 a 30 días" items={proximos} dotColor="#D97706" />
-        </>
+        <div className="dashboard-panels">
+          <Panel title="Extintores" icon={<Flame size={16} color="#D97706" />} iconBg="#FEF3C7"
+            vencidos={vencidosExt} urgentes={urgentesExt} proximos={proximosExt} />
+          <Panel title="Tanques de agua" icon={<Droplets size={16} color="#0E7490" />} iconBg="#E6F5F9"
+            vencidos={vencidosTan} urgentes={urgentesTan} proximos={proximosTan} />
+        </div>
       )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
