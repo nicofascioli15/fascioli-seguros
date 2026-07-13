@@ -1,12 +1,14 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip, MessageSquareWarning, Trash2, AlertTriangle } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
+import MantReclamos from '@/components/MantReclamos'
+import ActionsMenu from '@/components/ActionsMenu'
 import { ACCION, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
@@ -212,8 +214,46 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [addForm, setAddForm]       = useState({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' })
   const [saving, setSaving]         = useState(false)
   const [docsFor, setDocsFor]       = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
+  const [reclamosFor, setReclamosFor] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
+
+  const [editItem, setEditItem]         = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
+  const [editItemForm, setEditItemForm] = useState({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' })
+  const [savingEditItem, setSavingEditItem] = useState(false)
+
+  const [confirmEliminarItem, setConfirmEliminarItem] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
+  const [eliminandoItem, setEliminandoItem] = useState(false)
 
   useEffect(() => { fetchRegistros() }, [cliente.id])
+
+  function abrirEditarItem(tipo: 'mant_extintores' | 'mant_tanques', item: RegItem) {
+    setEditItem({ tipo, item })
+    setEditItemForm({ fecha_servicio: item.fecha_servicio || '', vencimiento: item.vencimiento || '', empresa: item.empresa, estado: item.estado || 'No realizado' })
+  }
+
+  async function guardarEdicionItem() {
+    if (!editItem) return
+    setSavingEditItem(true)
+    await supabase.from(editItem.tipo).update({
+      fecha_servicio: editItemForm.fecha_servicio || null,
+      vencimiento: editItemForm.vencimiento || null,
+      empresa: editItemForm.empresa || null,
+      estado: editItemForm.estado || null,
+    }).eq('id', editItem.item.id)
+    await registrarAudit({ accion: 'editar', tabla: editItem.tipo, registroId: editItem.item.id, descripcion: 'Registro editado desde ficha de cliente', datosDespues: editItemForm })
+    setEditItem(null)
+    setSavingEditItem(false)
+    await fetchRegistros()
+  }
+
+  async function confirmarEliminarItem() {
+    if (!confirmEliminarItem) return
+    setEliminandoItem(true)
+    await supabase.from(confirmEliminarItem.tipo).delete().eq('id', confirmEliminarItem.item.id)
+    await registrarAudit({ accion: 'eliminar', tabla: confirmEliminarItem.tipo, registroId: confirmEliminarItem.item.id, descripcion: 'Registro eliminado desde ficha de cliente' })
+    setEliminandoItem(false)
+    setConfirmEliminarItem(null)
+    await fetchRegistros()
+  }
 
   function marcarVigente(rows: any[]): RegItem[] {
     const mapped: RegItem[] = rows.map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false }))
@@ -266,10 +306,12 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span className={`badge ${b.cls}`}>{b.label}</span>
-                  <button title="Documentos" onClick={() => setDocsFor({ tipo, item: it })}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}>
-                    <Paperclip size={14} />
-                  </button>
+                  <ActionsMenu actions={[
+                    { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor({ tipo, item: it }) },
+                    { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor({ tipo, item: it }) },
+                    { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditarItem(tipo, it) },
+                    { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminarItem({ tipo, item: it }), danger: true },
+                  ]} />
                 </div>
               </div>
             )
@@ -347,6 +389,80 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
           tiposSugeridos={docsFor.tipo === 'mant_extintores' ? ['Certificado de recarga', 'Foto', 'Otro'] : ['Análisis de potabilidad', 'Certificado de limpieza', 'Foto', 'Otro']}
           onClose={() => setDocsFor(null)}
         />
+      )}
+
+      {reclamosFor && (
+        <MantReclamos
+          tabla={reclamosFor.tipo}
+          registroId={reclamosFor.item.id}
+          clienteNombre={cliente.nombre}
+          onClose={() => setReclamosFor(null)}
+        />
+      )}
+
+      {editItem && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditItem(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar {ACCION[editItem.tipo]}</h3>
+              <button onClick={() => setEditItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 12px' }}>
+              <div className="fgroup"><label>Fecha del servicio</label>
+                <DatePicker value={editItemForm.fecha_servicio} onChange={v => setEditItemForm(p => ({
+                  ...p,
+                  fecha_servicio: v,
+                  vencimiento: v ? sumarAnios(v, VENCIMIENTO_ANIOS[editItem.tipo]) : p.vencimiento,
+                }))} placeholder="¿Cuándo se hizo?" /></div>
+              <div className="fgroup"><label>Próximo vencimiento</label>
+                <DatePicker value={editItemForm.vencimiento} onChange={v => setEditItemForm(p => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
+            </div>
+            <div className="fgroup"><label>Empresa</label>
+              <input value={editItemForm.empresa} onChange={e => setEditItemForm(p => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
+            <div className="fgroup"><label>Estado</label>
+              <select value={editItemForm.estado} onChange={e => setEditItemForm(p => ({ ...p, estado: e.target.value }))}>
+                {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { setConfirmEliminarItem(editItem); setEditItem(null) }}>
+                <Trash2 size={14} /> Eliminar
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-outline" onClick={() => setEditItem(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={guardarEdicionItem} disabled={savingEditItem}>
+                  {savingEditItem ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmEliminarItem && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminandoItem) setConfirmEliminarItem(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar este registro?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+                Se va a eliminar este registro y sus documentos adjuntos. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarItem(null)} disabled={eliminandoItem}>Cancelar</button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarItem} disabled={eliminandoItem}>
+                {eliminandoItem ? 'Eliminando...' : <><Trash2 size={14} /> Eliminar</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

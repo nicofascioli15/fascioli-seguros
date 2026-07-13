@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -10,6 +10,8 @@ import { Pagination, paginate } from '@/components/Pagination'
 import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
+import MantReclamos from '@/components/MantReclamos'
+import ActionsMenu from '@/components/ActionsMenu'
 import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
 
 type Item = {
@@ -21,7 +23,6 @@ type Item = {
   empresa: string
   estado: string
   comentarios: string
-  reclamos: string
   created_at: string
   dias: number | null
   vigente: boolean
@@ -60,7 +61,7 @@ function vencBadge(dias: number | null): { label: string; cls: string } {
   return { label: `${dias}d`, cls: 'badge-success' }
 }
 
-const emptyForm = { cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '', reclamos: '' }
+const emptyForm = { cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '' }
 
 export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const supabase = createClient()
@@ -87,13 +88,14 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const [eliminando, setEliminando] = useState(false)
 
   const [docsFor, setDocsFor] = useState<Item | null>(null)
+  const [reclamosFor, setReclamosFor] = useState<Item | null>(null)
 
   useEffect(() => { fetchAll() }, [tabla])
 
   async function fetchAll() {
     setLoading(true)
     const [{ data: itemsData }, { data: clientesData }] = await Promise.all([
-      supabase.from(tabla).select('id, cliente_id, fecha_servicio, vencimiento, empresa, estado, comentarios, reclamos, created_at, mant_clientes(nombre)').order('vencimiento', { ascending: true, nullsFirst: false }),
+      supabase.from(tabla).select('id, cliente_id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at, mant_clientes(nombre)').order('vencimiento', { ascending: true, nullsFirst: false }),
       supabase.from('mant_clientes').select('id, nombre').order('nombre'),
     ])
     if (itemsData) {
@@ -106,7 +108,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         empresa: r.empresa || '',
         estado: r.estado || '',
         comentarios: r.comentarios || '',
-        reclamos: r.reclamos || '',
         created_at: r.created_at,
         dias: diasHasta(r.vencimiento),
         vigente: false,
@@ -134,7 +135,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       empresa: form.empresa || null,
       estado: form.estado || null,
       comentarios: form.comentarios || null,
-      reclamos: form.reclamos || null,
     }
     const { error, data } = await supabase.from(tabla).insert([payload]).select().single()
     if (!error && data) {
@@ -156,7 +156,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       empresa: it.empresa,
       estado: it.estado,
       comentarios: it.comentarios,
-      reclamos: it.reclamos,
     })
   }
 
@@ -176,7 +175,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       empresa: editForm.empresa || null,
       estado: editForm.estado || null,
       comentarios: editForm.comentarios || null,
-      reclamos: editForm.reclamos || null,
     }).eq('id', editando.id)
     await registrarAudit({ accion: 'editar', tabla, registroId: editando.id, descripcion: `${singular} editado`, datosDespues: editForm })
     setEditando(null)
@@ -199,7 +197,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const filtradosBase = items.filter(it => {
     if (!verHistorial && !it.vigente) return false
     const q = search.toLowerCase()
-    const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q) || it.reclamos.toLowerCase().includes(q)
+    const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
     const matchDias = filtroDias === -1 ? true : filtroDias === 0 ? (it.dias !== null && it.dias < 0) : (it.dias !== null && it.dias >= 0 && it.dias <= filtroDias)
     const matchEstado = !filtroEstado || it.estado === filtroEstado
     return matchQ && matchDias && matchEstado
@@ -227,7 +225,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               { header: 'Empresa', key: 'empresa', width: 100 },
               { header: 'Estado', key: 'estado', width: 90 },
               { header: 'Comentarios', key: 'comentarios', width: 160 },
-              { header: 'Reclamos', key: 'reclamos', width: 160 },
             ]}
             filas={filtrados.map(it => ({
               edificio: it.cliente_nombre,
@@ -236,7 +233,6 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               empresa: it.empresa,
               estado: it.estado,
               comentarios: it.comentarios,
-              reclamos: it.reclamos,
             }))}
             filename={`${tabla}-fascioli`}
           />
@@ -313,24 +309,13 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <td>{it.empresa || '—'}</td>
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button title="Documentos" onClick={() => setDocsFor(it)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
-                          <Paperclip size={14} />
-                        </button>
-                        <button title="Nueva gestión (recarga / limpieza)" onClick={() => abrirNuevaGestion(it)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
-                          <RotateCw size={14} />
-                        </button>
-                        <button title="Editar" onClick={() => abrirEditar(it)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
-                          <Pencil size={14} />
-                        </button>
-                        <button title="Eliminar" onClick={() => setConfirmEliminar(it)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      <ActionsMenu actions={[
+                        { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
+                        { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                        { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
+                        { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
+                        { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
+                      ]} />
                     </td>
                   </tr>
                 )
@@ -342,10 +327,19 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             {paginados.map(it => {
               const b = vencBadge(it.dias)
               return (
-                <div key={it.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => abrirEditar(it)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div key={it.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{it.cliente_nombre}{verHistorial && it.vigente && <span className="badge badge-gold" style={{ marginLeft: 6 }}>Vigente</span>}</div>
-                    <span className={`badge ${b.cls}`}>{b.label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className={`badge ${b.cls}`}>{b.label}</span>
+                      <ActionsMenu actions={[
+                        { label: 'Documentos', icon: <Paperclip size={14} />, onClick: () => setDocsFor(it) },
+                        { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                        { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
+                        { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
+                        { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
+                      ]} />
+                    </div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginRight: 6 }}>{it.estado}</span>}
@@ -441,6 +435,16 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         />
       )}
 
+      {/* Modal reclamos */}
+      {reclamosFor && (
+        <MantReclamos
+          tabla={tabla}
+          registroId={reclamosFor.id}
+          clienteNombre={reclamosFor.cliente_nombre}
+          onClose={() => setReclamosFor(null)}
+        />
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -482,9 +486,9 @@ function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typ
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Comentarios</label>
         <textarea value={form.comentarios} onChange={e => setForm((p: any) => ({ ...p, comentarios: e.target.value }))} rows={2}
           style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', resize: 'vertical' }} /></div>
-      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Reclamos</label>
-        <textarea value={form.reclamos} onChange={e => setForm((p: any) => ({ ...p, reclamos: e.target.value }))} rows={2}
-          style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', resize: 'vertical' }} /></div>
+      <div style={{ gridColumn: 'span 2', fontSize: 11.5, color: 'var(--text-muted)' }}>
+        Los reclamos ahora se cargan aparte, con fecha, desde el menú "···" de cada registro.
+      </div>
     </div>
   )
 }
