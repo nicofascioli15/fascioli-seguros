@@ -1,10 +1,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import DatePicker from '@/components/DatePicker'
+import MantDocumentos from '@/components/MantDocumentos'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
 const emptyCliente = { nombre: '', direccion: '', contacto: '', tel: '', email: '' }
@@ -179,7 +181,7 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
   )
 }
 
-type RegItem = { id: string; vencimiento: string | null; empresa: string; estado: string; dias: number | null }
+type RegItem = { id: string; fecha_servicio: string | null; vencimiento: string | null; empresa: string; estado: string; created_at: string; dias: number | null; vigente: boolean }
 
 function diasHasta(iso: string | null) {
   if (!iso) return null
@@ -206,29 +208,37 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [tanques, setTanques]       = useState<RegItem[]>([])
   const [loading, setLoading]       = useState(true)
   const [addTipo, setAddTipo]       = useState<'mant_extintores' | 'mant_tanques' | null>(null)
-  const [addForm, setAddForm]       = useState({ vencimiento: '', empresa: '', estado: '' })
+  const [addForm, setAddForm]       = useState({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' })
   const [saving, setSaving]         = useState(false)
+  const [docsFor, setDocsFor]       = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
 
   useEffect(() => { fetchRegistros() }, [cliente.id])
+
+  function marcarVigente(rows: any[]): RegItem[] {
+    const mapped: RegItem[] = rows.map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento), vigente: false }))
+    const masReciente = [...mapped].sort((a, b) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))[0]
+    if (masReciente) masReciente.vigente = true
+    return mapped
+  }
 
   async function fetchRegistros() {
     setLoading(true)
     const [{ data: ext }, { data: tan }] = await Promise.all([
-      supabase.from('mant_extintores').select('id, vencimiento, empresa, estado').eq('cliente_id', cliente.id).order('vencimiento'),
-      supabase.from('mant_tanques').select('id, vencimiento, empresa, estado').eq('cliente_id', cliente.id).order('vencimiento'),
+      supabase.from('mant_extintores').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
+      supabase.from('mant_tanques').select('id, fecha_servicio, vencimiento, empresa, estado, created_at').eq('cliente_id', cliente.id).order('vencimiento'),
     ])
-    setExtintores((ext || []).map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento) })))
-    setTanques((tan || []).map(r => ({ ...r, empresa: r.empresa || '', estado: r.estado || '', dias: diasHasta(r.vencimiento) })))
+    setExtintores(marcarVigente(ext || []))
+    setTanques(marcarVigente(tan || []))
     setLoading(false)
   }
 
   async function guardarNuevo() {
     if (!addTipo) return
     setSaving(true)
-    await supabase.from(addTipo).insert([{ cliente_id: cliente.id, vencimiento: addForm.vencimiento || null, empresa: addForm.empresa || null, estado: addForm.estado || null }])
+    await supabase.from(addTipo).insert([{ cliente_id: cliente.id, fecha_servicio: addForm.fecha_servicio || null, vencimiento: addForm.vencimiento || null, empresa: addForm.empresa || null, estado: addForm.estado || null }])
     setSaving(false)
     setAddTipo(null)
-    setAddForm({ vencimiento: '', empresa: '', estado: '' })
+    setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' })
     await fetchRegistros()
   }
 
@@ -237,7 +247,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>{icon} {titulo} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({items.length})</span></div>
-          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm({ vencimiento: '', empresa: '', estado: '' }) }}><Plus size={13} /> Agregar</button>
+          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' }) }}><Plus size={13} /> Agregar</button>
         </div>
         {items.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros para este edificio</div>
@@ -245,13 +255,21 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
           items.map(it => {
             const b = vencBadge(it.dias)
             return (
-              <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #F1F5FB' }}>
+              <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #F1F5FB', opacity: it.vigente ? 1 : 0.7 }}>
                 <div style={{ fontSize: 13.5 }}>
-                  <span style={{ fontWeight: 600 }}>{formatFecha(it.vencimiento)}</span>
+                  {it.vigente && <span className="badge badge-gold" style={{ marginRight: 8 }}>Vigente</span>}
+                  {it.fecha_servicio && <span style={{ color: 'var(--text-muted)' }}>Servicio {formatFecha(it.fecha_servicio)} · </span>}
+                  <span style={{ fontWeight: 600 }}>Vence {formatFecha(it.vencimiento)}</span>
                   {it.empresa && <span style={{ color: 'var(--text-muted)' }}> · {it.empresa}</span>}
                   {it.estado && <span className="badge badge-neutral" style={{ marginLeft: 8 }}>{it.estado}</span>}
                 </div>
-                <span className={`badge ${b.cls}`}>{b.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className={`badge ${b.cls}`}>{b.label}</span>
+                  <button title="Documentos" onClick={() => setDocsFor({ tipo, item: it })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}>
+                    <Paperclip size={14} />
+                  </button>
+                </div>
               </div>
             )
           })
@@ -293,8 +311,12 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nuevo {addTipo === 'mant_extintores' ? 'extintor' : 'tanque'}</h3>
               <button onClick={() => setAddTipo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <div className="fgroup"><label>Fecha de vencimiento</label>
-              <input type="date" value={addForm.vencimiento} onChange={e => setAddForm(p => ({ ...p, vencimiento: e.target.value }))} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 12px' }}>
+              <div className="fgroup"><label>Fecha del servicio</label>
+                <DatePicker value={addForm.fecha_servicio} onChange={v => setAddForm(p => ({ ...p, fecha_servicio: v }))} placeholder="¿Cuándo se hizo?" /></div>
+              <div className="fgroup"><label>Próximo vencimiento</label>
+                <DatePicker value={addForm.vencimiento} onChange={v => setAddForm(p => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
+            </div>
             <div className="fgroup"><label>Empresa</label>
               <input value={addForm.empresa} onChange={e => setAddForm(p => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
             <div className="fgroup"><label>Estado</label>
@@ -307,6 +329,16 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
             </div>
           </div>
         </div>
+      )}
+
+      {docsFor && (
+        <MantDocumentos
+          tabla={docsFor.tipo}
+          registroId={docsFor.item.id}
+          clienteNombre={cliente.nombre}
+          tiposSugeridos={docsFor.tipo === 'mant_extintores' ? ['Certificado de recarga', 'Foto', 'Otro'] : ['Análisis de potabilidad', 'Certificado de limpieza', 'Foto', 'Otro']}
+          onClose={() => setDocsFor(null)}
+        />
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
