@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
+import { ACCION, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
 const emptyCliente = { nombre: '', direccion: '', contacto: '', tel: '', email: '' }
@@ -238,7 +239,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
     await supabase.from(addTipo).insert([{ cliente_id: cliente.id, fecha_servicio: addForm.fecha_servicio || null, vencimiento: addForm.vencimiento || null, empresa: addForm.empresa || null, estado: addForm.estado || null }])
     setSaving(false)
     setAddTipo(null)
-    setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' })
+    setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' })
     await fetchRegistros()
   }
 
@@ -247,7 +248,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       <div className="table-card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>{icon} {titulo} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({items.length})</span></div>
-          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: '' }) }}><Plus size={13} /> Agregar</button>
+          <button className="btn-outline btn-sm" onClick={() => { setAddTipo(tipo); setAddForm({ fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado' }) }}><Plus size={13} /> Nueva {ACCION[tipo]}</button>
         </div>
         {items.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros para este edificio</div>
@@ -261,7 +262,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                   {it.fecha_servicio && <span style={{ color: 'var(--text-muted)' }}>Servicio {formatFecha(it.fecha_servicio)} · </span>}
                   <span style={{ fontWeight: 600 }}>Vence {formatFecha(it.vencimiento)}</span>
                   {it.empresa && <span style={{ color: 'var(--text-muted)' }}> · {it.empresa}</span>}
-                  {it.estado && <span className="badge badge-neutral" style={{ marginLeft: 8 }}>{it.estado}</span>}
+                  {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginLeft: 8 }}>{it.estado}</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span className={`badge ${b.cls}`}>{b.label}</span>
@@ -308,19 +309,26 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setAddTipo(null) }}>
           <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nuevo {addTipo === 'mant_extintores' ? 'extintor' : 'tanque'}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva {addTipo ? ACCION[addTipo] : ''} {addTipo === 'mant_extintores' ? 'de extintores' : 'de tanques de agua'}</h3>
               <button onClick={() => setAddTipo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 12px' }}>
               <div className="fgroup"><label>Fecha del servicio</label>
-                <DatePicker value={addForm.fecha_servicio} onChange={v => setAddForm(p => ({ ...p, fecha_servicio: v }))} placeholder="¿Cuándo se hizo?" /></div>
+                <DatePicker value={addForm.fecha_servicio} onChange={v => setAddForm(p => ({
+                  ...p,
+                  fecha_servicio: v,
+                  vencimiento: v && addTipo ? sumarAnios(v, VENCIMIENTO_ANIOS[addTipo]) : p.vencimiento,
+                }))} placeholder="¿Cuándo se hizo?" /></div>
               <div className="fgroup"><label>Próximo vencimiento</label>
                 <DatePicker value={addForm.vencimiento} onChange={v => setAddForm(p => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
             </div>
             <div className="fgroup"><label>Empresa</label>
               <input value={addForm.empresa} onChange={e => setAddForm(p => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
             <div className="fgroup"><label>Estado</label>
-              <input value={addForm.estado} onChange={e => setAddForm(p => ({ ...p, estado: e.target.value }))} placeholder="Ej: En gestión" /></div>
+              <select value={addForm.estado} onChange={e => setAddForm(p => ({ ...p, estado: e.target.value }))}>
+                {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setAddTipo(null)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarNuevo} disabled={saving}>

@@ -10,6 +10,7 @@ import { Pagination, paginate } from '@/components/Pagination'
 import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
+import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS } from '@/lib/mantenimientoConfig'
 
 type Item = {
   id: string
@@ -59,7 +60,7 @@ function vencBadge(dias: number | null): { label: string; cls: string } {
   return { label: `${dias}d`, cls: 'badge-success' }
 }
 
-const emptyForm = { cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: '', comentarios: '', reclamos: '' }
+const emptyForm = { cliente_id: '', fecha_servicio: '', vencimiento: '', empresa: '', estado: 'No realizado', comentarios: '', reclamos: '' }
 
 export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   const supabase = createClient()
@@ -193,7 +194,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     await fetchAll()
   }
 
-  const estadosDisponibles = Array.from(new Set(items.map(i => i.estado).filter(Boolean)))
+  const estadosDisponibles = Array.from(new Set([...ESTADOS_GESTION, ...items.map(i => i.estado).filter(Boolean)]))
 
   const filtradosBase = items.filter(it => {
     if (!verHistorial && !it.vigente) return false
@@ -240,7 +241,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             filename={`${tabla}-fascioli`}
           />
           <button className="btn-primary" onClick={() => { setForm(emptyForm); setClienteLocked(null); setShowModal(true) }}>
-            <Plus size={15} /> Nuevo {singular}
+            <Plus size={15} /> Nueva {ACCION[tabla]}
           </button>
         </div>
       </div>
@@ -276,7 +277,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
       ) : filtrados.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin registros</div>
-          <div style={{ fontSize: 12 }}>{items.length === 0 ? `Agregá el primer ${singular} arriba` : 'Probá cambiando los filtros'}</div>
+          <div style={{ fontSize: 12 }}>{items.length === 0 ? `Registrá la primera ${ACCION[tabla]} arriba` : 'Probá cambiando los filtros'}</div>
         </div>
       ) : (
         <div className="table-card">
@@ -308,7 +309,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                         <span className={`badge ${b.cls}`}>{b.label}</span>
                       </div>
                     </td>
-                    <td>{it.estado ? <span className="badge badge-neutral">{it.estado}</span> : '—'}</td>
+                    <td>{it.estado ? <span className={`badge ${estadoBadgeClass(it.estado)}`}>{it.estado}</span> : '—'}</td>
                     <td>{it.empresa || '—'}</td>
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
@@ -347,7 +348,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <span className={`badge ${b.cls}`}>{b.label}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {it.estado && <span className="badge badge-neutral" style={{ marginRight: 6 }}>{it.estado}</span>}
+                    {it.estado && <span className={`badge ${estadoBadgeClass(it.estado)}`} style={{ marginRight: 6 }}>{it.estado}</span>}
                     {it.empresa}{it.empresa && ' · '}{formatFecha(it.vencimiento)}
                   </div>
                 </div>
@@ -364,10 +365,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>{clienteLocked ? `Nueva gestión — ${clienteLocked.nombre}` : `Nuevo ${singular}`}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>{clienteLocked ? `Nueva ${ACCION[tabla]} — ${clienteLocked.nombre}` : ACCION_TITULO[tabla]}</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} />
+            <ItemForm form={form} setForm={setForm} clientes={clientes} clienteLocked={clienteLocked} tabla={tabla} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
               <button className="btn-primary" onClick={guardar} disabled={saving || !form.cliente_id}>
@@ -386,7 +387,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar {singular}</h3>
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ItemForm form={editForm} setForm={setEditForm} clientes={clientes} clienteLocked={null} />
+            <ItemForm form={editForm} setForm={setEditForm} clientes={clientes} clienteLocked={null} tabla={tabla} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -445,7 +446,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   )
 }
 
-function ItemForm({ form, setForm, clientes, clienteLocked }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null }) {
+function ItemForm({ form, setForm, clientes, clienteLocked, tabla }: { form: typeof emptyForm; setForm: (f: any) => void; clientes: ClienteOpt[]; clienteLocked: ClienteOpt | null; tabla: Props['tabla'] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
@@ -462,20 +463,21 @@ function ItemForm({ form, setForm, clientes, clienteLocked }: { form: typeof emp
         )}
       </div>
       <div className="fgroup"><label>Fecha del servicio</label>
-        <DatePicker value={form.fecha_servicio} onChange={v => setForm((p: any) => ({ ...p, fecha_servicio: v }))} placeholder="¿Cuándo se hizo?" /></div>
+        <DatePicker value={form.fecha_servicio} onChange={v => setForm((p: any) => ({
+          ...p,
+          fecha_servicio: v,
+          vencimiento: v ? sumarAnios(v, VENCIMIENTO_ANIOS[tabla]) : p.vencimiento,
+        }))} placeholder="¿Cuándo se hizo?" /></div>
       <div className="fgroup"><label>Próximo vencimiento</label>
-        <DatePicker value={form.vencimiento} onChange={v => setForm((p: any) => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" /></div>
+        <DatePicker value={form.vencimiento} onChange={v => setForm((p: any) => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" />
+        {form.fecha_servicio && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se calcula solo (+{VENCIMIENTO_ANIOS[tabla]} {VENCIMIENTO_ANIOS[tabla] === 1 ? 'año' : 'años'}) — se puede ajustar</div>}
+      </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
         <input value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} placeholder="Ej: Grolero" /></div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Estado</label>
-        <input value={form.estado} onChange={e => setForm((p: any) => ({ ...p, estado: e.target.value }))} placeholder="Ej: En gestión, Coordinado, Sin gestión..." list="estados-sugeridos" />
-        <datalist id="estados-sugeridos">
-          <option value="Sin gestión" />
-          <option value="En gestión" />
-          <option value="Coordinado" />
-          <option value="Abono mensual" />
-          <option value="En fecha" />
-        </datalist>
+        <select value={form.estado} onChange={e => setForm((p: any) => ({ ...p, estado: e.target.value }))}>
+          {ESTADOS_GESTION.map(es => <option key={es} value={es}>{es}</option>)}
+        </select>
       </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Comentarios</label>
         <textarea value={form.comentarios} onChange={e => setForm((p: any) => ({ ...p, comentarios: e.target.value }))} rows={2}
