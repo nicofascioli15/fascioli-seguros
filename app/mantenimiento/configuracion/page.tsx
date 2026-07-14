@@ -11,7 +11,7 @@ type Scope = 'mant_extintores' | 'mant_tanques' | null
 
 const SECCIONES: { tabla: Tabla; scope: Scope; titulo: string; abrev: string; placeholder: string }[] = [
   { tabla: 'mant_empresas', scope: 'mant_extintores', titulo: 'Empresas — Extintores', abrev: 'EXT', placeholder: 'Ej: Grolero...' },
-  { tabla: 'mant_empresas', scope: 'mant_tanques', titulo: 'Empresas — Tanques de agua', abrev: 'TAN', placeholder: 'Ej: Grolero...' },
+  { tabla: 'mant_empresas', scope: 'mant_tanques', titulo: 'Empresas — Tanques de agua', abrev: 'TAN', placeholder: 'Ej: Simmar...' },
 ]
 
 function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
