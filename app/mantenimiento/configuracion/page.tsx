@@ -7,12 +7,14 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Item = { id: string; nombre: string }
 type Tabla = 'mant_empresas'
+type Scope = 'mant_extintores' | 'mant_tanques' | null
 
-const SECCIONES: { tabla: Tabla; titulo: string; abrev: string; placeholder: string }[] = [
-  { tabla: 'mant_empresas', titulo: 'Empresas', abrev: 'EMP', placeholder: 'Ej: Grolero...' },
+const SECCIONES: { tabla: Tabla; scope: Scope; titulo: string; abrev: string; placeholder: string }[] = [
+  { tabla: 'mant_empresas', scope: 'mant_extintores', titulo: 'Empresas — Extintores', abrev: 'EXT', placeholder: 'Ej: Grolero...' },
+  { tabla: 'mant_empresas', scope: 'mant_tanques', titulo: 'Empresas — Tanques de agua', abrev: 'TAN', placeholder: 'Ej: Grolero...' },
 ]
 
-function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
+function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
   const supabase = createClient()
   const [items, setItems]     = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,7 +29,9 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
 
   async function fetch() {
     setLoading(true)
-    const { data } = await supabase.from(tabla).select('id, nombre').order('nombre')
+    let q = supabase.from(tabla).select('id, nombre').order('nombre')
+    if (scope) q = q.eq('tabla', scope)
+    const { data } = await q
     if (data) setItems(data)
     setLoading(false)
   }
@@ -36,7 +40,7 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
     const nombre = nuevo.trim()
     if (!nombre) return
     setSaving(true)
-    const { error } = await supabase.from(tabla).insert([{ nombre }])
+    const { error } = await supabase.from(tabla).insert([{ nombre, ...(scope ? { tabla: scope } : {}) }])
     if (error) showToast(`❌ ${error.message.includes('unique') ? 'Ya existe ese nombre' : error.message}`)
     else { setNuevo(''); showToast(`✓ "${nombre}" agregado`); await fetch() }
     setSaving(false)
@@ -120,7 +124,7 @@ export default function ConfiguracionMantenimientoPage() {
         </p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-        {SECCIONES.map(s => <Seccion key={s.tabla} {...s} />)}
+        {SECCIONES.map(s => <Seccion key={`${s.tabla}-${s.scope}`} {...s} />)}
       </div>
     </div>
   )

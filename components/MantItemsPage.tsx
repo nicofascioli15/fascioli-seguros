@@ -126,7 +126,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     const [{ data: itemsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
       supabase.from(tabla).select(`${baseCols}${extraCols}, mant_clientes(nombre)`).order('vencimiento', { ascending: true, nullsFirst: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
-      supabase.from('mant_empresas').select('nombre').order('nombre'),
+      supabase.from('mant_empresas').select('nombre').eq('tabla', tabla).order('nombre'),
     ])
     if (empresasData) setEmpresas(empresasData.map((e: any) => e.nombre))
     if (itemsData) {

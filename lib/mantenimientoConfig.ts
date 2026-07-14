@@ -17,7 +17,7 @@ export const ACCION_TITULO: Record<MantTabla, string> = {
 
 export const DOCS_TIPOS: Record<MantTabla, string[]> = {
   mant_extintores: ['Presupuesto', 'Factura o recibo', 'Otro'],
-  mant_tanques: ['Presupuesto', 'Factura o recibo', 'Otro'],
+  mant_tanques: ['Presupuesto', 'Factura o recibo', 'Análisis de potabilidad', 'Otro'],
 }
 
 export const ESTADOS_GESTION = ['No realizado', 'En proceso', 'Completado'] as const
