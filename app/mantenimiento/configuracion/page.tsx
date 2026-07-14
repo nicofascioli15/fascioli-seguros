@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Item = { id: string; nombre: string }
 type Tabla = 'mant_empresas'
@@ -18,6 +19,8 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
   const [nuevo, setNuevo]     = useState('')
   const [saving, setSaving]   = useState(false)
   const [toast, setToast]     = useState<string | null>(null)
+  const [confirmEliminar, setConfirmEliminar] = useState<Item | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => { fetch() }, [])
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
@@ -39,11 +42,14 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
     setSaving(false)
   }
 
-  async function eliminar(item: Item) {
-    if (!confirm(`¿Eliminar "${item.nombre}"?`)) return
-    const { error } = await supabase.from(tabla).delete().eq('id', item.id)
+  async function eliminar() {
+    if (!confirmEliminar) return
+    setEliminando(true)
+    const { error } = await supabase.from(tabla).delete().eq('id', confirmEliminar.id)
+    setEliminando(false)
     if (error) showToast('❌ No se pudo eliminar — puede estar en uso')
-    else { showToast(`"${item.nombre}" eliminado`); await fetch() }
+    else { showToast(`"${confirmEliminar.nombre}" eliminado`); await fetch() }
+    setConfirmEliminar(null)
   }
 
   return (
@@ -76,7 +82,7 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
         ) : items.map(item => (
           <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid #F1F5FB' }}>
             <span style={{ flex: 1, fontSize: 14, color: 'var(--text-main)' }}>{item.nombre}</span>
-            <button onClick={() => eliminar(item)}
+            <button onClick={() => setConfirmEliminar(item)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
               onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
@@ -91,6 +97,15 @@ function Seccion({ tabla, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
         </div>
       )}
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title={`¿Eliminar "${confirmEliminar?.nombre}"?`}
+        message="Esta acción no se puede deshacer."
+        loading={eliminando}
+        onConfirm={eliminar}
+        onCancel={() => setConfirmEliminar(null)}
+      />
     </div>
   )
 }

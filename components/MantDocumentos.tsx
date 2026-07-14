@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
 
@@ -30,6 +31,8 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
   const [uploading, setUploading] = useState(false)
   const [tipoSel, setTipoSel]   = useState(tiposSugeridos[0] || '')
   const [drag, setDrag]         = useState(false)
+  const [confirmEliminar, setConfirmEliminar] = useState<Doc | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => { fetchDocs() }, [registroId])
 
@@ -60,10 +63,13 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
-  async function eliminar(d: Doc) {
-    if (!confirm(`¿Eliminar "${d.nombre}"?`)) return
-    await supabase.storage.from('documentos').remove([d.storage_path])
-    await supabase.from('mant_documentos').delete().eq('id', d.id)
+  async function eliminar() {
+    if (!confirmEliminar) return
+    setEliminando(true)
+    await supabase.storage.from('documentos').remove([confirmEliminar.storage_path])
+    await supabase.from('mant_documentos').delete().eq('id', confirmEliminar.id)
+    setEliminando(false)
+    setConfirmEliminar(null)
     await fetchDocs()
   }
 
@@ -122,13 +128,22 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{d.tipo} · {formatBytes(d.tamanio_bytes)}</div>
                 </div>
                 <button className="btn-outline btn-sm" onClick={() => descargar(d)}><Download size={12} /></button>
-                <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => eliminar(d)}><Trash2 size={12} /></button>
+                <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(d)}><Trash2 size={12} /></button>
               </div>
             ))}
           </div>
         )}
         <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title="¿Eliminar este documento?"
+        message={<>Se va a eliminar <strong style={{ color: 'var(--text-main)' }}>{confirmEliminar?.nombre}</strong>. Esta acción no se puede deshacer.</>}
+        loading={eliminando}
+        onConfirm={eliminar}
+        onCancel={() => setConfirmEliminar(null)}
+      />
     </div>
   )
 }

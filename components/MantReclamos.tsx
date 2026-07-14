@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Reclamo = { id: string; fecha: string; texto: string }
 
@@ -31,6 +32,8 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
   const [saving, setSaving]     = useState(false)
   const [texto, setTexto]       = useState('')
   const [fecha, setFecha]       = useState(hoyStr())
+  const [confirmEliminar, setConfirmEliminar] = useState<Reclamo | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => { fetchReclamos() }, [registroId])
 
@@ -51,9 +54,12 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
     await fetchReclamos()
   }
 
-  async function eliminar(id: string) {
-    if (!confirm('¿Eliminar este reclamo?')) return
-    await supabase.from('mant_reclamos').delete().eq('id', id)
+  async function eliminar() {
+    if (!confirmEliminar) return
+    setEliminando(true)
+    await supabase.from('mant_reclamos').delete().eq('id', confirmEliminar.id)
+    setEliminando(false)
+    setConfirmEliminar(null)
     await fetchReclamos()
   }
 
@@ -93,7 +99,7 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>{formatFecha(r.fecha)}</div>
                   <div style={{ fontSize: 13, marginTop: 2 }}>{r.texto}</div>
                 </div>
-                <button onClick={() => eliminar(r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, alignSelf: 'flex-start' }}>
+                <button onClick={() => setConfirmEliminar(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, alignSelf: 'flex-start' }}>
                   <Trash2 size={13} />
                 </button>
               </div>
@@ -102,6 +108,15 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
         )}
         <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title="¿Eliminar este reclamo?"
+        message={<>Se va a eliminar el reclamo del <strong style={{ color: 'var(--text-main)' }}>{confirmEliminar ? formatFecha(confirmEliminar.fecha) : ''}</strong>. Esta acción no se puede deshacer.</>}
+        loading={eliminando}
+        onConfirm={eliminar}
+        onCancel={() => setConfirmEliminar(null)}
+      />
     </div>
   )
 }

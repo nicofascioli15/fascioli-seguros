@@ -6,6 +6,7 @@ import { registrarAudit } from '@/lib/audit'
 import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Registro = {
   id: string
@@ -45,6 +46,7 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
   const [docsCounts, setDocsCounts] = useState<Record<string, number>>({})
   const [docsFor, setDocsFor] = useState<Registro | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Registro | null>(null)
+  const [confirmEliminar, setConfirmEliminar] = useState<Registro | null>(null)
 
   useEffect(() => { fetchHistorial() }, [tabla, clienteId])
 
@@ -72,12 +74,14 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
     setLoading(false)
   }
 
-  async function eliminarRegistro(r: Registro) {
-    if (!confirm(`¿Eliminar esta gestión${r.fecha_servicio ? ` (servicio ${formatFecha(r.fecha_servicio)})` : ''}? Esta acción no se puede deshacer.`)) return
+  async function eliminarRegistro() {
+    const r = confirmEliminar
+    if (!r) return
     setEliminandoId(r.id)
     await supabase.from(tabla).delete().eq('id', r.id)
     await registrarAudit({ accion: 'eliminar', tabla, registroId: r.id, descripcion: 'Gestión eliminada desde el historial', datosAntes: r })
     setEliminandoId(null)
+    setConfirmEliminar(null)
     await fetchHistorial()
     onChanged?.()
   }
@@ -122,7 +126,7 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                       onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
                       <MessageSquareWarning size={13} />
                     </button>
-                    <button title="Eliminar esta gestión" onClick={() => eliminarRegistro(r)} disabled={eliminandoId === r.id}
+                    <button title="Eliminar esta gestión" onClick={() => setConfirmEliminar(r)} disabled={eliminandoId === r.id}
                       style={{ background: 'none', border: 'none', cursor: eliminandoId === r.id ? 'default' : 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
                       onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
@@ -192,6 +196,15 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
           onClose={() => setReclamosFor(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title="¿Eliminar esta gestión?"
+        message={<>Se va a eliminar {confirmEliminar?.fecha_servicio ? <>la gestión del servicio <strong style={{ color: 'var(--text-main)' }}>{formatFecha(confirmEliminar.fecha_servicio)}</strong></> : 'esta gestión'}. Esta acción no se puede deshacer.</>}
+        loading={!!eliminandoId}
+        onConfirm={eliminarRegistro}
+        onCancel={() => setConfirmEliminar(null)}
+      />
     </div>
   )
 }
