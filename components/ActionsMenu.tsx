@@ -15,8 +15,13 @@ export default function ActionsMenu({ actions }: { actions: MenuAction[] }) {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     const menuWidth = 210
+    const menuHeight = actions.length * 40 + 8
+    const cabeDebajo = r.bottom + menuHeight + 8 <= window.innerHeight
+    const top = cabeDebajo
+      ? r.bottom + window.scrollY + 4
+      : Math.max(8 + window.scrollY, r.top + window.scrollY - menuHeight - 4)
     setPos({
-      top: r.bottom + window.scrollY + 4,
+      top,
       left: Math.max(8, r.right + window.scrollX - menuWidth),
     })
     setOpen(o => !o)
