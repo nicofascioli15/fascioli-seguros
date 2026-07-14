@@ -44,18 +44,24 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
   }
 
   async function onFile(files: FileList | null) {
-    const file = files?.[0]
-    if (!file) return
+    const list = files ? Array.from(files) : []
+    if (list.length === 0) return
     setUploading(true)
-    const path = `mantenimiento/${tabla}/${registroId}/${Date.now()}_${file.name.replace(/\s/g, '_')}`
-    const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false })
-    if (!error) {
-      await supabase.from('mant_documentos').insert([{ [fkCol]: registroId, nombre: file.name, tipo: tipoSel, storage_path: path, tamanio_bytes: file.size }])
-      await fetchDocs()
-    } else {
-      alert(`Error al subir: ${error.message}`)
+    const tipo = tipoSel
+    const errores: string[] = []
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i]
+      const path = `mantenimiento/${tabla}/${registroId}/${Date.now()}_${i}_${file.name.replace(/\s/g, '_')}`
+      const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false })
+      if (!error) {
+        await supabase.from('mant_documentos').insert([{ [fkCol]: registroId, nombre: file.name, tipo, storage_path: path, tamanio_bytes: file.size }])
+      } else {
+        errores.push(`${file.name}: ${error.message}`)
+      }
     }
+    await fetchDocs()
     setUploading(false)
+    if (errores.length > 0) alert(`Error al subir:\n${errores.join('\n')}`)
   }
 
   async function descargar(d: Doc) {
@@ -106,12 +112,12 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
           ) : (
             <><Upload size={20} style={{ margin: '0 auto 6px', display: 'block', color: drag ? 'var(--gold)' : 'var(--text-muted)' }} />
               <div style={{ fontWeight: 600, color: drag ? 'var(--gold)' : 'var(--navy)', fontSize: 13 }}>
-                {drag ? 'Soltá el archivo acá' : 'Arrastrá un archivo o hacé click'}
+                {drag ? 'Soltá los archivos acá' : 'Arrastrá uno o más archivos o hacé click'}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>PDF, JPG, PNG, Word, Excel</div></>
           )}
         </div>
-        <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+        <input ref={inputRef} type="file" multiple style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
           onChange={e => { onFile(e.target.files); e.target.value = '' }} />
 
         {loading ? (
