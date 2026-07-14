@@ -15,6 +15,11 @@ export const ACCION_TITULO: Record<MantTabla, string> = {
   mant_tanques: 'Nueva limpieza de tanques de agua',
 }
 
+export const DOCS_TIPOS: Record<MantTabla, string[]> = {
+  mant_extintores: ['Certificado de recarga', 'Foto', 'Otro'],
+  mant_tanques: ['Análisis de potabilidad', 'Certificado de limpieza', 'Foto', 'Otro'],
+}
+
 export const ESTADOS_GESTION = ['No realizado', 'En proceso', 'Completado'] as const
 export type EstadoGestion = typeof ESTADOS_GESTION[number]
 

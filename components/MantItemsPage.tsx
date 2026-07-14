@@ -14,7 +14,7 @@ import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
-import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, detalleGestionTexto } from '@/lib/mantenimientoConfig'
+import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, detalleGestionTexto, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
 
 type Item = {
   id: string
@@ -44,11 +44,6 @@ type Props = {
   tabla: 'mant_extintores' | 'mant_tanques'
   titulo: string
   singular: string
-}
-
-const DOCS_TIPOS: Record<Props['tabla'], string[]> = {
-  mant_extintores: ['Certificado de recarga', 'Foto', 'Otro'],
-  mant_tanques: ['Análisis de potabilidad', 'Certificado de limpieza', 'Foto', 'Otro'],
 }
 
 function diasHasta(iso: string | null) {

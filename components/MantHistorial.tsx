@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { X, Loader2, Trash2 } from 'lucide-react'
+import { X, Loader2, Trash2, Paperclip, MessageSquareWarning } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
-import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES } from '@/lib/mantenimientoConfig'
+import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
+import MantDocumentos from '@/components/MantDocumentos'
+import MantReclamos from '@/components/MantReclamos'
 
 type Registro = {
   id: string
@@ -40,6 +42,9 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
   const [registros, setRegistros] = useState<Registro[]>([])
   const [loading, setLoading] = useState(true)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [docsCounts, setDocsCounts] = useState<Record<string, number>>({})
+  const [docsFor, setDocsFor] = useState<Registro | null>(null)
+  const [reclamosFor, setReclamosFor] = useState<Registro | null>(null)
 
   useEffect(() => { fetchHistorial() }, [tabla, clienteId])
 
@@ -53,6 +58,17 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
       .order('created_at', { ascending: false })
     const sorted = ((data as any[]) || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
     setRegistros(sorted as Registro[])
+
+    const fkCol = tabla === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+    const ids = sorted.map((r: any) => r.id)
+    if (ids.length > 0) {
+      const { data: docsData } = await supabase.from('mant_documentos').select(fkCol).in(fkCol, ids)
+      const counts: Record<string, number> = {}
+      ;(docsData || []).forEach((d: any) => { const k = d[fkCol]; if (k) counts[k] = (counts[k] || 0) + 1 })
+      setDocsCounts(counts)
+    } else {
+      setDocsCounts({})
+    }
     setLoading(false)
   }
 
@@ -90,6 +106,22 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {r.estado && <span className={`badge ${estadoBadgeClass(r.estado)}`}>{r.estado}</span>}
+                    <button title={docsCounts[r.id] ? `${docsCounts[r.id]} documento(s) — click para ver` : 'Adjuntar documento'}
+                      onClick={() => setDocsFor(r)}
+                      style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: docsCounts[r.id] ? 'var(--gold)' : 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center', opacity: docsCounts[r.id] ? 1 : 0.55 }}>
+                      <Paperclip size={13} fill={docsCounts[r.id] ? 'currentColor' : 'none'} fillOpacity={docsCounts[r.id] ? 0.15 : 0} />
+                      {!!docsCounts[r.id] && (
+                        <span style={{ position: 'absolute', top: -3, right: -4, background: 'var(--gold)', color: 'var(--navy)', fontSize: 8.5, fontWeight: 800, borderRadius: 7, minWidth: 12, height: 12, lineHeight: '12px', textAlign: 'center', padding: '0 2px' }}>
+                          {docsCounts[r.id]}
+                        </span>
+                      )}
+                    </button>
+                    <button title="Reclamos de esta gestión" onClick={() => setReclamosFor(r)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--navy)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
+                      <MessageSquareWarning size={13} />
+                    </button>
                     <button title="Eliminar esta gestión" onClick={() => eliminarRegistro(r)} disabled={eliminandoId === r.id}
                       style={{ background: 'none', border: 'none', cursor: eliminandoId === r.id ? 'default' : 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
                       onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
@@ -142,6 +174,24 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
         )}
         <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
       </div>
+
+      {docsFor && (
+        <MantDocumentos
+          tabla={tabla}
+          registroId={docsFor.id}
+          clienteNombre={clienteNombre}
+          tiposSugeridos={DOCS_TIPOS[tabla]}
+          onClose={() => { setDocsFor(null); fetchHistorial() }}
+        />
+      )}
+      {reclamosFor && (
+        <MantReclamos
+          tabla={tabla}
+          registroId={reclamosFor.id}
+          clienteNombre={clienteNombre}
+          onClose={() => setReclamosFor(null)}
+        />
+      )}
     </div>
   )
 }
