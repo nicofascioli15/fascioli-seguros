@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES } from '@/lib/mantenimientoConfig'
 
 type Registro = {
@@ -25,6 +26,7 @@ type Props = {
   clienteId: string
   clienteNombre: string
   onClose: () => void
+  onChanged?: () => void
 }
 
 function formatFecha(iso: string | null) {
@@ -33,10 +35,11 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
-export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose }: Props) {
+export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose, onChanged }: Props) {
   const supabase = createClient()
   const [registros, setRegistros] = useState<Registro[]>([])
   const [loading, setLoading] = useState(true)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
   useEffect(() => { fetchHistorial() }, [tabla, clienteId])
 
@@ -51,6 +54,16 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
     const sorted = ((data as any[]) || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
     setRegistros(sorted as Registro[])
     setLoading(false)
+  }
+
+  async function eliminarRegistro(r: Registro) {
+    if (!confirm(`¿Eliminar esta gestión${r.fecha_servicio ? ` (servicio ${formatFecha(r.fecha_servicio)})` : ''}? Esta acción no se puede deshacer.`)) return
+    setEliminandoId(r.id)
+    await supabase.from(tabla).delete().eq('id', r.id)
+    await registrarAudit({ accion: 'eliminar', tabla, registroId: r.id, descripcion: 'Gestión eliminada desde el historial', datosAntes: r })
+    setEliminandoId(null)
+    await fetchHistorial()
+    onChanged?.()
   }
 
   return (
@@ -75,7 +88,15 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                     {i === 0 && <span className="badge badge-gold" style={{ marginRight: 6 }}>Vigente</span>}
                     {r.fecha_servicio ? `Servicio ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de servicio'}
                   </div>
-                  {r.estado && <span className={`badge ${estadoBadgeClass(r.estado)}`}>{r.estado}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {r.estado && <span className={`badge ${estadoBadgeClass(r.estado)}`}>{r.estado}</span>}
+                    <button title="Eliminar esta gestión" onClick={() => eliminarRegistro(r)} disabled={eliminandoId === r.id}
+                      style={{ background: 'none', border: 'none', cursor: eliminandoId === r.id ? 'default' : 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
+                      {eliminandoId === r.id ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={13} />}
+                    </button>
+                  </div>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
                   Vence {formatFecha(r.vencimiento)}{r.empresa && ` · ${r.empresa}`}

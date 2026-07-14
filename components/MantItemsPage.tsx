@@ -410,7 +410,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
               {paginados.map(it => {
                 const b = vencBadge(it.dias)
                 return (
-                  <tr key={it.id}>
+                  <tr key={it.id} onClick={() => setHistorialFor(it)} style={{ cursor: 'pointer' }} title="Ver historial">
                     <td style={{ fontWeight: 600 }}>{it.cliente_nombre}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -436,7 +436,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                     <td>{it.estado ? <span className={`badge ${estadoBadgeClass(it.estado)}`}>{it.estado}</span> : '—'}</td>
                     <td>{it.empresa || '—'}</td>
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={it.comentarios}>{it.comentarios || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                         <ActionsMenu actions={[
@@ -458,10 +458,10 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
             {paginados.map(it => {
               const b = vencBadge(it.dias)
               return (
-                <div key={it.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div key={it.id} onClick={() => setHistorialFor(it)} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{it.cliente_nombre}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
                       <span className={`badge ${b.cls}`}>{b.label}</span>
                       <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                       <ActionsMenu actions={[
@@ -640,6 +640,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
           clienteId={historialFor.cliente_id}
           clienteNombre={historialFor.cliente_nombre}
           onClose={() => setHistorialFor(null)}
+          onChanged={fetchAll}
         />
       )}
 
