@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Flame, Droplets, Loader2, Phone, Gauge, AlertTriangle, Bell, Calendar } from 'lucide-react'
+import { Flame, Droplets, Loader2, AlertTriangle, Bell, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -10,12 +10,6 @@ function diasHasta(iso: string | null) {
   hoy.setHours(0, 0, 0, 0)
   return Math.round((d.getTime() - hoy.getTime()) / 86400000)
 }
-function formatFecha(iso: string | null) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
-
 type Alerta = {
   id: string
   tipo: 'Extintor' | 'Tanque' | 'Ensayo hidrostático'
@@ -95,87 +89,6 @@ export default function MantenimientoDashboard() {
     { label: 'Próximos',    value: loading ? '—' : proximosTan.length, sub: 'Entre 8 y 30 días',      icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706', href: '/mantenimiento/tanques?dias=30' },
   ]
 
-  function iconoTipo(tipo: Alerta['tipo']) {
-    if (tipo === 'Extintor') return <Flame size={18} color="#D97706" />
-    if (tipo === 'Ensayo hidrostático') return <Gauge size={18} color="#7C3AED" />
-    return <Droplets size={18} color="#0E7490" />
-  }
-  function bgTipo(tipo: Alerta['tipo']) {
-    if (tipo === 'Extintor') return '#FEF3C7'
-    if (tipo === 'Ensayo hidrostático') return '#EDE9FE'
-    return '#E6F5F9'
-  }
-
-  function Section({ title, items, dotColor }: { title: string; items: Alerta[]; dotColor: string }) {
-    if (items.length === 0) return null
-    return (
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor }} />
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
-        </div>
-        {items.map(a => (
-          <div key={`${a.tipo}-${a.id}`} style={{
-            background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)',
-            padding: '14px 18px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14,
-            borderLeft: `3px solid ${dotColor}`,
-          }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: bgTipo(a.tipo),
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {iconoTipo(a.tipo)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 14.5 }}>{a.cliente_nombre}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                <span className="badge badge-neutral">{a.tipo}</span>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Vence</div>
-              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{formatFecha(a.vencimiento)}</div>
-              {a.cliente_tel && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
-                  <a href={`tel:${a.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  function Panel({ title, icon, iconBg, vencidos, urgentes, proximos }: {
-    title: string; icon: React.ReactNode; iconBg: string; vencidos: Alerta[]; urgentes: Alerta[]; proximos: Alerta[]
-  }) {
-    const total = vencidos.length + urgentes.length + proximos.length
-    return (
-      <div className="dashboard-panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {icon}
-          </div>
-          <div style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>{title}</div>
-          {total > 0 && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{total}</span>
-          )}
-        </div>
-        {total === 0 ? (
-          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin vencimientos en los próximos 30 días</div>
-        ) : (
-          <>
-            <Section title="Vencidos" items={vencidos} dotColor="#D94F4F" />
-            <Section title="Urgentes — 7 días o menos" items={urgentes} dotColor="#D94F4F" />
-            <Section title="Próximos — 8 a 30 días" items={proximos} dotColor="#D97706" />
-          </>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -225,22 +138,10 @@ export default function MantenimientoDashboard() {
         ))}
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-          <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
-          Cargando...
-        </div>
-      ) : alertas.length === 0 ? (
+      {!loading && alertas.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Todavía no hay registros</div>
           <div style={{ fontSize: 12 }}>Empezá cargando edificios en Clientes y sus extintores/tanques</div>
-        </div>
-      ) : (
-        <div className="dashboard-panels">
-          <Panel title="Extintores" icon={<Flame size={16} color="#D97706" />} iconBg="#FEF3C7"
-            vencidos={vencidosExt} urgentes={urgentesExt} proximos={proximosExt} />
-          <Panel title="Tanques de agua" icon={<Droplets size={16} color="#0E7490" />} iconBg="#E6F5F9"
-            vencidos={vencidosTan} urgentes={urgentesTan} proximos={proximosTan} />
         </div>
       )}
 
