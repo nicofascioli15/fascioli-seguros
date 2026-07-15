@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { Pagination, paginate } from '@/components/Pagination'
 
 
 const extStyle: Record<string, { bg: string; color: string; label: string }> = {
@@ -50,6 +51,7 @@ export default function DocumentosPage() {
   const [drag, setDrag]             = useState(false)
   const [search, setSearch]         = useState('')
   const [filtroTipo, setFiltroTipo] = useState('Todos')
+  const [page, setPage]             = useState(1)
 
   // Modal upload (3 pasos)
   const [showModal, setShowModal]   = useState(false)
@@ -159,6 +161,7 @@ export default function DocumentosPage() {
     return (!q || d.nombre.toLowerCase().includes(q) || (d.clientes?.nombre || '').toLowerCase().includes(q)) &&
            (filtroTipo === 'Todos' || d.tipo === filtroTipo)
   })
+  const paginados = paginate(filtrados, page)
 
   const clientesFiltrados = clientes.filter(c =>
     c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
@@ -207,11 +210,11 @@ export default function DocumentosPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input placeholder="Buscar archivo o cliente..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder="Buscar archivo o cliente..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['Todos', ...tiposDoc].map((t: string) => <button key={t} onClick={() => setFiltroTipo(t)} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
+          {['Todos', ...tiposDoc].map((t: string) => <button key={t} onClick={() => { setFiltroTipo(t); setPage(1) }} className={`filter-btn ${filtroTipo === t ? 'active' : ''}`}>{t}</button>)}
         </div>
       </div>
 
@@ -237,7 +240,7 @@ export default function DocumentosPage() {
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay documentos subidos</div>
                 <div style={{ fontSize: 12 }}>Arrastrá archivos arriba o usá el botón "Subir archivo"</div>
               </td></tr>
-            ) : filtrados.map(d => {
+            ) : paginados.map(d => {
               const ext = extStyle[getExt(d.nombre)] || extStyle.pdf
               return (
                 <tr key={d.id}>
@@ -267,7 +270,7 @@ export default function DocumentosPage() {
         </table>
         {/* Mobile card list */}
         <div className="mobile-list" style={{ display: 'none' }}>
-          {filtrados.map(d => {
+          {paginados.map(d => {
             const ext = extStyle[getExt(d.nombre)] || extStyle.pdf
             return (
               <div key={d.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -287,6 +290,7 @@ export default function DocumentosPage() {
           })}
         </div>
       </div>
+      <Pagination page={page} total={filtrados.length} onChange={setPage} />
 
       {/* MODAL SUBIR (3 pasos: cliente → póliza → archivo) */}
       {showModal && (

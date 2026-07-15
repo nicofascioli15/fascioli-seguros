@@ -5,6 +5,7 @@ import { Search, Plus, X, Loader2, Upload, CheckCircle, AlertCircle, Download, P
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { Pagination, paginate } from '@/components/Pagination'
 
 type Cliente = {
   id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string; tipo: string
@@ -23,6 +24,7 @@ export default function ClientesList({ onSelect }: Props) {
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [saving, setSaving]       = useState(false)
+  const [page, setPage]           = useState(1)
 
   // Nuevo cliente
   const [showModal, setShowModal] = useState(false)
@@ -163,6 +165,7 @@ export default function ClientesList({ onSelect }: Props) {
     (c.direccion || '').toLowerCase().includes(search.toLowerCase())
   )
   const { sort: sortState, toggleSort, sorted: filtrados } = useSortFilter<Cliente>(filtradosBase)
+  const paginados = paginate(filtrados, page)
 
   return (
     <div>
@@ -183,7 +186,7 @@ export default function ClientesList({ onSelect }: Props) {
       <div style={{ marginBottom: 18 }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input placeholder="Buscar por nombre o dirección..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder="Buscar por nombre o dirección..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 340, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
       </div>
@@ -194,7 +197,7 @@ export default function ClientesList({ onSelect }: Props) {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {filtrados.map(c => (
+          {paginados.map(c => (
             <div key={c.id} className="edif-card" onClick={() => onSelect(c.id, c.nombre)}>
               <div className="edif-avatar" style={{ background: c.tipo === 'particular' ? '#1E3557' : '#0F1E35' }}>
                 {c.tipo === 'particular' ? <User size={18} color="#C9A84C" /> : <Building2 size={18} color="#C9A84C" />}
@@ -223,6 +226,7 @@ export default function ClientesList({ onSelect }: Props) {
           )}
         </div>
       )}
+      <Pagination page={page} total={filtrados.length} onChange={setPage} />
 
       {/* Modal nuevo cliente */}
       {showModal && (

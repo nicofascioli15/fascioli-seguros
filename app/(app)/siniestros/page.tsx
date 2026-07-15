@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
+import { Pagination, paginate } from '@/components/Pagination'
 
 const ESTADOS   = ['En gestión', 'Documentación', 'Pericial', 'Cerrado']
 // TIPOS_SIN stays hardcoded - siniestro types are not in catalogs
@@ -47,6 +48,7 @@ export default function SiniestrosPage() {
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
   const [filtro, setFiltro]           = useState('Todos')
+  const [page, setPage]               = useState(1)
 
   // Modal
   const [showModal, setShowModal]     = useState(false)
@@ -137,6 +139,7 @@ export default function SiniestrosPage() {
     return (!q || (s.clientes?.nombre || '').toLowerCase().includes(q) || (s.polizas?.numero || '').toLowerCase().includes(q) || s.tipo.toLowerCase().includes(q)) &&
            (filtro === 'Todos' || s.estado === filtro)
   })
+  const paginados = paginate(filtrados, page)
 
   return (
     <div>
@@ -154,12 +157,12 @@ export default function SiniestrosPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input placeholder="Buscar cliente, póliza o tipo..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder="Buscar cliente, póliza o tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['Todos', ...ESTADOS].map(t =>
-            <button key={t} onClick={() => setFiltro(t)} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
+            <button key={t} onClick={() => { setFiltro(t); setPage(1) }} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
           )}
         </div>
       </div>
@@ -176,7 +179,7 @@ export default function SiniestrosPage() {
           <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay siniestros registrados</div>
           <div style={{ fontSize: 12 }}>Usá el botón "Nuevo siniestro" para registrar uno</div>
         </div>
-      ) : filtrados.map(s => (
+      ) : paginados.map(s => (
         <div key={s.id} style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 42, height: 42, background: '#FEE2E2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -212,6 +215,7 @@ export default function SiniestrosPage() {
           </div>
         </div>
       ))}
+      {!loading && <Pagination page={page} total={filtrados.length} onChange={setPage} />}
 
       {/* MODAL NUEVO SINIESTRO (3 pasos) ─────────────────────────*/}
       {showModal && (

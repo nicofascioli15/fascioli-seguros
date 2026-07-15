@@ -9,7 +9,8 @@ import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import ActionsMenu from '@/components/ActionsMenu'
 import { ItemForm, emptyForm as emptyMantForm } from '@/components/MantItemsPage'
-import { ACCION, estadoBadgeClass } from '@/lib/mantenimientoConfig'
+import { ACCION, estadoBadgeClass, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
+import { Pagination, paginate } from '@/components/Pagination'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
 const emptyCliente = { nombre: '', direccion: '', contacto: '', tel: '', email: '' }
@@ -27,6 +28,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [saving, setSaving]     = useState(false)
+  const [page, setPage]         = useState(1)
 
   const [showModal, setShowModal] = useState(false)
   const [form, setForm]           = useState(emptyCliente)
@@ -121,6 +123,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
     c.nombre.toLowerCase().includes(search.toLowerCase()) || (c.direccion || '').toLowerCase().includes(search.toLowerCase())
   )
   const { sorted: filtrados } = useSortFilter<Cliente>(filtradosBase)
+  const paginados = paginate(filtrados, page)
 
   return (
     <div>
@@ -141,7 +144,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
       <div style={{ marginBottom: 18 }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input placeholder="Buscar por nombre o dirección..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder="Buscar por nombre o dirección..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 340, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
       </div>
@@ -152,7 +155,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {filtrados.map(c => (
+          {paginados.map(c => (
             <div key={c.id} className="edif-card" onClick={() => onSelect(c)}>
               <div className="edif-avatar"><Building2 size={18} color="#C9A84C" /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -173,6 +176,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
           )}
         </div>
       )}
+      <Pagination page={page} total={filtrados.length} onChange={setPage} />
 
       {showModal && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
@@ -588,7 +592,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
           tabla={docsFor.tipo}
           registroId={docsFor.item.id}
           clienteNombre={cliente.nombre}
-          tiposSugeridos={docsFor.tipo === 'mant_extintores' ? ['Certificado de recarga', 'Foto', 'Otro'] : ['Análisis de potabilidad', 'Certificado de limpieza', 'Foto', 'Otro']}
+          tiposSugeridos={DOCS_TIPOS[docsFor.tipo]}
           onClose={() => setDocsFor(null)}
         />
       )}

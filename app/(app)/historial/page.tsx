@@ -5,6 +5,7 @@ import { Loader2, RotateCcw, Search, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRol } from '@/lib/useRol'
 import { useRouter } from 'next/navigation'
+import { Pagination, paginate } from '@/components/Pagination'
 
 type LogEntry = {
   id: string
@@ -56,6 +57,7 @@ export default function HistorialPage() {
   const [reverting, setReverting]   = useState<string | null>(null)
   const [toast, setToast]           = useState<string | null>(null)
   const [expandido, setExpandido]   = useState<string | null>(null)
+  const [page, setPage]             = useState(1)
 
   useEffect(() => {
     if (!loadingRol && !esSuperAdmin) router.push('/dashboard')
@@ -99,6 +101,7 @@ export default function HistorialPage() {
            (filtroTabla === 'Todos' || l.tabla === filtroTabla) &&
            (filtroAccion === 'Todos' || l.accion === filtroAccion)
   })
+  const paginados = paginate(filtrados, page)
 
   const stats = {
     total:    logs.length,
@@ -137,14 +140,14 @@ export default function HistorialPage() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input placeholder="Buscar acción o usuario..." value={search} onChange={e => setSearch(e.target.value)}
+            <input placeholder="Buscar acción o usuario..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
               style={{ padding: '8px 14px 8px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', width: 240, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
           </div>
           <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Módulo:</span>
             {['Todos','clientes','polizas','pagos','siniestros','documentos'].map(t =>
-              <button key={t} onClick={() => setFiltroTabla(t)} className={`filter-btn ${filtroTabla === t ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
+              <button key={t} onClick={() => { setFiltroTabla(t); setPage(1) }} className={`filter-btn ${filtroTabla === t ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
                 {t === 'Todos' ? 'Todos' : tablaLabel[t]}
               </button>
             )}
@@ -153,7 +156,7 @@ export default function HistorialPage() {
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Acción:</span>
             {['Todos','crear','editar','eliminar'].map(a =>
-              <button key={a} onClick={() => setFiltroAccion(a)} className={`filter-btn ${filtroAccion === a ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
+              <button key={a} onClick={() => { setFiltroAccion(a); setPage(1) }} className={`filter-btn ${filtroAccion === a ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
                 {a === 'Todos' ? 'Todas' : a.charAt(0).toUpperCase() + a.slice(1)}
               </button>
             )}
@@ -174,7 +177,7 @@ export default function HistorialPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {filtrados.map(log => (
+          {paginados.map(log => (
             <div key={log.id} style={{
               background: log.revertido ? '#F8FAFC' : 'white',
               borderRadius: 12, border: '1px solid var(--border-soft)',
@@ -253,6 +256,7 @@ export default function HistorialPage() {
           ))}
         </div>
       )}
+      <Pagination page={page} total={filtrados.length} onChange={setPage} />
 
       {toast && <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 300, background: 'var(--navy)', color: 'white', padding: '12px 20px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,.2)', borderLeft: '3px solid var(--gold)' }}>{toast}</div>}
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>

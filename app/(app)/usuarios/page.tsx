@@ -5,6 +5,7 @@ import { Loader2, Shield, User, Plus, X, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthProvider'
 import { useRouter } from 'next/navigation'
+import { Pagination, paginate } from '@/components/Pagination'
 
 type Usuario = {
   id: string; email: string; nombre: string | null
@@ -22,6 +23,7 @@ export default function UsuariosPage() {
   const [saving, setSaving]         = useState(false)
   const [toast, setToast]           = useState<string | null>(null)
   const [form, setForm]             = useState({ email: '', nombre: '', rol: 'admin' as 'admin' | 'superadmin', password: '' })
+  const [page, setPage]             = useState(1)
 
   // Password change
   const [showPassModal, setShowPassModal] = useState<Usuario | null>(null)
@@ -132,7 +134,7 @@ export default function UsuariosPage() {
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay usuarios registrados</div>
         </div>
-      ) : usuarios.map(u => (
+      ) : paginate(usuarios, page).map(u => (
         <div key={u.id} style={{
           background: 'var(--bg-card)', borderRadius: 12, marginBottom: 8,
           border: `1px solid ${u.rol === 'superadmin' ? 'rgba(201,168,76,.3)' : 'var(--border)'}`,
@@ -171,6 +173,7 @@ export default function UsuariosPage() {
           </div>
         </div>
       ))}
+      {!loading && usuarios.length > 0 && <Pagination page={page} total={usuarios.length} onChange={setPage} />}
 
       {/* Modal nuevo usuario */}
       {showModal && (
