@@ -1,6 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import ExportButton from '@/components/ExportButton'
@@ -36,6 +37,7 @@ type Item = {
 
 export default function VencimientosPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [items, setItems]     = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
@@ -97,10 +99,10 @@ export default function VencimientosPage() {
           <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
         </div>
         {items.map(v => (
-          <div key={v.id} style={{
+          <div key={v.id} onClick={() => router.push(`/polizas?open=${v.id}&from=vencimientos`)} style={{
             background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)',
             padding: '16px 18px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14,
-            borderLeft: `3px solid ${dotColor}`
+            borderLeft: `3px solid ${dotColor}`, cursor: 'pointer'
           }}>
             <div style={{
               width: 52, height: 52, borderRadius: 10, flexShrink: 0,
@@ -125,7 +127,7 @@ export default function VencimientosPage() {
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Vence</div>
               <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{formatFecha(v.vencimiento)}</div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                 {v.cliente_tel && <a href={`tel:${v.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>}
                 {v.cliente_email && <a href={`mailto:${v.cliente_email}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Mail size={12} /></a>}
                 {v.cliente_tel && <a href={`https://wa.me/${(() => { const n = v.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}

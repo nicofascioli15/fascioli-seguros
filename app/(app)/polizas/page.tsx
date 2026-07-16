@@ -166,9 +166,13 @@ export default function PolizasPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  const [volverA, setVolverA] = useState<string | null>(null)
+
   useEffect(() => {
     const openId = searchParams.get('open')
     if (openId) {
+      const from = searchParams.get('from')
+      if (from) setVolverA(from)
       supabase.from('polizas').select('*, clientes(nombre, id)').eq('id', openId).single()
         .then(({ data }) => { if (data) abrirDetalle(data); router.replace('/polizas') })
     }
@@ -532,8 +536,8 @@ export default function PolizasPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <button onClick={() => setDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
-            <ArrowLeft size={14} /> Volver a pólizas
+          <button onClick={() => { if (volverA) { router.push(`/${volverA}`) } else { setDetalle(null) } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+            <ArrowLeft size={14} /> {volverA === 'vencimientos' ? 'Volver a vencimientos' : 'Volver a pólizas'}
           </button>
           <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             onMouseDown={e => { e.stopPropagation() }}
@@ -1018,7 +1022,7 @@ export default function PolizasPage() {
             ) : paginadas.map(p => {
               const { label, cls } = estadoBadge(p.vencimiento)
               return (
-                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => abrirDetalle(p)}>
+                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                   <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.numero}</td>
                   <td style={{ fontWeight: 600 }}>{p.clientes?.nombre || '—'}</td>
                   <td><span className="badge badge-neutral">{p.ramo}</span></td>
@@ -1051,7 +1055,7 @@ export default function PolizasPage() {
           {paginadas.map(p => {
             const { label, cls } = estadoBadge(p.vencimiento)
             return (
-              <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => abrirDetalle(p)}>
+              <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{p.clientes?.nombre || '—'}</div>
                   <span className={`badge ${cls}`}>{label}</span>

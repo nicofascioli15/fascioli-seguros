@@ -139,7 +139,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
           </select>
           <select value={viewYear} onChange={e => setViewYear(+e.target.value)}
             style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--text-main)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-            {Array.from({ length: 15 }, (_, i) => today.getFullYear() - 2 + i).map(y =>
+            {Array.from({ length: today.getFullYear() + 10 - 2021 + 1 }, (_, i) => 2021 + i).map(y =>
               <option key={y} value={y}>{y}</option>
             )}
           </select>
