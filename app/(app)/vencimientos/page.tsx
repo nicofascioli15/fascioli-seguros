@@ -99,10 +99,13 @@ export default function VencimientosPage() {
           <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
         </div>
         {items.map(v => (
-          <div key={v.id} onClick={() => router.push(`/polizas?open=${v.id}&from=vencimientos`)} style={{
+          <div key={v.id} onClick={() => router.push(`/polizas?open=${v.id}&from=vencimientos`)}
+            onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.background = '#F8FAFC')}
+            onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card)')}
+            style={{
             background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)',
             padding: '16px 18px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 14,
-            borderLeft: `3px solid ${dotColor}`, cursor: 'pointer'
+            borderLeft: `3px solid ${dotColor}`, cursor: 'pointer', transition: 'background .1s'
           }}>
             <div style={{
               width: 52, height: 52, borderRadius: 10, flexShrink: 0,
