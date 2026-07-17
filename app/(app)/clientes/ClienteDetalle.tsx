@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
-import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
+import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 
 const FERIADOS_UY = ['01-01', '05-01', '07-18', '08-25', '12-25']
 function esFeriado(date: Date): boolean {
@@ -392,6 +392,15 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     }
   }
 
+  function renovarPoliza(pol: Poliza) {
+    setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '' })
+    setCamposRamo([])
+    setValoresCampos({})
+    setErrores({})
+    setShowPolizaModal(true)
+    seleccionarPolizaARenovar(pol.id)
+  }
+
   async function guardarPoliza() {
     const nCuotas = parseInt(polizaForm.cuotas) || 0
     const errs: Record<string, boolean> = {}
@@ -593,6 +602,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 </div>
                 <span className="badge badge-neutral" style={{ flexShrink: 0 }}>{pol.compania}</span>
                 <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{label}</span>
+                {!pol.renovada && (
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, padding: '3px 8px', flexShrink: 0 }}
+                    onClick={e => { e.stopPropagation(); renovarPoliza(pol) }}>
+                    <RotateCw size={11} /> Renovar
+                  </button>
+                )}
                 <button className="btn-outline btn-sm" style={{ fontSize: 11, padding: '3px 8px', flexShrink: 0 }}
                   onClick={e => { e.stopPropagation(); abrirEditar(pol) }}>
                   <Pencil size={11} /> Editar
@@ -748,7 +763,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) { setShowPolizaModal(false); setErrores({}); setNumeroExiste(false); setCamposRamo([]); setValoresCampos({}) } }}>
           <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nueva póliza</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>{polizaForm.tipoAlta === 'renovacion' ? 'Renovar póliza' : 'Nueva póliza'}</h3>
               <button onClick={() => { setShowPolizaModal(false); setErrores({}); setNumeroExiste(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Cliente: {nombre}</div>

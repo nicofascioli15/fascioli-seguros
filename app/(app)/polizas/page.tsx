@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle } from 'lucide-react'
+import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
@@ -546,6 +546,17 @@ export default function PolizasPage() {
   }
   function cerrarModal() { setShowModal(false); setClienteSeleccionado(null); setPaso('cliente'); setNumeroExiste(false) }
 
+  function renovarPoliza() {
+    if (!detalle) return
+    setClienteSeleccionado({ id: detalle.cliente_id, nombre: detalle.clientes?.nombre || '', direccion: '' })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '' })
+    setCamposRamo([])
+    setValoresCampos({})
+    setPaso('poliza')
+    setShowModal(true)
+    seleccionarPolizaARenovar(detalle.id)
+  }
+
   const RAMOS_FILTRO = ['Todos', ...catalogos.ramos]
   const polizasEnriched = polizas.map(p => ({ ...p, cliente_nombre: p.clientes?.nombre || '' }))
   const filtradasBase = polizasEnriched.filter(p => {
@@ -584,29 +595,38 @@ export default function PolizasPage() {
           <button onClick={() => { if (volverA) { router.push(`/${volverA}`) } else { setDetalle(null) } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
             <ArrowLeft size={14} /> {volverA === 'vencimientos' ? 'Volver a vencimientos' : 'Volver a pólizas'}
           </button>
-          <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            onMouseDown={e => { e.stopPropagation() }}
-            onClick={e => {
-              e.stopPropagation()
-              setEditando(detalle)
-              setEditForm({ numero: detalle.numero, ramo: detalle.ramo, compania: detalle.compania, corredor: detalle.corredor, corredor_nombre: detalle.corredor_nombre || '', corredor_tel: detalle.corredor_tel || '', moneda: detalle.moneda, vencimiento: detalle.vencimiento, nota: detalle.nota, cuotas: detalle.cuotas } as any)
-              setEditPagosCount(detallePagos.length)
-              setEditFechasCuotas(parseFechasCuotaMes(detalle.cuota_mes || ''))
-              supabase.from('ramos').select('id').eq('nombre', detalle.ramo).single().then(({ data: ramoData }) => {
-                if (!ramoData) { setEditCamposRamo([]); setEditValores({}); return }
-                Promise.all([
-                  supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden'),
-                  supabase.from('poliza_campos').select('campo_id, valor').eq('poliza_id', detalle.id),
-                ]).then(([{ data: campos }, { data: valores }]) => {
-                  setEditCamposRamo(campos || [])
-                  const map: Record<string,string> = {}
-                  ;(valores || []).forEach((v: any) => { map[v.campo_id] = v.valor })
-                  setEditValores(map)
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!detalle.renovada && (
+              <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                onMouseDown={e => { e.stopPropagation() }}
+                onClick={e => { e.stopPropagation(); renovarPoliza() }}>
+                <RotateCw size={14} /> Renovar póliza
+              </button>
+            )}
+            <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              onMouseDown={e => { e.stopPropagation() }}
+              onClick={e => {
+                e.stopPropagation()
+                setEditando(detalle)
+                setEditForm({ numero: detalle.numero, ramo: detalle.ramo, compania: detalle.compania, corredor: detalle.corredor, corredor_nombre: detalle.corredor_nombre || '', corredor_tel: detalle.corredor_tel || '', moneda: detalle.moneda, vencimiento: detalle.vencimiento, nota: detalle.nota, cuotas: detalle.cuotas } as any)
+                setEditPagosCount(detallePagos.length)
+                setEditFechasCuotas(parseFechasCuotaMes(detalle.cuota_mes || ''))
+                supabase.from('ramos').select('id').eq('nombre', detalle.ramo).single().then(({ data: ramoData }) => {
+                  if (!ramoData) { setEditCamposRamo([]); setEditValores({}); return }
+                  Promise.all([
+                    supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden'),
+                    supabase.from('poliza_campos').select('campo_id, valor').eq('poliza_id', detalle.id),
+                  ]).then(([{ data: campos }, { data: valores }]) => {
+                    setEditCamposRamo(campos || [])
+                    const map: Record<string,string> = {}
+                    ;(valores || []).forEach((v: any) => { map[v.campo_id] = v.valor })
+                    setEditValores(map)
+                  })
                 })
-              })
-            }}>
-            <Pencil size={14} /> Editar póliza
-          </button>
+              }}>
+              <Pencil size={14} /> Editar póliza
+            </button>
+          </div>
         </div>
 
         {/* Header card */}
@@ -1140,7 +1160,7 @@ export default function PolizasPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
-                  {paso === 'cliente' ? 'Seleccionar cliente' : 'Nueva póliza'}
+                  {paso === 'cliente' ? 'Seleccionar cliente' : form.tipoAlta === 'renovacion' ? 'Renovar póliza' : 'Nueva póliza'}
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                   Paso {paso === 'cliente' ? '1' : '2'} de 2
