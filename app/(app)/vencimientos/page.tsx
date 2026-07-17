@@ -51,11 +51,11 @@ export default function VencimientosPage() {
     setLoading(true)
     const { data } = await supabase
       .from('polizas')
-      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, clientes(nombre, tel, email)')
+      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, renovada, clientes(nombre, tel, email)')
       .order('vencimiento', { ascending: true })
 
     if (data) {
-      setItems(data.map(p => ({
+      setItems(data.filter((p: any) => !p.renovada).map(p => ({
         id:              p.id,
         numero:          p.numero,
         ramo:            p.ramo,

@@ -49,7 +49,8 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
-function estadoBadge(venc: string | null) {
+function estadoBadge(venc: string | null, renovada?: boolean) {
+  if (renovada) return { label: 'Renovada', cls: 'badge-blue' }
   const d = diasHasta(venc)
   if (d === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
   if (d < 0)     return { label: 'Vencida',   cls: 'badge-danger' }
@@ -133,7 +134,7 @@ function fechasACuotaMes(fechas: string[]): string {
 }
 
 type Cliente  = { id: string; nombre: string; direccion: string }
-type Poliza   = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number }
+type Poliza   = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number; renovada?: boolean; renueva_poliza_id?: string | null }
 type Documento = { id: string; nombre: string; storage_path: string; tipo: string; tamanio_bytes: number; created_at: string }
 type Pago     = { id: string; cuota_num: number; fecha: string; metodo: string }
 type Paso = 'cliente' | 'poliza'
@@ -227,7 +228,7 @@ export default function PolizasPage() {
   const [nuevoCorredor, setNuevoCorredor]         = useState('')
   const [numeroExiste, setNumeroExiste]           = useState(false)
   const [checkingNumero, setCheckingNumero]       = useState(false)
-  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '' })
+  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '' })
   const [camposRamo, setCamposRamo]   = useState<{id:string;nombre:string;tipo:string;opciones:string|null}[]>([])
   const [valoresCampos, setValoresCampos] = useState<Record<string,string>>({})
 
@@ -451,6 +452,7 @@ export default function PolizasPage() {
   async function guardarPoliza() {
     if (!clienteSeleccionado || !form.numero.trim()) return
     if (numeroExiste) return
+    if (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId) { alert('Seleccioná qué póliza estás renovando'); return }
     const nCuotas = parseInt(form.cuotas) || 0
     if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
     if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
@@ -463,6 +465,7 @@ export default function PolizasPage() {
       corredor_tel:    form.corredor === 'Otro' ? form.corredor_tel    : null,
       moneda: form.moneda, cuotas: nCuotas,
       cuota_mes: fechasACuotaMes(form.fechasCuotas), nota: form.nota || null,
+      renueva_poliza_id: form.tipoAlta === 'renovacion' ? form.renuevaPolizaId : null,
     }]).select().single()
     if (polData) {
       const polizaId = (polData as any).id
@@ -486,6 +489,16 @@ export default function PolizasPage() {
         descripcion: `Póliza creada: ${form.ramo} ${form.numero} — ${clienteSeleccionado.nombre}`,
         datosDespues: polData,
       })
+      // Si es una renovación, marcar la póliza anterior como renovada
+      if (form.tipoAlta === 'renovacion' && form.renuevaPolizaId) {
+        const anterior = polizas.find(p => p.id === form.renuevaPolizaId)
+        await supabase.from('polizas').update({ renovada: true }).eq('id', form.renuevaPolizaId)
+        await registrarAudit({
+          accion: 'editar', tabla: 'polizas', registroId: form.renuevaPolizaId,
+          descripcion: `Póliza marcada como renovada por la nueva póliza ${form.ramo} ${form.numero}${anterior ? ` (era ${anterior.ramo} ${anterior.numero})` : ''}`,
+          datosDespues: { renovada: true },
+        })
+      }
     }
     cerrarModal()
     setSaving(false)
@@ -494,7 +507,7 @@ export default function PolizasPage() {
 
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSeleccionado(null)
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '' })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '' })
     setCamposRamo([])
     setValoresCampos({})
     setShowModal(true)
@@ -521,7 +534,7 @@ export default function PolizasPage() {
 
   // ── DETALLE VIEW ──────────────────────────────────────────────────────────
   if (detalle) {
-    const { label, cls } = estadoBadge(detalle.vencimiento)
+    const { label, cls } = estadoBadge(detalle.vencimiento, detalle.renovada)
     const pagosMap: Record<number, Pago> = {}
     detallePagos.forEach(pg => { pagosMap[pg.cuota_num] = pg })
     const pct = detalle.cuotas > 0 ? Math.round(detallePagos.length / detalle.cuotas * 100) : 0
@@ -579,6 +592,22 @@ export default function PolizasPage() {
                   {detalle.nota.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                 </div>
               )}
+              {detalle.renueva_poliza_id && (() => {
+                const anterior = polizas.find(p => p.id === detalle.renueva_poliza_id)
+                return anterior ? (
+                  <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--text-muted)' }}>
+                    Renueva la póliza <strong style={{ color: 'var(--text-main)' }}>{anterior.ramo} {anterior.numero}</strong>
+                  </div>
+                ) : null
+              })()}
+              {detalle.renovada && (() => {
+                const nueva = polizas.find(p => p.renueva_poliza_id === detalle.id)
+                return nueva ? (
+                  <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--text-muted)' }}>
+                    Renovada por <strong style={{ color: 'var(--text-main)' }}>{nueva.ramo} {nueva.numero}</strong>
+                  </div>
+                ) : null
+              })()}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
               {[
@@ -973,7 +1002,7 @@ export default function PolizasPage() {
               corredor: p.corredor,
               vencimiento: formatFecha(p.vencimiento),
               moneda: p.moneda,
-              estado: estadoBadge(p.vencimiento).label,
+              estado: estadoBadge(p.vencimiento, p.renovada).label,
             }))}
             filename="cartera-polizas-fascioli"
           />
@@ -1020,7 +1049,7 @@ export default function PolizasPage() {
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas</div>
               </td></tr>
             ) : paginadas.map(p => {
-              const { label, cls } = estadoBadge(p.vencimiento)
+              const { label, cls } = estadoBadge(p.vencimiento, p.renovada)
               return (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                   <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.numero}</td>
@@ -1053,7 +1082,7 @@ export default function PolizasPage() {
         </table>
         <div className="mobile-list" style={{ display: 'none' }}>
           {paginadas.map(p => {
-            const { label, cls } = estadoBadge(p.vencimiento)
+            const { label, cls } = estadoBadge(p.vencimiento, p.renovada)
             return (
               <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -1128,6 +1157,33 @@ export default function PolizasPage() {
 
             {paso === 'poliza' && (
               <>
+                <div className="fgroup">
+                  <label>Tipo *</label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {[{ val: 'nueva' as const, label: 'Nueva póliza' }, { val: 'renovacion' as const, label: 'Renovación' }].map(({ val, label }) => (
+                      <button key={val} type="button"
+                        onClick={() => setForm(f => ({ ...f, tipoAlta: val, renuevaPolizaId: val === 'nueva' ? '' : f.renuevaPolizaId }))}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', border: `2px solid ${form.tipoAlta === val ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 9, background: form.tipoAlta === val ? 'var(--gold-pale)' : 'var(--bg-card)', cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: form.tipoAlta === val ? 'var(--navy)' : 'var(--text-muted)', transition: 'all .15s' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {form.tipoAlta === 'renovacion' && (
+                  <div className="fgroup">
+                    <label>Póliza que renueva *</label>
+                    <select value={form.renuevaPolizaId} onChange={e => setForm(f => ({ ...f, renuevaPolizaId: e.target.value }))}
+                      style={{ color: form.renuevaPolizaId ? 'var(--navy)' : 'var(--slate)' }}>
+                      <option value="">— Seleccionar —</option>
+                      {polizas.filter(p => p.cliente_id === clienteSeleccionado?.id && !p.renovada).map(p => (
+                        <option key={p.id} value={p.id}>{p.ramo} {p.numero} — vence {formatFecha(p.vencimiento)}</option>
+                      ))}
+                    </select>
+                    {clienteSeleccionado && polizas.filter(p => p.cliente_id === clienteSeleccionado.id && !p.renovada).length === 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Este cliente no tiene otras pólizas activas para renovar</div>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                   <div className="fgroup">
                     <label>Ramo *</label>
@@ -1314,7 +1370,7 @@ export default function PolizasPage() {
                   <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar cliente</button>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn-outline" onClick={cerrarModal}>Cancelar</button>
-                    <button className="btn-primary" onClick={guardarPoliza} disabled={saving || !form.numero.trim()}>
+                    <button className="btn-primary" onClick={guardarPoliza} disabled={saving || !form.numero.trim() || (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId)}>
                       {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Guardar póliza'}
                     </button>
                   </div>

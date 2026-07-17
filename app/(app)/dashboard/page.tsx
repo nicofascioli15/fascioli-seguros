@@ -35,16 +35,17 @@ export default function DashboardPage() {
 
   async function fetchStats() {
     const [{ data: polizasData }, { count: siniestros }, { data: pagosData }] = await Promise.all([
-      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, clientes(nombre, id)'),
+      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, clientes(nombre, id)'),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
       supabase.from('pagos').select('poliza_id, cuota_num'),
     ])
-    const venc30 = (polizasData || []).filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
-    const proximas = (polizasData || [])
+    const polizasVigentes = (polizasData || []).filter((p: any) => !p.renovada)
+    const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
+    const proximas = polizasVigentes
       .filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 90 })
       .sort((a, b) => (diasHasta(a.vencimiento) || 0) - (diasHasta(b.vencimiento) || 0))
       .slice(0, 6)
-    const venc7 = (polizasData || []).filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 7 }).length
+    const venc7 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 7 }).length
     // Build proximas cuotas pendientes
     const pagosSet = new Set((pagosData || []).map((pg: any) => `${pg.poliza_id}-${pg.cuota_num}`))
     const cuotaRows: any[] = []
