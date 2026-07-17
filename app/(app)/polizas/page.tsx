@@ -575,6 +575,288 @@ export default function PolizasPage() {
     (c.direccion || '').toLowerCase().includes(clienteSearch.toLowerCase())
   )
 
+  // Modal de nueva póliza / renovación — se define acá (fuera de las dos vistas)
+  // para poder usarse tanto desde la vista de lista como desde el detalle
+  // (el botón "Renovar póliza" del detalle abre este mismo modal).
+  const nuevaPolizaModal = showModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) cerrarModal() }}>
+          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
+                  {paso === 'cliente' ? 'Seleccionar cliente' : form.tipoAlta === 'renovacion' ? 'Renovar póliza' : 'Nueva póliza'}
+                </h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                  Paso {paso === 'cliente' ? '1' : '2'} de 2
+                </div>
+                {paso === 'poliza' && clienteSeleccionado && (
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold)', marginTop: 6, lineHeight: 1.2 }}>
+                    {clienteSeleccionado.nombre}
+                  </div>
+                )}
+              </div>
+              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+              {['cliente','poliza'].map((p, i) => {
+                const idx = ['cliente','poliza'].indexOf(paso)
+                return <div key={p} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= idx ? 'var(--gold)' : 'var(--border)', transition: 'background .2s' }} />
+              })}
+            </div>
+
+            {paso === 'cliente' && (
+              <>
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+                </div>
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {clientesFiltrados.map(c => (
+                    <div key={c.id} onClick={() => { setClienteSeleccionado(c); setPaso('poliza') }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
+                    >
+                      <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: 14, flexShrink: 0 }}>
+                        {c.nombre.trim()[0]?.toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {paso === 'poliza' && (
+              <>
+                <div className="fgroup">
+                  <label>Tipo *</label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {[{ val: 'nueva' as const, label: 'Nueva póliza' }, { val: 'renovacion' as const, label: 'Renovación' }].map(({ val, label }) => (
+                      <button key={val} type="button"
+                        onClick={() => setForm(f => ({ ...f, tipoAlta: val, renuevaPolizaId: val === 'nueva' ? '' : f.renuevaPolizaId }))}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', border: `2px solid ${form.tipoAlta === val ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 9, background: form.tipoAlta === val ? 'var(--gold-pale)' : 'var(--bg-card)', cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: form.tipoAlta === val ? 'var(--navy)' : 'var(--text-muted)', transition: 'all .15s' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {form.tipoAlta === 'renovacion' && (
+                  <div className="fgroup">
+                    <label>Póliza que renueva *</label>
+                    <select value={form.renuevaPolizaId} onChange={e => seleccionarPolizaARenovar(e.target.value)}
+                      style={{ color: form.renuevaPolizaId ? 'var(--navy)' : 'var(--slate)' }}>
+                      <option value="">— Seleccionar —</option>
+                      {polizas.filter(p => p.cliente_id === clienteSeleccionado?.id && !p.renovada).map(p => (
+                        <option key={p.id} value={p.id}>{p.ramo} {p.numero} — vence {formatFecha(p.vencimiento)}</option>
+                      ))}
+                    </select>
+                    {clienteSeleccionado && polizas.filter(p => p.cliente_id === clienteSeleccionado.id && !p.renovada).length === 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Este cliente no tiene otras pólizas activas para renovar</div>
+                    )}
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                  <div className="fgroup">
+                    <label>Ramo *</label>
+                    <select value={form.ramo} onChange={async e => {
+                      const nuevoRamo = e.target.value
+                      setForm({ ...form, ramo: nuevoRamo })
+                      setValoresCampos({})
+                      if (nuevoRamo) {
+                        const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()
+                        if (ramoData) {
+                          const { data } = await supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden')
+                          setCamposRamo(data || [])
+                        } else setCamposRamo([])
+                      } else setCamposRamo([])
+                    }} style={{ color: form.ramo ? 'var(--navy)' : 'var(--slate)' }}>
+                      <option value="">— Seleccionar —</option>
+                      {catalogos.ramos.map((r:string) => <option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="fgroup">
+                    <label>N° Póliza *</label>
+                    <input value={form.numero}
+  onChange={e => { setForm({ ...form, numero: e.target.value }); checkNumeroExiste(e.target.value) }}
+  placeholder="Ej: 4309338"
+  style={{ borderColor: numeroExiste ? 'var(--danger)' : undefined }} />
+{checkingNumero && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Verificando...</div>}
+{numeroExiste && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3, fontWeight: 600 }}>⚠ Esta póliza ya existe en el sistema</div>}
+                  </div>
+                  <div className="fgroup">
+                    <label>Compañía *</label>
+                    <select value={form.compania} onChange={e => setForm({ ...form, compania: e.target.value })} style={{ color: form.compania ? 'var(--navy)' : 'var(--slate)' }}>
+                      <option value="">— Seleccionar —</option>
+                      {catalogos.companias.map((c:string) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="fgroup">
+                    <label>Corredor *</label>
+                    {showNuevoCorredor ? (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input value={nuevoCorredor} onChange={e => setNuevoCorredor(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && crearCorredor()}
+                          placeholder="Nombre del corredor" autoFocus
+                          style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+                        <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
+                        <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorredor(false); setNuevoCorredor('') }} style={{ padding: '8px 12px' }}>×</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <select value={form.corredor} onChange={e => setForm({ ...form, corredor: e.target.value, corredor_nombre: '', corredor_tel: '' })}
+                          style={{ flex: 1, color: form.corredor ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          <option value="">— Seleccionar —</option>
+                          {catalogos.corredores.map((c:string) => <option key={c}>{c}</option>)}
+                          <option value="Otro">Otro (ingresar manualmente)</option>
+                        </select>
+                        <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorredor(true)}
+                          title="Agregar a la lista" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
+                      </div>
+                    )}
+                    {form.corredor === 'Otro' && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <input value={form.corredor_nombre} onChange={e => setForm(f => ({ ...f, corredor_nombre: e.target.value }))}
+                          placeholder="Nombre del corredor"
+                          style={{ flex: 2, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                        <input value={form.corredor_tel} onChange={e => setForm(f => ({ ...f, corredor_tel: e.target.value }))}
+                          placeholder="Teléfono"
+                          style={{ flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="fgroup">
+                    <label>Vencimiento *</label>
+                    <DatePicker value={form.vencimiento} onChange={v => setForm({ ...form, vencimiento: v })} placeholder="Seleccionar fecha" />
+                  </div>
+                  <div className="fgroup">
+                    <label>Moneda *</label>
+                    <select value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })} style={{ color: form.moneda ? 'var(--navy)' : 'var(--slate)' }}>
+                      <option value="">— Seleccionar —</option>
+                      {(catalogos.monedas || []).map((m:string) => <option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="fgroup">
+                    <label>Cantidad de cuotas *</label>
+                    <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
+                  </div>
+                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                    <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
+                    <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
+                  </div>
+                  {camposRamo.length > 0 && (
+                    <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
+                        Datos específicos de {form.ramo}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
+                        {camposRamo.map(campo => (
+                          <div key={campo.id} className="fgroup">
+                            <label>{campo.nombre}</label>
+                            {campo.tipo === 'select' && campo.opciones ? (
+                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
+                                <option value="">— Seleccionar —</option>
+                                {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
+                              </select>
+                        ) : campo.tipo === 'numero_moneda' ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <select
+                              value={(valoresCampos[campo.id] || '').split('|')[1] || form.moneda || 'U$S'}
+                              onChange={e => {
+                                const monto = (valoresCampos[campo.id] || '').split('|')[0] || ''
+                                setValoresCampos(p => ({...p, [campo.id]: `${monto}|${e.target.value}`}))
+                              }}
+                              style={{ flex: 1, minWidth: 70 }}>
+                              <option>U$S</option>
+                              <option>$</option>
+                              <option>€</option>
+                            </select>
+                            <input type="number"
+                              value={(valoresCampos[campo.id] || '').split('|')[0] || ''}
+                              onChange={e => {
+                                const moneda = (valoresCampos[campo.id] || '').split('|')[1] || form.moneda || 'U$S'
+                                setValoresCampos(p => ({...p, [campo.id]: `${e.target.value}|${moneda}`}))
+                              }}
+                              placeholder="0" style={{ flex: 3 }} />
+                          </div>
+                            ) : campo.tipo === 'boolean' ? (
+                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
+                                <option value="">— Seleccionar —</option>
+                                <option value="Sí">Sí</option>
+                                <option value="No">No</option>
+                              </select>
+                            ) : campo.tipo === 'fecha' ? (
+                              <DatePicker value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} />
+                            ) : (
+                              <input type={campo.tipo === 'numero' ? 'number' : 'text'}
+                                value={valoresCampos[campo.id] || ''}
+                                onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
+                                placeholder={campo.nombre} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                    <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>(opcional)</span></label>
+                    <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
+                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)', lineHeight: 1.5 }}
+                      onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
+                  </div>
+                </div>
+                {/* Adjuntar documento opcional */}
+                <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
+                    Documento adjunto <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
+                  </div>
+                  <input type="file" id="adj-doc-input-polizas" style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) setDocNueva({ file: f, tipo: tiposDoc[0] || 'Póliza' }); e.target.value = '' }} />
+                  {docNueva ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📎 {docNueva.file.name}
+                      </div>
+                      <select value={docNueva.tipo} onChange={e => setDocNueva((d: any) => d ? { ...d, tipo: e.target.value } : null)}
+                        style={{ padding: '5px 8px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }}>
+                        {tiposDoc.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                      <button onClick={() => setDocNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: '0 4px' }}>×</button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => (document.getElementById('adj-doc-input-polizas') as HTMLInputElement)?.click()}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                      onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setDocNueva({ file, tipo: tiposDoc[0] || 'Póliza' }) }}
+                      style={{ border: '2px dashed var(--border)', borderRadius: 9, padding: '14px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}
+                    >
+                      <Upload size={14} /> Adjuntar documento o arrastrar acá
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar cliente</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-outline" onClick={cerrarModal}>Cancelar</button>
+                    <button className="btn-primary" onClick={guardarPoliza} disabled={saving || !form.numero.trim() || (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId)}>
+                      {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Guardar póliza'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+  )
+
   // ── DETALLE VIEW ──────────────────────────────────────────────────────────
   if (detalle) {
     const { label, cls } = estadoBadge(detalle.vencimiento, detalle.renovada)
@@ -1020,6 +1302,8 @@ export default function PolizasPage() {
           </div>
         </div>
       )}
+
+      {nuevaPolizaModal}
     </div>
   )
   }
@@ -1153,285 +1437,7 @@ export default function PolizasPage() {
         </div>
       </div>
 
-      {/* Modal nueva póliza */}
-      {showModal && (
-        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) cerrarModal() }}>
-          <div className="pago-modal" style={{ width: 540, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>
-                  {paso === 'cliente' ? 'Seleccionar cliente' : form.tipoAlta === 'renovacion' ? 'Renovar póliza' : 'Nueva póliza'}
-                </h3>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-                  Paso {paso === 'cliente' ? '1' : '2'} de 2
-                </div>
-                {paso === 'poliza' && clienteSeleccionado && (
-                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold)', marginTop: 6, lineHeight: 1.2 }}>
-                    {clienteSeleccionado.nombre}
-                  </div>
-                )}
-              </div>
-              <button onClick={cerrarModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
-            </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
-              {['cliente','poliza'].map((p, i) => {
-                const idx = ['cliente','poliza'].indexOf(paso)
-                return <div key={p} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= idx ? 'var(--gold)' : 'var(--border)', transition: 'background .2s' }} />
-              })}
-            </div>
-
-            {paso === 'cliente' && (
-              <>
-                <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                  <input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
-                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
-                </div>
-                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {clientesFiltrados.map(c => (
-                    <div key={c.id} onClick={() => { setClienteSeleccionado(c); setPaso('poliza') }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--gold)'; (e.currentTarget as HTMLDivElement).style.background='var(--gold-pale)' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLDivElement).style.background='white' }}
-                    >
-                      <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: 14, flexShrink: 0 }}>
-                        {c.nombre.trim()[0]?.toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
-                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {paso === 'poliza' && (
-              <>
-                <div className="fgroup">
-                  <label>Tipo *</label>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    {[{ val: 'nueva' as const, label: 'Nueva póliza' }, { val: 'renovacion' as const, label: 'Renovación' }].map(({ val, label }) => (
-                      <button key={val} type="button"
-                        onClick={() => setForm(f => ({ ...f, tipoAlta: val, renuevaPolizaId: val === 'nueva' ? '' : f.renuevaPolizaId }))}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', border: `2px solid ${form.tipoAlta === val ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 9, background: form.tipoAlta === val ? 'var(--gold-pale)' : 'var(--bg-card)', cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: form.tipoAlta === val ? 'var(--navy)' : 'var(--text-muted)', transition: 'all .15s' }}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {form.tipoAlta === 'renovacion' && (
-                  <div className="fgroup">
-                    <label>Póliza que renueva *</label>
-                    <select value={form.renuevaPolizaId} onChange={e => seleccionarPolizaARenovar(e.target.value)}
-                      style={{ color: form.renuevaPolizaId ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {polizas.filter(p => p.cliente_id === clienteSeleccionado?.id && !p.renovada).map(p => (
-                        <option key={p.id} value={p.id}>{p.ramo} {p.numero} — vence {formatFecha(p.vencimiento)}</option>
-                      ))}
-                    </select>
-                    {clienteSeleccionado && polizas.filter(p => p.cliente_id === clienteSeleccionado.id && !p.renovada).length === 0 && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Este cliente no tiene otras pólizas activas para renovar</div>
-                    )}
-                  </div>
-                )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
-                  <div className="fgroup">
-                    <label>Ramo *</label>
-                    <select value={form.ramo} onChange={async e => {
-                      const nuevoRamo = e.target.value
-                      setForm({ ...form, ramo: nuevoRamo })
-                      setValoresCampos({})
-                      if (nuevoRamo) {
-                        const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()
-                        if (ramoData) {
-                          const { data } = await supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden')
-                          setCamposRamo(data || [])
-                        } else setCamposRamo([])
-                      } else setCamposRamo([])
-                    }} style={{ color: form.ramo ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {catalogos.ramos.map((r:string) => <option key={r}>{r}</option>)}
-                    </select>
-                  </div>
-                  <div className="fgroup">
-                    <label>N° Póliza *</label>
-                    <input value={form.numero}
-  onChange={e => { setForm({ ...form, numero: e.target.value }); checkNumeroExiste(e.target.value) }}
-  placeholder="Ej: 4309338"
-  style={{ borderColor: numeroExiste ? 'var(--danger)' : undefined }} />
-{checkingNumero && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Verificando...</div>}
-{numeroExiste && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3, fontWeight: 600 }}>⚠ Esta póliza ya existe en el sistema</div>}
-                  </div>
-                  <div className="fgroup">
-                    <label>Compañía *</label>
-                    <select value={form.compania} onChange={e => setForm({ ...form, compania: e.target.value })} style={{ color: form.compania ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {catalogos.companias.map((c:string) => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="fgroup">
-                    <label>Corredor *</label>
-                    {showNuevoCorredor ? (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <input value={nuevoCorredor} onChange={e => setNuevoCorredor(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && crearCorredor()}
-                          placeholder="Nombre del corredor" autoFocus
-                          style={{ flex: 1, padding: '10px 13px', border: '1.5px solid var(--gold)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
-                        <button className="btn-primary btn-sm" onClick={crearCorredor} style={{ padding: '8px 12px' }}>✓</button>
-                        <button className="btn-outline btn-sm" onClick={() => { setShowNuevoCorredor(false); setNuevoCorredor('') }} style={{ padding: '8px 12px' }}>×</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <select value={form.corredor} onChange={e => setForm({ ...form, corredor: e.target.value, corredor_nombre: '', corredor_tel: '' })}
-                          style={{ flex: 1, color: form.corredor ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          <option value="">— Seleccionar —</option>
-                          {catalogos.corredores.map((c:string) => <option key={c}>{c}</option>)}
-                          <option value="Otro">Otro (ingresar manualmente)</option>
-                        </select>
-                        <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorredor(true)}
-                          title="Agregar a la lista" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
-                      </div>
-                    )}
-                    {form.corredor === 'Otro' && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <input value={form.corredor_nombre} onChange={e => setForm(f => ({ ...f, corredor_nombre: e.target.value }))}
-                          placeholder="Nombre del corredor"
-                          style={{ flex: 2, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
-                        <input value={form.corredor_tel} onChange={e => setForm(f => ({ ...f, corredor_tel: e.target.value }))}
-                          placeholder="Teléfono"
-                          style={{ flex: 1, padding: '9px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="fgroup">
-                    <label>Vencimiento *</label>
-                    <DatePicker value={form.vencimiento} onChange={v => setForm({ ...form, vencimiento: v })} placeholder="Seleccionar fecha" />
-                  </div>
-                  <div className="fgroup">
-                    <label>Moneda *</label>
-                    <select value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })} style={{ color: form.moneda ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {(catalogos.monedas || []).map((m:string) => <option key={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="fgroup">
-                    <label>Cantidad de cuotas *</label>
-                    <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
-                  </div>
-                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                    <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
-                    <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
-                  </div>
-                  {camposRamo.length > 0 && (
-                    <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
-                        Datos específicos de {form.ramo}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
-                        {camposRamo.map(campo => (
-                          <div key={campo.id} className="fgroup">
-                            <label>{campo.nombre}</label>
-                            {campo.tipo === 'select' && campo.opciones ? (
-                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
-                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
-                                <option value="">— Seleccionar —</option>
-                                {campo.opciones.split(',').map(o => <option key={o.trim()} value={o.trim()}>{o.trim()}</option>)}
-                              </select>
-                        ) : campo.tipo === 'numero_moneda' ? (
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <select
-                              value={(valoresCampos[campo.id] || '').split('|')[1] || form.moneda || 'U$S'}
-                              onChange={e => {
-                                const monto = (valoresCampos[campo.id] || '').split('|')[0] || ''
-                                setValoresCampos(p => ({...p, [campo.id]: `${monto}|${e.target.value}`}))
-                              }}
-                              style={{ flex: 1, minWidth: 70 }}>
-                              <option>U$S</option>
-                              <option>$</option>
-                              <option>€</option>
-                            </select>
-                            <input type="number"
-                              value={(valoresCampos[campo.id] || '').split('|')[0] || ''}
-                              onChange={e => {
-                                const moneda = (valoresCampos[campo.id] || '').split('|')[1] || form.moneda || 'U$S'
-                                setValoresCampos(p => ({...p, [campo.id]: `${e.target.value}|${moneda}`}))
-                              }}
-                              placeholder="0" style={{ flex: 3 }} />
-                          </div>
-                            ) : campo.tipo === 'boolean' ? (
-                              <select value={valoresCampos[campo.id] || ''} onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
-                                style={{ color: valoresCampos[campo.id] ? 'var(--navy)' : 'var(--slate)' }}>
-                                <option value="">— Seleccionar —</option>
-                                <option value="Sí">Sí</option>
-                                <option value="No">No</option>
-                              </select>
-                            ) : campo.tipo === 'fecha' ? (
-                              <DatePicker value={valoresCampos[campo.id] || ''} onChange={v => setValoresCampos(p => ({...p, [campo.id]: v}))} />
-                            ) : (
-                              <input type={campo.tipo === 'numero' ? 'number' : 'text'}
-                                value={valoresCampos[campo.id] || ''}
-                                onChange={e => setValoresCampos(p => ({...p, [campo.id]: e.target.value}))}
-                                placeholder={campo.nombre} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                    <label>Nota <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>(opcional)</span></label>
-                    <textarea value={form.nota} onChange={e => setForm({ ...form, nota: e.target.value })} placeholder="Descripción del bien asegurado" rows={2}
-                      style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', color: 'var(--text-main)', lineHeight: 1.5 }}
-                      onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
-                  </div>
-                </div>
-                {/* Adjuntar documento opcional */}
-                <div style={{ background: 'var(--bg-card-alt)', borderRadius: 10, padding: 14, marginTop: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
-                    Documento adjunto <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
-                  </div>
-                  <input type="file" id="adj-doc-input-polizas" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) setDocNueva({ file: f, tipo: tiposDoc[0] || 'Póliza' }); e.target.value = '' }} />
-                  {docNueva ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📎 {docNueva.file.name}
-                      </div>
-                      <select value={docNueva.tipo} onChange={e => setDocNueva((d: any) => d ? { ...d, tipo: e.target.value } : null)}
-                        style={{ padding: '5px 8px', border: '1.5px solid var(--border)', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)' }}>
-                        {tiposDoc.map(t => <option key={t}>{t}</option>)}
-                      </select>
-                      <button onClick={() => setDocNueva(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: '0 4px' }}>×</button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => (document.getElementById('adj-doc-input-polizas') as HTMLInputElement)?.click()}
-                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
-                      onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)' }}
-                      onDrop={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-alt)'; const file = e.dataTransfer.files?.[0]; if (file) setDocNueva({ file, tipo: tiposDoc[0] || 'Póliza' }) }}
-                      style={{ border: '2px dashed var(--border)', borderRadius: 9, padding: '14px', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card-alt)', transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}
-                    >
-                      <Upload size={14} /> Adjuntar documento o arrastrar acá
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                  <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar cliente</button>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn-outline" onClick={cerrarModal}>Cancelar</button>
-                    <button className="btn-primary" onClick={guardarPoliza} disabled={saving || !form.numero.trim() || (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId)}>
-                      {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Guardando...</> : 'Guardar póliza'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {nuevaPolizaModal}
 
       {/* Modal confirmar eliminar póliza */}
       {confirmEliminar && (
