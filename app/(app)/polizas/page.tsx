@@ -505,6 +505,38 @@ export default function PolizasPage() {
     await fetchPolizas()
   }
 
+  async function seleccionarPolizaARenovar(polizaId: string) {
+    if (!polizaId) { setForm(f => ({ ...f, renuevaPolizaId: '' })); return }
+    const anterior = polizas.find(p => p.id === polizaId)
+    setForm(f => ({
+      ...f,
+      renuevaPolizaId: polizaId,
+      ramo: anterior?.ramo || f.ramo,
+      compania: anterior?.compania || f.compania,
+      corredor: anterior?.corredor || f.corredor,
+      corredor_nombre: anterior?.corredor_nombre || '',
+      corredor_tel: anterior?.corredor_tel || '',
+      moneda: anterior?.moneda || f.moneda,
+      cuotas: anterior ? String(anterior.cuotas || '') : f.cuotas,
+      nota: anterior?.nota || '',
+    }))
+    setValoresCampos({})
+    setCamposRamo([])
+    if (anterior?.ramo) {
+      const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', anterior.ramo).single()
+      if (ramoData) {
+        const { data: campos } = await supabase.from('campos_ramo').select('*').eq('ramo_id', ramoData.id).order('orden')
+        setCamposRamo(campos || [])
+      }
+    }
+    if (anterior) {
+      const { data: vals } = await supabase.from('poliza_campos').select('campo_id, valor').eq('poliza_id', anterior.id)
+      const map: Record<string, string> = {}
+      ;(vals || []).forEach((v: any) => { map[v.campo_id] = v.valor })
+      setValoresCampos(map)
+    }
+  }
+
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSeleccionado(null)
     setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '' })
@@ -1172,7 +1204,7 @@ export default function PolizasPage() {
                 {form.tipoAlta === 'renovacion' && (
                   <div className="fgroup">
                     <label>Póliza que renueva *</label>
-                    <select value={form.renuevaPolizaId} onChange={e => setForm(f => ({ ...f, renuevaPolizaId: e.target.value }))}
+                    <select value={form.renuevaPolizaId} onChange={e => seleccionarPolizaARenovar(e.target.value)}
                       style={{ color: form.renuevaPolizaId ? 'var(--navy)' : 'var(--slate)' }}>
                       <option value="">— Seleccionar —</option>
                       {polizas.filter(p => p.cliente_id === clienteSeleccionado?.id && !p.renovada).map(p => (
