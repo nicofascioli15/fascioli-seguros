@@ -77,7 +77,8 @@ export default function VencimientosPage() {
     const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
     const matchFiltro = filtro === 0 ? (matchQ && v.dias !== null && v.dias < 0)
       : filtro === -1 ? matchQ
-      : (matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro)
+      // las vencidas (dias < 0) se incluyen siempre, hasta que la póliza se renueve
+      : (matchQ && v.dias !== null && v.dias <= filtro)
     const matchFecha = (!dateRange.from && !dateRange.to) ||
       (!v.vencimiento ? false : (!dateRange.from || v.vencimiento >= dateRange.from) && (!dateRange.to || v.vencimiento <= dateRange.to))
     return matchFiltro && matchFecha

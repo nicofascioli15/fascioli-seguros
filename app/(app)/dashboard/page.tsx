@@ -39,13 +39,15 @@ export default function DashboardPage() {
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
       supabase.from('pagos').select('poliza_id, cuota_num'),
     ])
+    // Las pólizas vencidas (dias < 0) se siguen contando/mostrando hasta que se renueven —
+    // por eso acá no se filtra por "d >= 0", solo por el límite superior.
     const polizasVigentes = (polizasData || []).filter((p: any) => !p.renovada)
-    const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
+    const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d <= 30 }).length
     const proximas = polizasVigentes
-      .filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 90 })
+      .filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d <= 90 })
       .sort((a, b) => (diasHasta(a.vencimiento) || 0) - (diasHasta(b.vencimiento) || 0))
       .slice(0, 6)
-    const venc7 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 7 }).length
+    const venc7 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d <= 7 }).length
     // Build proximas cuotas pendientes
     const pagosSet = new Set((pagosData || []).map((pg: any) => `${pg.poliza_id}-${pg.cuota_num}`))
     const cuotaRows: any[] = []
@@ -92,7 +94,7 @@ export default function DashboardPage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#991B1B' }}>
-              {stats.venc7 === 1 ? '1 póliza vence' : `${stats.venc7} pólizas vencen`} en los próximos 7 días
+              {stats.venc7 === 1 ? '1 póliza vencida o por vencer' : `${stats.venc7} pólizas vencidas o por vencer`} en los próximos 7 días
             </div>
             <div style={{ fontSize: 12, color: '#B91C1C', marginTop: 2 }}>
               Tocá para ver los vencimientos urgentes →
@@ -162,7 +164,7 @@ export default function DashboardPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>{(p.clientes as any)?.nombre}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Póliza {p.numero}</div>
                 </div>
-                <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{d}d</span>
+                <span className={`badge ${cls}`} style={{ flexShrink: 0 }}>{d !== null && d < 0 ? `Vencida ${Math.abs(d)}d` : `${d}d`}</span>
               </a>
             )
           })}
