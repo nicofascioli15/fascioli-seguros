@@ -239,6 +239,7 @@ export default function PolizasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [showPagoModal, setShowPagoModal]         = useState<number | null>(null)
   const [confirmDeshacerCuota, setConfirmDeshacerCuota] = useState<number | null>(null)
+  const [confirmEliminarControl, setConfirmEliminarControl] = useState<ControlMensual | null>(null)
   const [pagoForm, setPagoForm]             = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
   const [savingPago, setSavingPago]         = useState(false)
   const [metodos, setMetodos]               = useState<string[]>([])
@@ -387,10 +388,10 @@ export default function PolizasPage() {
     await fetchControlesMensuales(detalle)
   }
 
-  async function eliminarControl(c: ControlMensual) {
-    if (!detalle) return
-    if (!confirm(`¿Eliminar el período ${formatPeriodo(c.periodo)}?`)) return
-    await supabase.from('poliza_controles_mensuales').delete().eq('id', c.id)
+  async function confirmarEliminarControl() {
+    if (!detalle || !confirmEliminarControl) return
+    await supabase.from('poliza_controles_mensuales').delete().eq('id', confirmEliminarControl.id)
+    setConfirmEliminarControl(null)
     await fetchControlesMensuales(detalle)
   }
 
@@ -1171,7 +1172,7 @@ export default function PolizasPage() {
                     </>
                   )}
                   <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6, color: 'var(--danger)', borderColor: '#FEE2E2' }}
-                    title="Eliminar período" onClick={() => eliminarControl(c)}>
+                    title="Eliminar período" onClick={() => setConfirmEliminarControl(c)}>
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -1464,6 +1465,30 @@ export default function PolizasPage() {
               <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
                 onClick={() => { deshacerPago(confirmDeshacerCuota!); setConfirmDeshacerCuota(null) }}>
                 Deshacer pago
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar período de control mensual */}
+      {confirmEliminarControl && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setConfirmEliminarControl(null) }}>
+          <div className="pago-modal" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <Trash2 size={20} color="#D94F4F" />
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar este período?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+                Se va a eliminar el período <strong style={{ color: 'var(--text-main)' }}>{formatPeriodo(confirmEliminarControl.periodo)}</strong> del control mensual. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarControl(null)}>Cancelar</button>
+              <button style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarControl}>
+                <Trash2 size={14} /> Eliminar
               </button>
             </div>
           </div>
