@@ -1588,9 +1588,10 @@ export default function PolizasPage() {
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <DateRangeFilter value={dateRange} onChange={v => { setDateRange(v); setPage(1) }} label="Vencimiento" />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {RAMOS_FILTRO.map(t => <button key={t} onClick={() => { setFiltroRamo(t); setPage(1) }} className={`filter-btn ${filtroRamo === t ? 'active' : ''}`}>{t}</button>)}
-        </div>
+        <select value={filtroRamo} onChange={e => { setFiltroRamo(e.target.value); setPage(1) }}
+          style={{ padding: '9px 14px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)', minWidth: 170 }}>
+          {RAMOS_FILTRO.map(t => <option key={t} value={t}>{t === 'Todos' ? 'Todos los ramos' : t}</option>)}
+        </select>
       </div>
 
       <div className="table-card">
