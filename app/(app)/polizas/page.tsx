@@ -50,8 +50,9 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
-function estadoBadge(venc: string | null, renovada?: boolean) {
+function estadoBadge(venc: string | null, renovada?: boolean, renovacionMensual?: boolean) {
   if (renovada) return { label: 'Renovada', cls: 'badge-blue' }
+  if (renovacionMensual) return { label: 'Mensual', cls: 'badge-blue' }
   const d = diasHasta(venc)
   if (d === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
   if (d < 0)     return { label: 'Vencida',   cls: 'badge-danger' }
@@ -160,6 +161,15 @@ function sumarUnMes(iso: string): string {
   const targetYear = y + Math.floor(targetMonthRaw / 12)
   const targetMonth = targetMonthRaw % 12
   return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`
+}
+// Día 5 del mes siguiente al mes de un vencimiento — es cuando el control mensual
+// pasa a Pagado automáticamente.
+function fechaCorteControl(vencimiento: string): string {
+  const [y, m] = vencimiento.split('-').map(Number)
+  const targetMonthRaw = m - 1 + 1
+  const targetYear = y + Math.floor(targetMonthRaw / 12)
+  const targetMonth = targetMonthRaw % 12
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-05`
 }
 
 const extStyle: Record<string, { bg: string; color: string; label: string }> = {
@@ -541,15 +551,13 @@ export default function PolizasPage() {
       nCuotas = parseInt(form.cuotas) || 0
       if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
       if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
-    } else if (!form.vencimiento) {
-      alert('Ingresá la fecha del primer control')
-      return
     }
+    if (!form.vencimiento) { alert('Ingresá la fecha de vencimiento'); return }
     setSaving(true)
     const { data: polData } = await supabase.from('polizas').insert([{
       cliente_id:  clienteSeleccionado.id,
       ramo: form.ramo, compania: form.compania, numero: form.numero,
-      vencimiento: form.vencimiento || null, corredor: form.corredor,
+      vencimiento: form.vencimiento, corredor: form.corredor,
       corredor_nombre: form.corredor === 'Otro' ? form.corredor_nombre : null,
       corredor_tel:    form.corredor === 'Otro' ? form.corredor_tel    : null,
       moneda: form.moneda, cuotas: nCuotas,
@@ -559,7 +567,7 @@ export default function PolizasPage() {
     }]).select().single()
     if (polData) {
       const polizaId = (polData as any).id
-      if (form.renovacionMensual && form.vencimiento) {
+      if (form.renovacionMensual) {
         await supabase.from('poliza_controles_mensuales').insert([{
           poliza_id: polizaId, periodo: primerDiaMes(form.vencimiento), estado: 'pendiente',
         }])
@@ -764,7 +772,7 @@ export default function PolizasPage() {
                       Se renueva sola cada mes (Accidentes de trabajo — BPS)
                     </label>
                     <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                      No se cargan cuotas fijas: cada mes vas a poder marcar la póliza como Controlada (factura recibida y enviada a pagar). Se marca Pagada sola cuando pasa la fecha de vencimiento.
+                      No se cargan cuotas fijas: cada mes vas a poder marcar la póliza como Controlada (factura recibida y enviada a pagar). Se marca Pagada sola el día 5 del mes siguiente al vencimiento.
                     </div>
                   </div>
                 )}
@@ -853,7 +861,7 @@ export default function PolizasPage() {
                     )}
                   </div>
                   <div className="fgroup">
-                    <label>{form.renovacionMensual ? 'Vencimiento del primer control *' : 'Vencimiento *'}</label>
+                    <label>Vencimiento *</label>
                     <DatePicker value={form.vencimiento} onChange={v => setForm({ ...form, vencimiento: v })} placeholder="Seleccionar fecha" />
                   </div>
                   <div className="fgroup">
@@ -990,7 +998,7 @@ export default function PolizasPage() {
 
   // ── DETALLE VIEW ──────────────────────────────────────────────────────────
   if (detalle) {
-    const { label, cls } = estadoBadge(detalle.vencimiento, detalle.renovada)
+    const { label, cls } = estadoBadge(detalle.vencimiento, detalle.renovada, detalle.renovacion_mensual)
     const pagosMap: Record<number, Pago> = {}
     detallePagos.forEach(pg => { pagosMap[pg.cuota_num] = pg })
     const pct = detalle.cuotas > 0 ? Math.round(detallePagos.length / detalle.cuotas * 100) : 0
@@ -1136,7 +1144,7 @@ export default function PolizasPage() {
                     <div className="cuota-title">{formatPeriodo(c.periodo)}</div>
                     <div className="cuota-sub">
                       {c.estado === 'pagado' ? `Pagada ${formatFecha(c.fecha_pago)}`
-                        : c.estado === 'controlado' ? `Controlada ${formatFecha(c.fecha_control)} — se marca pagada sola el ${formatFecha(c.periodo === primerDiaMes(detalle.vencimiento || '') ? detalle.vencimiento : null)}`
+                        : c.estado === 'controlado' ? `Controlada ${formatFecha(c.fecha_control)} — se marca pagada sola el ${formatFecha(fechaCorteControl(c.periodo))}`
                         : 'Pendiente — falta verificar que llegó la factura'}
                     </div>
                   </div>
@@ -1521,7 +1529,7 @@ export default function PolizasPage() {
               corredor: p.corredor,
               vencimiento: formatFecha(p.vencimiento),
               moneda: p.moneda,
-              estado: estadoBadge(p.vencimiento, p.renovada).label,
+              estado: estadoBadge(p.vencimiento, p.renovada, p.renovacion_mensual).label,
             }))}
             filename="cartera-polizas-fascioli"
           />
@@ -1568,7 +1576,7 @@ export default function PolizasPage() {
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas</div>
               </td></tr>
             ) : paginadas.map(p => {
-              const { label, cls } = estadoBadge(p.vencimiento, p.renovada)
+              const { label, cls } = estadoBadge(p.vencimiento, p.renovada, p.renovacion_mensual)
               return (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                   <td style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{p.numero}</td>
@@ -1601,7 +1609,7 @@ export default function PolizasPage() {
         </table>
         <div className="mobile-list" style={{ display: 'none' }}>
           {paginadas.map(p => {
-            const { label, cls } = estadoBadge(p.vencimiento, p.renovada)
+            const { label, cls } = estadoBadge(p.vencimiento, p.renovada, p.renovacion_mensual)
             return (
               <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => { setVolverA(null); abrirDetalle(p) }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>

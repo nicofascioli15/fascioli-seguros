@@ -83,8 +83,9 @@ function diasHasta(iso: string | null) {
   return Math.round((d.getTime() - hoy.getTime()) / 86400000)
 }
 
-function estadoBadge(venc: string | null, renovada?: boolean) {
+function estadoBadge(venc: string | null, renovada?: boolean, renovacionMensual?: boolean) {
   if (renovada) return { label: 'Renovada', cls: 'badge-blue' }
+  if (renovacionMensual) return { label: 'Mensual', cls: 'badge-blue' }
   const d = diasHasta(venc)
   if (d === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
   if (d < 0) return { label: 'Vencida', cls: 'badge-danger' }
@@ -593,7 +594,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         : polizas.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin pólizas — creá la primera arriba</div>
         : polizas.map(pol => {
           const isOpen = !!openCards[pol.id]
-          const { label, cls } = estadoBadge(pol.vencimiento, pol.renovada)
+          const { label, cls } = estadoBadge(pol.vencimiento, pol.renovada, pol.renovacion_mensual)
           const pagosMap: Record<number, any> = {}
           ;(pol.pagos ? Object.entries(pol.pagos) : []).forEach(([k, v]) => { pagosMap[Number(k)] = v })
 
@@ -829,7 +830,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                   Se renueva sola cada mes (Accidentes de trabajo — BPS)
                 </label>
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                  No se cargan cuotas fijas: el control mensual se maneja desde la ficha completa de la póliza. Se marca Pagada sola cuando pasa la fecha de vencimiento.
+                  No se cargan cuotas fijas: el control mensual se maneja desde la ficha completa de la póliza. Se marca Pagada sola el día 5 del mes siguiente al vencimiento.
                 </div>
               </div>
             )}

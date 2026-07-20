@@ -53,11 +53,13 @@ export default function VencimientosPage() {
     await reconciliarControlesMensuales(supabase)
     const { data } = await supabase
       .from('polizas')
-      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, renovada, clientes(nombre, tel, email)')
+      .select('id, numero, ramo, compania, vencimiento, corredor, moneda, renovada, renovacion_mensual, clientes(nombre, tel, email)')
       .order('vencimiento', { ascending: true })
 
     if (data) {
-      setItems(data.filter((p: any) => !p.renovada).map(p => ({
+      // Las pólizas de renovación automática (ej. Accidentes de trabajo) no se
+      // muestran acá: su control es mensual y automático, no requiere esta pantalla.
+      setItems(data.filter((p: any) => !p.renovada && !p.renovacion_mensual).map(p => ({
         id:              p.id,
         numero:          p.numero,
         ramo:            p.ramo,

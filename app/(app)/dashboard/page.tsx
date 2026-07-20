@@ -37,13 +37,15 @@ export default function DashboardPage() {
   async function fetchStats() {
     await reconciliarControlesMensuales(supabase)
     const [{ data: polizasData }, { count: siniestros }, { data: pagosData }] = await Promise.all([
-      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, clientes(nombre, id)'),
+      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, renovacion_mensual, clientes(nombre, id)'),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
       supabase.from('pagos').select('poliza_id, cuota_num'),
     ])
     // Las pólizas vencidas (dias < 0) se siguen contando/mostrando hasta que se renueven,
     // pero se cuentan aparte de "vencen en 30 días" para no mezclar lo ya vencido con lo próximo.
-    const polizasVigentes = (polizasData || []).filter((p: any) => !p.renovada)
+    // Las de renovación automática (ej. Accidentes de trabajo) no entran acá: su control
+    // es mensual y automático, no genera alertas de vencimiento.
+    const polizasVigentes = (polizasData || []).filter((p: any) => !p.renovada && !p.renovacion_mensual)
     const vencidas = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d < 0 }).length
     const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
     const proximas = polizasVigentes
