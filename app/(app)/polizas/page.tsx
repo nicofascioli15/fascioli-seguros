@@ -1608,15 +1608,16 @@ export default function PolizasPage() {
               <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Moneda" col="moneda" sort={sortState} onSort={toggleSort} />
               <th>Estado</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
               </td></tr>
             ) : filtradas.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay pólizas</div>
               </td></tr>
             ) : paginadas.map(p => {
