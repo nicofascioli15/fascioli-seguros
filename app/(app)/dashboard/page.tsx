@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
-import { Bell, AlertTriangle, FileText, Users } from 'lucide-react'
+import { Bell, AlertTriangle, FileText, Users, CalendarX } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function parseFechaCuota(cuotaMes: string | null, n: number): string | null {
@@ -25,7 +25,7 @@ function diasHasta(iso: string | null) {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const [stats, setStats] = useState({ venc30: 0, venc7: 0, siniestros: 0 })
+  const [stats, setStats] = useState({ vencidas: 0, venc30: 0, venc7: 0, siniestros: 0 })
   const [loading, setLoading] = useState(true)
   const [vencProximas, setVencProximas] = useState<any[]>([])
   const [cuotasProximas, setCuotasProximas] = useState<any[]>([])
@@ -39,10 +39,11 @@ export default function DashboardPage() {
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
       supabase.from('pagos').select('poliza_id, cuota_num'),
     ])
-    // Las pólizas vencidas (dias < 0) se siguen contando/mostrando hasta que se renueven —
-    // por eso acá no se filtra por "d >= 0", solo por el límite superior.
+    // Las pólizas vencidas (dias < 0) se siguen contando/mostrando hasta que se renueven,
+    // pero se cuentan aparte de "vencen en 30 días" para no mezclar lo ya vencido con lo próximo.
     const polizasVigentes = (polizasData || []).filter((p: any) => !p.renovada)
-    const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d <= 30 }).length
+    const vencidas = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d < 0 }).length
+    const venc30 = polizasVigentes.filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d >= 0 && d <= 30 }).length
     const proximas = polizasVigentes
       .filter(p => { const d = diasHasta(p.vencimiento); return d !== null && d <= 90 })
       .sort((a, b) => (diasHasta(a.vencimiento) || 0) - (diasHasta(b.vencimiento) || 0))
@@ -66,7 +67,7 @@ export default function DashboardPage() {
     cuotaRows.sort((a, b) => a.dias - b.dias)
     setCuotasUrgentes(cuotaRows.filter(c => c.dias <= 5))
     setCuotasProximas(cuotaRows.slice(0, 6))
-    setStats({ venc30, venc7, siniestros: siniestros || 0 })
+    setStats({ vencidas, venc30, venc7, siniestros: siniestros || 0 })
     setVencProximas(proximas)
     setLoading(false)
   }
@@ -78,6 +79,7 @@ export default function DashboardPage() {
   }
 
   const statCards: { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string; href?: string }[] = [
+    { label: 'Vencidas',            value: loading ? '—' : stats.vencidas,   sub: 'Ver vencimientos →', icon: CalendarX,     bg: '#FEE2E2', iconColor: '#D94F4F', href: '/vencimientos' },
     { label: 'Vencen en 30 días',   value: loading ? '—' : stats.venc30,     sub: 'Ver vencimientos →', icon: Bell,          bg: '#FEF3C7', iconColor: '#D97706', href: '/vencimientos' },
     { label: 'Siniestros abiertos', value: loading ? '—' : stats.siniestros, sub: 'En gestión',         icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/siniestros' },
   ]
@@ -111,7 +113,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats — CSS class handles responsive */}
-      <div className="dashboard-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+      <div className="dashboard-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         {statCards.map(s => (
           s.href ? (
             <a key={s.label} href={s.href} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>

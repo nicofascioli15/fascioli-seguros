@@ -149,6 +149,10 @@ function primerDiaMes(iso: string): string {
   const [y, m] = iso.split('-')
   return `${y}-${m}-01`
 }
+function esRamoMensual(ramo: string): boolean {
+  return ramo.trim().toLowerCase() === 'accidentes de trabajo'
+}
+
 function sumarUnMes(iso: string): string {
   const [y, m] = iso.split('-').map(Number)
   const targetMonthRaw = m - 1 + 1
@@ -768,7 +772,12 @@ export default function PolizasPage() {
                     <label>Ramo *</label>
                     <select value={form.ramo} onChange={async e => {
                       const nuevoRamo = e.target.value
-                      setForm({ ...form, ramo: nuevoRamo })
+                      setForm(f => ({
+                        ...f, ramo: nuevoRamo,
+                        renovacionMensual: esRamoMensual(nuevoRamo) ? true : (esRamoMensual(f.ramo) ? false : f.renovacionMensual),
+                        cuotas: esRamoMensual(nuevoRamo) ? '' : f.cuotas,
+                        fechasCuotas: esRamoMensual(nuevoRamo) ? [] : f.fechasCuotas,
+                      }))
                       setValoresCampos({})
                       if (nuevoRamo) {
                         const { data: ramoData } = await supabase.from('ramos').select('id').eq('nombre', nuevoRamo).single()

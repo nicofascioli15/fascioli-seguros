@@ -176,6 +176,10 @@ type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tam
 interface Props { id: string; nombre: string; onBack: () => void }
 
 
+function esRamoMensual(ramo: string): boolean {
+  return ramo.trim().toLowerCase() === 'accidentes de trabajo'
+}
+
 function cuotaFechaISO(item: string): string {
   const parts = item.split('/')
   if (parts.length < 4) return new Date().toISOString().slice(0,10)
@@ -833,7 +837,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <div className="fgroup">
                 <label>Ramo *</label>
                 <select value={polizaForm.ramo} onChange={async e => {
-                  const r = e.target.value; setPolizaForm({ ...polizaForm, ramo: r }); setErrores(p => ({...p, ramo: false})); setValoresCampos({})
+                  const r = e.target.value
+                  setPolizaForm(f => ({
+                    ...f, ramo: r,
+                    renovacionMensual: esRamoMensual(r) ? true : (esRamoMensual(f.ramo) ? false : f.renovacionMensual),
+                    cuotas: esRamoMensual(r) ? '' : f.cuotas,
+                    fechasCuotas: esRamoMensual(r) ? [] : f.fechasCuotas,
+                  }))
+                  setErrores(p => ({...p, ramo: false})); setValoresCampos({})
                   if (r) { const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', r).single(); if (rd) { const { data: c } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden'); setCamposRamo(c || []) } else setCamposRamo([]) } else setCamposRamo([])
                 }} style={{ borderColor: errores.ramo ? 'var(--danger)' : undefined, color: polizaForm.ramo ? 'var(--navy)' : 'var(--slate)' }}>
                   <option value="">— Seleccionar —</option>
