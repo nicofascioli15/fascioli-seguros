@@ -78,6 +78,8 @@ export default function HubPage() {
       const { count: vencen30 } = await supabase.from('polizas').select('*', { count: 'exact', head: true })
         .gte('vencimiento', hoyStr)
         .lte('vencimiento', en30Str)
+        .eq('renovada', false)
+        .eq('renovacion_mensual', false)
 
       setStats({
         polizas: polizas || 0,
