@@ -328,7 +328,7 @@ export default function PolizasPage() {
     setDetallePagos(pagos || [])
     setDetalleExtras((extras || []).map((e: any) => ({ nombre: e.campos_ramo?.nombre || '', valor: e.valor })).filter(e => e.nombre && e.valor))
     if (p.renovacion_mensual) {
-      await fetchControlesMensuales(p)
+      await refetchControlesMensuales(p.id)
     } else {
       setControlesMensuales([])
     }
@@ -336,29 +336,13 @@ export default function PolizasPage() {
   }
 
   // Trae los controles mensuales de una póliza tal cual están en la base, sin
-  // recrear nada — se usa después de acciones puntuales (marcar, deshacer, eliminar).
+  // recrear nada. Si el usuario borró una fila a propósito (por ejemplo, un
+  // período de prueba), tiene que quedar borrada — la creación de períodos
+  // nuevos queda a cargo únicamente de reconciliarControlesMensuales (el barrido
+  // por fecha) y del alta de la póliza (que crea el primer período).
   async function refetchControlesMensuales(polizaId: string) {
     const { data } = await supabase.from('poliza_controles_mensuales').select('*').eq('poliza_id', polizaId).order('periodo')
     setControlesMensuales((data || []) as ControlMensual[])
-  }
-
-  // Trae los controles mensuales y además asegura que exista una fila "pendiente"
-  // para el período del vencimiento actual (por si pasó tiempo sin abrir la póliza
-  // y no se generó todavía). Se usa solo al ABRIR el detalle, no después de cada acción,
-  // para no recrear un período que el usuario acaba de eliminar a propósito.
-  async function fetchControlesMensuales(p: Poliza) {
-    const { data } = await supabase.from('poliza_controles_mensuales').select('*').eq('poliza_id', p.id).order('periodo')
-    let controles: ControlMensual[] = data || []
-    if (p.vencimiento) {
-      const periodoActual = primerDiaMes(p.vencimiento)
-      if (!controles.find(c => c.periodo === periodoActual)) {
-        const { data: nuevo } = await supabase.from('poliza_controles_mensuales')
-          .insert([{ poliza_id: p.id, periodo: periodoActual, estado: 'pendiente' }]).select().single()
-        if (nuevo) controles = [...controles, nuevo as ControlMensual]
-      }
-    }
-    controles.sort((a, b) => a.periodo.localeCompare(b.periodo))
-    setControlesMensuales(controles)
   }
 
   async function marcarControlado(c: ControlMensual) {
@@ -1141,8 +1125,10 @@ export default function PolizasPage() {
             <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
               Control mensual <span style={{ fontWeight: 400 }}>— se renueva sola cada mes</span>
             </div>
-            {controlesMensuales.length === 0 ? (
+            {loadingDetalle ? (
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cargando...</div>
+            ) : controlesMensuales.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sin períodos registrados. Se va a crear uno nuevo automáticamente cuando corresponda.</div>
             ) : controlesMensuales.map(c => {
               const estiloEstado = c.estado === 'pagado'
                 ? { rowClass: 'paid', numClass: 'paid', tagStyle: undefined, tagLabel: 'Pagada' }
