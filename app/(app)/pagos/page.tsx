@@ -61,6 +61,7 @@ export default function PagosPage() {
   const [dateVenc, setDateVenc]   = useState<DateRange>({ from: '', to: '' })
   const [dateCobro, setDateCobro] = useState<DateRange>({ from: '', to: '' })
   const [confirmDeshacer, setConfirmDeshacer] = useState<Cuota | null>(null)
+  const [detalleCuota, setDetalleCuota]       = useState<Cuota | null>(null)
   const [page, setPage]                         = useState(1)
 
   const [metodoDefault, setMetodoDefault] = useState('Transferencia')
@@ -298,7 +299,9 @@ export default function PagosPage() {
             ) : paginadas.map((c, i) => {
               const estado = getEstado(c)
               return (
-                <tr key={`${c.poliza_id}-${c.cuota_num}`}>
+                <tr key={`${c.poliza_id}-${c.cuota_num}`} style={{ cursor: 'pointer' }} onClick={() => setDetalleCuota(c)}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover, #F8FAFC)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <td style={{ fontWeight: 600 }}>{c.cliente_nombre}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
                   <td><span className="badge badge-neutral">{c.ramo}</span></td>
@@ -307,7 +310,7 @@ export default function PagosPage() {
                   <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(c.vencimiento)}</td>
                   <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
-                  <td>
+                  <td onClick={e => e.stopPropagation()}>
                     {(estado !== 'Cobrado' && estado !== 'Controlado')
                       ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
@@ -325,7 +328,8 @@ export default function PagosPage() {
           {paginadas.map((c, i) => {
             const estado = getEstado(c)
             return (
-              <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+              <div key={`${c.poliza_id}-${c.cuota_num}`} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }}
+                onClick={() => setDetalleCuota(c)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.cliente_nombre}</div>
                   <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
@@ -335,7 +339,7 @@ export default function PagosPage() {
                   <span style={{ fontFamily: 'monospace' }}>{c.numero_poliza}</span>
                   {' · '}Cuota {c.cuota_num}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {c.pago_fecha ? `${getEstado(c) === 'Controlado' ? 'Controlado' : 'Cobrado'} ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
@@ -406,6 +410,87 @@ export default function PagosPage() {
           </div>
         </div>
       )}
+
+      {/* Modal detalle de cuota */}
+      {detalleCuota && (() => {
+        const estado = getEstado(detalleCuota)
+        return (
+          <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setDetalleCuota(null) }}>
+            <div className="pago-modal" style={{ width: 440 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>{detalleCuota.cliente_nombre}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <span className="badge badge-neutral">{detalleCuota.ramo}</span>
+                    <span className={`badge ${estadoColor[estado]}`}>{estado}</span>
+                  </div>
+                </div>
+                <button onClick={() => setDetalleCuota(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                {[
+                  { label: 'N° Póliza',   value: detalleCuota.numero_poliza },
+                  { label: 'Compañía',    value: detalleCuota.compania },
+                  { label: 'Cuota',       value: detalleCuota.cuota_num },
+                  { label: 'Moneda',      value: detalleCuota.moneda },
+                  { label: 'Vencimiento', value: formatFecha(detalleCuota.vencimiento) },
+                ].map(f => (
+                  <div key={f.label}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{f.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{f.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>Cobro</div>
+                {detalleCuota.pago_fecha ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>Fecha</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{formatFecha(detalleCuota.pago_fecha)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>Método</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{detalleCuota.pago_metodo || '—'}</div>
+                    </div>
+                    {detalleCuota.pago_ref && (
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>Referencia</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{detalleCuota.pago_ref}</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>Todavía no se registró el cobro de esta cuota.</div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <a href={`/polizas?open=${detalleCuota.poliza_id}`} style={{ fontSize: 12.5, color: 'var(--gold)', fontWeight: 600, textDecoration: 'none' }}>Ver póliza completa →</a>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-outline" onClick={() => setDetalleCuota(null)}>Cerrar</button>
+                  {(estado !== 'Cobrado' && estado !== 'Controlado') ? (
+                    <button className="btn-primary" onClick={() => {
+                      setPagoForm({ fecha: detalleCuota.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' })
+                      setShowModal(detalleCuota)
+                      setDetalleCuota(null)
+                    }}>
+                      <CheckCircle size={14} /> Cobrar
+                    </button>
+                  ) : (
+                    <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                      onClick={() => { setConfirmDeshacer(detalleCuota); setDetalleCuota(null) }}>
+                      Deshacer pago
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <Pagination page={page} total={filtradas.length} onChange={p => setPage(p)} />
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
