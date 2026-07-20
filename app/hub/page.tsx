@@ -56,7 +56,7 @@ export default function HubPage() {
   const supabase = createClient()
   const [userName, setUserName] = useState('')
   const [loading, setLoading]   = useState(true)
-  const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, pendientes: 0 })
+  const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, vencidas: 0, pendientes: 0 })
   const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
 
   useEffect(() => {
@@ -80,10 +80,15 @@ export default function HubPage() {
         .lte('vencimiento', en30Str)
         .eq('renovada', false)
         .eq('renovacion_mensual', false)
+      const { count: vencidas } = await supabase.from('polizas').select('*', { count: 'exact', head: true })
+        .lt('vencimiento', hoyStr)
+        .eq('renovada', false)
+        .eq('renovacion_mensual', false)
 
       setStats({
         polizas: polizas || 0,
         vencen30: vencen30 || 0,
+        vencidas: vencidas || 0,
         pendientes: 0,
       })
 
@@ -127,6 +132,7 @@ export default function HubPage() {
       icon: <IconShield />,
       stats: [
         { label: 'Pólizas', value: stats.polizas },
+        { label: 'Vencidas', value: stats.vencidas },
         { label: 'Vencen en 30d', value: stats.vencen30 },
       ],
     },
