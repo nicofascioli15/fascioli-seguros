@@ -335,9 +335,17 @@ export default function PolizasPage() {
     setLoadingDetalle(false)
   }
 
-  // Trae los controles mensuales de una póliza de renovación automática y
-  // asegura que exista una fila "pendiente" para el período de su vencimiento actual
-  // (por si pasó tiempo sin abrir la póliza y no se generó todavía).
+  // Trae los controles mensuales de una póliza tal cual están en la base, sin
+  // recrear nada — se usa después de acciones puntuales (marcar, deshacer, eliminar).
+  async function refetchControlesMensuales(polizaId: string) {
+    const { data } = await supabase.from('poliza_controles_mensuales').select('*').eq('poliza_id', polizaId).order('periodo')
+    setControlesMensuales((data || []) as ControlMensual[])
+  }
+
+  // Trae los controles mensuales y además asegura que exista una fila "pendiente"
+  // para el período del vencimiento actual (por si pasó tiempo sin abrir la póliza
+  // y no se generó todavía). Se usa solo al ABRIR el detalle, no después de cada acción,
+  // para no recrear un período que el usuario acaba de eliminar a propósito.
   async function fetchControlesMensuales(p: Poliza) {
     const { data } = await supabase.from('poliza_controles_mensuales').select('*').eq('poliza_id', p.id).order('periodo')
     let controles: ControlMensual[] = data || []
@@ -358,7 +366,7 @@ export default function PolizasPage() {
     await supabase.from('poliza_controles_mensuales').update({
       estado: 'controlado', fecha_control: new Date().toISOString().slice(0, 10),
     }).eq('id', c.id)
-    await fetchControlesMensuales(detalle)
+    await refetchControlesMensuales(detalle.id)
   }
 
   async function marcarPagado(c: ControlMensual) {
@@ -374,7 +382,7 @@ export default function PolizasPage() {
     }
     const detalleActualizado = { ...detalle, vencimiento: proximoPeriodo }
     setDetalle(detalleActualizado)
-    await fetchControlesMensuales(detalleActualizado)
+    await refetchControlesMensuales(detalle.id)
     fetchPolizas()
   }
 
@@ -385,14 +393,14 @@ export default function PolizasPage() {
       estado: nuevoEstado,
       ...(nuevoEstado === 'controlado' ? { fecha_pago: null } : { fecha_control: null, fecha_pago: null }),
     }).eq('id', c.id)
-    await fetchControlesMensuales(detalle)
+    await refetchControlesMensuales(detalle.id)
   }
 
   async function confirmarEliminarControl() {
     if (!detalle || !confirmEliminarControl) return
     await supabase.from('poliza_controles_mensuales').delete().eq('id', confirmEliminarControl.id)
     setConfirmEliminarControl(null)
-    await fetchControlesMensuales(detalle)
+    await refetchControlesMensuales(detalle.id)
   }
 
   async function subirDocDetalle(e: React.ChangeEvent<HTMLInputElement>) {
