@@ -777,6 +777,7 @@ export default function PolizasPage() {
                         renovacionMensual: esRamoMensual(nuevoRamo) ? true : (esRamoMensual(f.ramo) ? false : f.renovacionMensual),
                         cuotas: esRamoMensual(nuevoRamo) ? '' : f.cuotas,
                         fechasCuotas: esRamoMensual(nuevoRamo) ? [] : f.fechasCuotas,
+                        compania: esRamoMensual(nuevoRamo) ? 'BSE' : (esRamoMensual(f.ramo) ? '' : f.compania),
                       }))
                       setValoresCampos({})
                       if (nuevoRamo) {
@@ -802,10 +803,18 @@ export default function PolizasPage() {
                   </div>
                   <div className="fgroup">
                     <label>Compañía *</label>
-                    <select value={form.compania} onChange={e => setForm({ ...form, compania: e.target.value })} style={{ color: form.compania ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {catalogos.companias.map((c:string) => <option key={c}>{c}</option>)}
-                    </select>
+                    {esRamoMensual(form.ramo) ? (
+                      <>
+                        <input value="BSE" disabled
+                          style={{ background: 'var(--bg-card-alt)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Accidentes de trabajo es exclusivo de BSE por ley</div>
+                      </>
+                    ) : (
+                      <select value={form.compania} onChange={e => setForm({ ...form, compania: e.target.value })} style={{ color: form.compania ? 'var(--navy)' : 'var(--slate)' }}>
+                        <option value="">— Seleccionar —</option>
+                        {catalogos.companias.map((c:string) => <option key={c}>{c}</option>)}
+                      </select>
+                    )}
                   </div>
                   <div className="fgroup">
                     <label>Corredor *</label>

@@ -843,6 +843,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     renovacionMensual: esRamoMensual(r) ? true : (esRamoMensual(f.ramo) ? false : f.renovacionMensual),
                     cuotas: esRamoMensual(r) ? '' : f.cuotas,
                     fechasCuotas: esRamoMensual(r) ? [] : f.fechasCuotas,
+                    compania: esRamoMensual(r) ? 'BSE' : (esRamoMensual(f.ramo) ? '' : f.compania),
                   }))
                   setErrores(p => ({...p, ramo: false})); setValoresCampos({})
                   if (r) { const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', r).single(); if (rd) { const { data: c } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden'); setCamposRamo(c || []) } else setCamposRamo([]) } else setCamposRamo([])
@@ -859,10 +860,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
               <div className="fgroup">
                 <label>Compañía *</label>
-                <select value={polizaForm.compania} onChange={e => { setPolizaForm({ ...polizaForm, compania: e.target.value }); setErrores(p => ({...p, compania: false})) }} style={{ borderColor: errores.compania ? 'var(--danger)' : undefined, color: polizaForm.compania ? 'var(--navy)' : 'var(--slate)' }}>
-                  <option value="">— Seleccionar —</option>
-                  {catalogos.companias.map(c => <option key={c}>{c}</option>)}
-                </select>
+                {esRamoMensual(polizaForm.ramo) ? (
+                  <>
+                    <input value="BSE" disabled
+                      style={{ background: 'var(--bg-card-alt)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Accidentes de trabajo es exclusivo de BSE por ley</div>
+                  </>
+                ) : (
+                  <select value={polizaForm.compania} onChange={e => { setPolizaForm({ ...polizaForm, compania: e.target.value }); setErrores(p => ({...p, compania: false})) }} style={{ borderColor: errores.compania ? 'var(--danger)' : undefined, color: polizaForm.compania ? 'var(--navy)' : 'var(--slate)' }}>
+                    <option value="">— Seleccionar —</option>
+                    {catalogos.companias.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                )}
                 {errores.compania && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Campo obligatorio</div>}
               </div>
               <div className="fgroup">
