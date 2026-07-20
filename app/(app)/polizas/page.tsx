@@ -387,6 +387,13 @@ export default function PolizasPage() {
     await fetchControlesMensuales(detalle)
   }
 
+  async function eliminarControl(c: ControlMensual) {
+    if (!detalle) return
+    if (!confirm(`¿Eliminar el período ${formatPeriodo(c.periodo)}?`)) return
+    await supabase.from('poliza_controles_mensuales').delete().eq('id', c.id)
+    await fetchControlesMensuales(detalle)
+  }
+
   async function subirDocDetalle(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -1163,6 +1170,10 @@ export default function PolizasPage() {
                       <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => deshacerControl(c)}>Deshacer</button>
                     </>
                   )}
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6, color: 'var(--danger)', borderColor: '#FEE2E2' }}
+                    title="Eliminar período" onClick={() => eliminarControl(c)}>
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               )
             })}
