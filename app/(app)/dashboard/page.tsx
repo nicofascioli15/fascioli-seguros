@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { Bell, AlertTriangle, FileText, Users, CalendarX } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 
 function parseFechaCuota(cuotaMes: string | null, n: number): string | null {
   if (!cuotaMes) return null
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   useEffect(() => { fetchStats() }, [])
 
   async function fetchStats() {
+    await reconciliarControlesMensuales(supabase)
     const [{ data: polizasData }, { count: siniestros }, { data: pagosData }] = await Promise.all([
       supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, clientes(nombre, id)'),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),

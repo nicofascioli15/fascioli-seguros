@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 
@@ -243,6 +244,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function fetchPolizas() {
     setLoading(true)
+    await reconciliarControlesMensuales(supabase)
     const { data } = await supabase.from('polizas')
       .select('*, poliza_campos(valor, campos_ramo(nombre))')
       .eq('cliente_id', id).order('created_at')
@@ -819,19 +821,18 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
             )}
 
-            <div className="fgroup">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>
-                <input type="checkbox" checked={polizaForm.renovacionMensual}
-                  onChange={e => setPolizaForm({ ...polizaForm, renovacionMensual: e.target.checked, cuotas: '', fechasCuotas: [] })}
-                  style={{ width: 16, height: 16, accentColor: 'var(--gold)', cursor: 'pointer' }} />
-                Se renueva sola cada mes (ej. Accidentes de trabajo — BPS)
-              </label>
-              {polizaForm.renovacionMensual && (
+            {esRamoMensual(polizaForm.ramo) && (
+              <div className="fgroup">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', letterSpacing: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>
+                  <input type="checkbox" checked={polizaForm.renovacionMensual} readOnly
+                    style={{ width: 16, height: 16, accentColor: 'var(--gold)' }} />
+                  Se renueva sola cada mes (Accidentes de trabajo — BPS)
+                </label>
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                  No se cargan cuotas fijas: el control mensual (Controlado / Pagado) se maneja desde la ficha completa de la póliza.
+                  No se cargan cuotas fijas: el control mensual se maneja desde la ficha completa de la póliza. Se marca Pagada sola cuando pasa la fecha de vencimiento.
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="fgroup">
@@ -844,6 +845,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     cuotas: esRamoMensual(r) ? '' : f.cuotas,
                     fechasCuotas: esRamoMensual(r) ? [] : f.fechasCuotas,
                     compania: esRamoMensual(r) ? 'BSE' : (esRamoMensual(f.ramo) ? '' : f.compania),
+                    moneda: esRamoMensual(r) ? '$' : (esRamoMensual(f.ramo) ? '' : f.moneda),
                   }))
                   setErrores(p => ({...p, ramo: false})); setValoresCampos({})
                   if (r) { const { data: rd } = await supabase.from('ramos').select('id').eq('nombre', r).single(); if (rd) { const { data: c } = await supabase.from('campos_ramo').select('*').eq('ramo_id', rd.id).order('orden'); setCamposRamo(c || []) } else setCamposRamo([]) } else setCamposRamo([])
@@ -912,10 +914,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
               <div className="fgroup">
                 <label>Moneda *</label>
-                <select value={polizaForm.moneda} onChange={e => setPolizaForm({ ...polizaForm, moneda: e.target.value })} style={{ color: polizaForm.moneda ? 'var(--navy)' : 'var(--slate)' }}>
-                  <option value="">— Seleccionar —</option>
-                  {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
-                </select>
+                {esRamoMensual(polizaForm.ramo) ? (
+                  <input value="$" disabled style={{ background: 'var(--bg-card-alt)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+                ) : (
+                  <select value={polizaForm.moneda} onChange={e => setPolizaForm({ ...polizaForm, moneda: e.target.value })} style={{ color: polizaForm.moneda ? 'var(--navy)' : 'var(--slate)' }}>
+                    <option value="">— Seleccionar —</option>
+                    {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                )}
               </div>
               {!polizaForm.renovacionMensual && (
                 <>

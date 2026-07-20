@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Phone, Mail, Loader2, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import ExportButton from '@/components/ExportButton'
 import { Pagination, paginate } from '@/components/Pagination'
 import { DateRangeFilter, DateRange } from '@/components/DateRangeFilter'
@@ -49,6 +50,7 @@ export default function VencimientosPage() {
 
   async function fetchVencimientos() {
     setLoading(true)
+    await reconciliarControlesMensuales(supabase)
     const { data } = await supabase
       .from('polizas')
       .select('id, numero, ramo, compania, vencimiento, corredor, moneda, renovada, clientes(nombre, tel, email)')
@@ -77,8 +79,9 @@ export default function VencimientosPage() {
     const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
     const matchFiltro = filtro === 0 ? (matchQ && v.dias !== null && v.dias < 0)
       : filtro === -1 ? matchQ
-      // las vencidas (dias < 0) se incluyen siempre, hasta que la póliza se renueve
-      : (matchQ && v.dias !== null && v.dias <= filtro)
+      // los filtros numéricos (30/90/180 días) son solo lo próximo a vencer — lo ya vencido
+      // tiene su propia pestaña "Vencidas" y su propia card en el dashboard
+      : (matchQ && v.dias !== null && v.dias >= 0 && v.dias <= filtro)
     const matchFecha = (!dateRange.from && !dateRange.to) ||
       (!v.vencimiento ? false : (!dateRange.from || v.vencimiento >= dateRange.from) && (!dateRange.to || v.vencimiento <= dateRange.to))
     return matchFiltro && matchFecha

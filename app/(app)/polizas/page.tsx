@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
 import { Pagination, paginate, PAGE_SIZE } from '@/components/Pagination'
@@ -266,6 +267,7 @@ export default function PolizasPage() {
 
   async function fetchPolizas() {
     setLoading(true)
+    await reconciliarControlesMensuales(supabase)
     const { data } = await supabase.from('polizas').select('*, clientes(nombre)').order('created_at', { ascending: false })
     if (data) {
       const ids = data.map((p: any) => p.id)
@@ -754,19 +756,18 @@ export default function PolizasPage() {
                     )}
                   </div>
                 )}
-                <div className="fgroup">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>
-                    <input type="checkbox" checked={form.renovacionMensual}
-                      onChange={e => setForm({ ...form, renovacionMensual: e.target.checked, cuotas: '', fechasCuotas: [] })}
-                      style={{ width: 16, height: 16, accentColor: 'var(--gold)', cursor: 'pointer' }} />
-                    Se renueva sola cada mes (ej. Accidentes de trabajo — BPS)
-                  </label>
-                  {form.renovacionMensual && (
+                {esRamoMensual(form.ramo) && (
+                  <div className="fgroup">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', letterSpacing: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>
+                      <input type="checkbox" checked={form.renovacionMensual} readOnly
+                        style={{ width: 16, height: 16, accentColor: 'var(--gold)' }} />
+                      Se renueva sola cada mes (Accidentes de trabajo — BPS)
+                    </label>
                     <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                      No se cargan cuotas fijas: cada mes vas a poder marcar la póliza como Controlada (factura recibida y enviada a pagar) y Pagada.
+                      No se cargan cuotas fijas: cada mes vas a poder marcar la póliza como Controlada (factura recibida y enviada a pagar). Se marca Pagada sola cuando pasa la fecha de vencimiento.
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                   <div className="fgroup">
                     <label>Ramo *</label>
@@ -778,6 +779,7 @@ export default function PolizasPage() {
                         cuotas: esRamoMensual(nuevoRamo) ? '' : f.cuotas,
                         fechasCuotas: esRamoMensual(nuevoRamo) ? [] : f.fechasCuotas,
                         compania: esRamoMensual(nuevoRamo) ? 'BSE' : (esRamoMensual(f.ramo) ? '' : f.compania),
+                        moneda: esRamoMensual(nuevoRamo) ? '$' : (esRamoMensual(f.ramo) ? '' : f.moneda),
                       }))
                       setValoresCampos({})
                       if (nuevoRamo) {
@@ -856,10 +858,14 @@ export default function PolizasPage() {
                   </div>
                   <div className="fgroup">
                     <label>Moneda *</label>
-                    <select value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })} style={{ color: form.moneda ? 'var(--navy)' : 'var(--slate)' }}>
-                      <option value="">— Seleccionar —</option>
-                      {(catalogos.monedas || []).map((m:string) => <option key={m}>{m}</option>)}
-                    </select>
+                    {esRamoMensual(form.ramo) ? (
+                      <input value="$" disabled style={{ background: 'var(--bg-card-alt)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+                    ) : (
+                      <select value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })} style={{ color: form.moneda ? 'var(--navy)' : 'var(--slate)' }}>
+                        <option value="">— Seleccionar —</option>
+                        {(catalogos.monedas || []).map((m:string) => <option key={m}>{m}</option>)}
+                      </select>
+                    )}
                   </div>
                   {!form.renovacionMensual && (
                     <>
@@ -1130,7 +1136,7 @@ export default function PolizasPage() {
                     <div className="cuota-title">{formatPeriodo(c.periodo)}</div>
                     <div className="cuota-sub">
                       {c.estado === 'pagado' ? `Pagada ${formatFecha(c.fecha_pago)}`
-                        : c.estado === 'controlado' ? `Controlada ${formatFecha(c.fecha_control)} — enviada a pagar`
+                        : c.estado === 'controlado' ? `Controlada ${formatFecha(c.fecha_control)} — se marca pagada sola el ${formatFecha(c.periodo === primerDiaMes(detalle.vencimiento || '') ? detalle.vencimiento : null)}`
                         : 'Pendiente — falta verificar que llegó la factura'}
                     </div>
                   </div>
@@ -1140,7 +1146,6 @@ export default function PolizasPage() {
                   {c.estado === 'controlado' && (
                     <>
                       <span className="cuota-paid-tag" style={estiloEstado.tagStyle}>{estiloEstado.tagLabel}</span>
-                      <button className="btn-primary btn-sm" style={{ marginLeft: 6 }} onClick={() => marcarPagado(c)}>Marcar pagado</button>
                       <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => deshacerControl(c)}>Deshacer</button>
                     </>
                   )}
