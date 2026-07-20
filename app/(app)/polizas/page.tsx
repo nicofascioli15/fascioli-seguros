@@ -134,10 +134,28 @@ function fechasACuotaMes(fechas: string[]): string {
 }
 
 type Cliente  = { id: string; nombre: string; direccion: string }
-type Poliza   = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number; renovada?: boolean; renueva_poliza_id?: string | null }
+type Poliza   = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number; renovada?: boolean; renueva_poliza_id?: string | null; renovacion_mensual?: boolean }
 type Documento = { id: string; nombre: string; storage_path: string; tipo: string; tamanio_bytes: number; created_at: string }
 type Pago     = { id: string; cuota_num: number; fecha: string; metodo: string }
+type ControlMensual = { id: string; poliza_id: string; periodo: string; estado: 'pendiente' | 'controlado' | 'pagado'; fecha_control: string | null; fecha_pago: string | null }
 type Paso = 'cliente' | 'poliza'
+
+const MESES_LARGOS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+function formatPeriodo(iso: string) {
+  const [y, m] = iso.split('-')
+  return `${MESES_LARGOS[parseInt(m) - 1]} ${y}`
+}
+function primerDiaMes(iso: string): string {
+  const [y, m] = iso.split('-')
+  return `${y}-${m}-01`
+}
+function sumarUnMes(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  const targetMonthRaw = m - 1 + 1
+  const targetYear = y + Math.floor(targetMonthRaw / 12)
+  const targetMonth = targetMonthRaw % 12
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`
+}
 
 const extStyle: Record<string, { bg: string; color: string; label: string }> = {
   pdf:  { bg: '#FEE2E2', color: '#991B1B', label: 'PDF' },
@@ -228,7 +246,8 @@ export default function PolizasPage() {
   const [nuevoCorredor, setNuevoCorredor]         = useState('')
   const [numeroExiste, setNumeroExiste]           = useState(false)
   const [checkingNumero, setCheckingNumero]       = useState(false)
-  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '' })
+  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
+  const [controlesMensuales, setControlesMensuales] = useState<ControlMensual[]>([])
   const [camposRamo, setCamposRamo]   = useState<{id:string;nombre:string;tipo:string;opciones:string|null}[]>([])
   const [valoresCampos, setValoresCampos] = useState<Record<string,string>>({})
 
@@ -291,7 +310,65 @@ export default function PolizasPage() {
     setDetalleDocs(docs || [])
     setDetallePagos(pagos || [])
     setDetalleExtras((extras || []).map((e: any) => ({ nombre: e.campos_ramo?.nombre || '', valor: e.valor })).filter(e => e.nombre && e.valor))
+    if (p.renovacion_mensual) {
+      await fetchControlesMensuales(p)
+    } else {
+      setControlesMensuales([])
+    }
     setLoadingDetalle(false)
+  }
+
+  // Trae los controles mensuales de una póliza de renovación automática y
+  // asegura que exista una fila "pendiente" para el período de su vencimiento actual
+  // (por si pasó tiempo sin abrir la póliza y no se generó todavía).
+  async function fetchControlesMensuales(p: Poliza) {
+    const { data } = await supabase.from('poliza_controles_mensuales').select('*').eq('poliza_id', p.id).order('periodo')
+    let controles: ControlMensual[] = data || []
+    if (p.vencimiento) {
+      const periodoActual = primerDiaMes(p.vencimiento)
+      if (!controles.find(c => c.periodo === periodoActual)) {
+        const { data: nuevo } = await supabase.from('poliza_controles_mensuales')
+          .insert([{ poliza_id: p.id, periodo: periodoActual, estado: 'pendiente' }]).select().single()
+        if (nuevo) controles = [...controles, nuevo as ControlMensual]
+      }
+    }
+    controles.sort((a, b) => a.periodo.localeCompare(b.periodo))
+    setControlesMensuales(controles)
+  }
+
+  async function marcarControlado(c: ControlMensual) {
+    if (!detalle) return
+    await supabase.from('poliza_controles_mensuales').update({
+      estado: 'controlado', fecha_control: new Date().toISOString().slice(0, 10),
+    }).eq('id', c.id)
+    await fetchControlesMensuales(detalle)
+  }
+
+  async function marcarPagado(c: ControlMensual) {
+    if (!detalle) return
+    const hoy = new Date().toISOString().slice(0, 10)
+    await supabase.from('poliza_controles_mensuales').update({ estado: 'pagado', fecha_pago: hoy }).eq('id', c.id)
+    const proximoPeriodo = sumarUnMes(c.periodo)
+    await supabase.from('polizas').update({ vencimiento: proximoPeriodo }).eq('id', detalle.id)
+    const { data: existe } = await supabase.from('poliza_controles_mensuales').select('id')
+      .eq('poliza_id', detalle.id).eq('periodo', proximoPeriodo).maybeSingle()
+    if (!existe) {
+      await supabase.from('poliza_controles_mensuales').insert([{ poliza_id: detalle.id, periodo: proximoPeriodo, estado: 'pendiente' }])
+    }
+    const detalleActualizado = { ...detalle, vencimiento: proximoPeriodo }
+    setDetalle(detalleActualizado)
+    await fetchControlesMensuales(detalleActualizado)
+    fetchPolizas()
+  }
+
+  async function deshacerControl(c: ControlMensual) {
+    if (!detalle) return
+    const nuevoEstado = c.estado === 'pagado' ? 'controlado' : 'pendiente'
+    await supabase.from('poliza_controles_mensuales').update({
+      estado: nuevoEstado,
+      ...(nuevoEstado === 'controlado' ? { fecha_pago: null } : { fecha_control: null, fecha_pago: null }),
+    }).eq('id', c.id)
+    await fetchControlesMensuales(detalle)
   }
 
   async function subirDocDetalle(e: React.ChangeEvent<HTMLInputElement>) {
@@ -453,9 +530,15 @@ export default function PolizasPage() {
     if (!clienteSeleccionado || !form.numero.trim()) return
     if (numeroExiste) return
     if (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId) { alert('Seleccioná qué póliza estás renovando'); return }
-    const nCuotas = parseInt(form.cuotas) || 0
-    if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
-    if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
+    let nCuotas = 0
+    if (!form.renovacionMensual) {
+      nCuotas = parseInt(form.cuotas) || 0
+      if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
+      if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
+    } else if (!form.vencimiento) {
+      alert('Ingresá la fecha del primer control')
+      return
+    }
     setSaving(true)
     const { data: polData } = await supabase.from('polizas').insert([{
       cliente_id:  clienteSeleccionado.id,
@@ -464,11 +547,17 @@ export default function PolizasPage() {
       corredor_nombre: form.corredor === 'Otro' ? form.corredor_nombre : null,
       corredor_tel:    form.corredor === 'Otro' ? form.corredor_tel    : null,
       moneda: form.moneda, cuotas: nCuotas,
-      cuota_mes: fechasACuotaMes(form.fechasCuotas), nota: form.nota || null,
+      cuota_mes: form.renovacionMensual ? '' : fechasACuotaMes(form.fechasCuotas), nota: form.nota || null,
       renueva_poliza_id: form.tipoAlta === 'renovacion' ? form.renuevaPolizaId : null,
+      renovacion_mensual: form.renovacionMensual,
     }]).select().single()
     if (polData) {
       const polizaId = (polData as any).id
+      if (form.renovacionMensual && form.vencimiento) {
+        await supabase.from('poliza_controles_mensuales').insert([{
+          poliza_id: polizaId, periodo: primerDiaMes(form.vencimiento), estado: 'pendiente',
+        }])
+      }
       const inserts = Object.entries(valoresCampos)
         .filter(([_, v]) => v.trim())
         .map(([campoId, valor]) => ({ poliza_id: polizaId, campo_id: campoId, valor }))
@@ -519,6 +608,7 @@ export default function PolizasPage() {
       moneda: anterior?.moneda || f.moneda,
       cuotas: anterior ? String(anterior.cuotas || '') : f.cuotas,
       nota: anterior?.nota || '',
+      renovacionMensual: anterior?.renovacion_mensual || false,
     }))
     setValoresCampos({})
     setCamposRamo([])
@@ -539,7 +629,7 @@ export default function PolizasPage() {
 
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSeleccionado(null)
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '' })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '', renovacionMensual: false })
     setCamposRamo([])
     setValoresCampos({})
     setShowModal(true)
@@ -549,7 +639,7 @@ export default function PolizasPage() {
   function renovarPoliza() {
     if (!detalle) return
     setClienteSeleccionado({ id: detalle.cliente_id, nombre: detalle.clientes?.nombre || '', direccion: '' })
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '' })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
     setCamposRamo([])
     setValoresCampos({})
     setPaso('poliza')
@@ -660,6 +750,19 @@ export default function PolizasPage() {
                     )}
                   </div>
                 )}
+                <div className="fgroup">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-main)' }}>
+                    <input type="checkbox" checked={form.renovacionMensual}
+                      onChange={e => setForm({ ...form, renovacionMensual: e.target.checked, cuotas: '', fechasCuotas: [] })}
+                      style={{ width: 16, height: 16, accentColor: 'var(--gold)', cursor: 'pointer' }} />
+                    Se renueva sola cada mes (ej. Accidentes de trabajo — BPS)
+                  </label>
+                  {form.renovacionMensual && (
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                      No se cargan cuotas fijas: cada mes vas a poder marcar la póliza como Controlada (factura recibida y enviada a pagar) y Pagada.
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
                   <div className="fgroup">
                     <label>Ramo *</label>
@@ -730,7 +833,7 @@ export default function PolizasPage() {
                     )}
                   </div>
                   <div className="fgroup">
-                    <label>Vencimiento *</label>
+                    <label>{form.renovacionMensual ? 'Vencimiento del primer control *' : 'Vencimiento *'}</label>
                     <DatePicker value={form.vencimiento} onChange={v => setForm({ ...form, vencimiento: v })} placeholder="Seleccionar fecha" />
                   </div>
                   <div className="fgroup">
@@ -740,14 +843,18 @@ export default function PolizasPage() {
                       {(catalogos.monedas || []).map((m:string) => <option key={m}>{m}</option>)}
                     </select>
                   </div>
-                  <div className="fgroup">
-                    <label>Cantidad de cuotas *</label>
-                    <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
-                  </div>
-                  <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                    <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
-                    <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
-                  </div>
+                  {!form.renovacionMensual && (
+                    <>
+                      <div className="fgroup">
+                        <label>Cantidad de cuotas *</label>
+                        <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
+                      </div>
+                      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+                        <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
+                        <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
+                      </div>
+                    </>
+                  )}
                   {camposRamo.length > 0 && (
                     <div style={{ gridColumn: 'span 2', background: 'var(--bg-card-alt)', borderRadius: 10, padding: '14px', marginBottom: 4 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -948,9 +1055,11 @@ export default function PolizasPage() {
                 { label: 'Compañía',    value: detalle.compania },
                 { label: 'Corredor',    value: detalle.corredor === 'Otro' && detalle.corredor_nombre ? `${detalle.corredor_nombre}${detalle.corredor_tel ? ' · ' + detalle.corredor_tel : ''}` : detalle.corredor },
                 { label: 'Moneda',      value: detalle.moneda },
-                { label: 'Vencimiento', value: formatFecha(detalle.vencimiento) },
-                { label: 'Cuotas',      value: detalle.cuotas || '—' },
-                { label: 'Pagadas',     value: `${detallePagos.length}/${detalle.cuotas}` },
+                { label: detalle.renovacion_mensual ? 'Próximo control' : 'Vencimiento', value: formatFecha(detalle.vencimiento) },
+                ...(detalle.renovacion_mensual ? [] : [
+                  { label: 'Cuotas',  value: detalle.cuotas || '—' },
+                  { label: 'Pagadas', value: `${detallePagos.length}/${detalle.cuotas}` },
+                ]),
               ].map(f => (
                 <div key={f.label}>
                   <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{f.label}</div>
@@ -978,8 +1087,59 @@ export default function PolizasPage() {
           </div>
         )}
 
+        {/* Control mensual — pólizas de renovación automática (ej. Accidentes de trabajo) */}
+        {detalle.renovacion_mensual && (
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 12 }}>
+              Control mensual <span style={{ fontWeight: 400 }}>— se renueva sola cada mes</span>
+            </div>
+            {controlesMensuales.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cargando...</div>
+            ) : controlesMensuales.map(c => {
+              const estiloEstado = c.estado === 'pagado'
+                ? { rowClass: 'paid', numClass: 'paid', tagStyle: undefined, tagLabel: 'Pagada' }
+                : c.estado === 'controlado'
+                ? { rowClass: '', numClass: '', tagStyle: { background: '#DBEAFE', color: '#1E40AF' }, tagLabel: 'Controlada' }
+                : { rowClass: '', numClass: 'pending', tagStyle: undefined, tagLabel: 'Pendiente' }
+              return (
+                <div key={c.id} className={`cuota-row ${estiloEstado.rowClass}`}
+                  style={c.estado === 'controlado' ? { background: '#EFF6FF', borderColor: '#BFDBFE' } : undefined}>
+                  <div className={`cuota-num ${estiloEstado.numClass}`}
+                    style={c.estado === 'controlado' ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>
+                    {formatPeriodo(c.periodo).slice(0, 3)}
+                  </div>
+                  <div className="cuota-info">
+                    <div className="cuota-title">{formatPeriodo(c.periodo)}</div>
+                    <div className="cuota-sub">
+                      {c.estado === 'pagado' ? `Pagada ${formatFecha(c.fecha_pago)}`
+                        : c.estado === 'controlado' ? `Controlada ${formatFecha(c.fecha_control)} — enviada a pagar`
+                        : 'Pendiente — falta verificar que llegó la factura'}
+                    </div>
+                  </div>
+                  {c.estado === 'pendiente' && (
+                    <button className="btn-primary btn-sm" onClick={() => marcarControlado(c)}>Marcar controlado</button>
+                  )}
+                  {c.estado === 'controlado' && (
+                    <>
+                      <span className="cuota-paid-tag" style={estiloEstado.tagStyle}>{estiloEstado.tagLabel}</span>
+                      <button className="btn-primary btn-sm" style={{ marginLeft: 6 }} onClick={() => marcarPagado(c)}>Marcar pagado</button>
+                      <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => deshacerControl(c)}>Deshacer</button>
+                    </>
+                  )}
+                  {c.estado === 'pagado' && (
+                    <>
+                      <span className="cuota-paid-tag">{estiloEstado.tagLabel}</span>
+                      <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => deshacerControl(c)}>Deshacer</button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Cuotas */}
-        {detalle.cuotas > 0 && (
+        {!detalle.renovacion_mensual && detalle.cuotas > 0 && (
           <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px', marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
