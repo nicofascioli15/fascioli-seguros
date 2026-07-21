@@ -890,6 +890,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     <select value={polizaForm.corredor} onChange={e => { setPolizaForm({ ...polizaForm, corredor: e.target.value }); setErrores(p => ({...p, corredor: false})) }} style={{ flex: 1, color: polizaForm.corredor ? 'var(--navy)' : 'var(--slate)', borderColor: errores.corredor ? 'var(--danger)' : undefined }}>
                       <option value="">— Seleccionar —</option>
                       {catalogos.corredores.map(c => <option key={c}>{c}</option>)}
+                      <option value="Otro">Otro (ingresar manualmente)</option>
                     </select>
                     <button className="btn-outline btn-sm" onClick={() => setShowNuevoCorreder(true)} title="Crear corredor" style={{ padding: '8px 12px', fontSize: 16, flexShrink: 0 }}>+</button>
                   </div>
