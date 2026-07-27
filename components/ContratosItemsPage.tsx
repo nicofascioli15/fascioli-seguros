@@ -1,0 +1,546 @@
+'use client'
+export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip } from 'lucide-react'
+import { useSortFilter } from '@/hooks/useSortFilter'
+import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
+import ExportButton from '@/components/ExportButton'
+import { Pagination, paginate } from '@/components/Pagination'
+import { SortHeader } from '@/components/SortHeader'
+import DatePicker from '@/components/DatePicker'
+import ActionsMenu from '@/components/ActionsMenu'
+import ContratosDocumentos from '@/components/ContratosDocumentos'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import {
+  Categoria, esAutoRenovable, categoriaLabel, DOCS_TIPOS, hoyISO, formatFecha,
+  calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge,
+} from '@/lib/contratosConfig'
+
+type ClienteOpt = { id: string; nombre: string; direccion?: string }
+
+type Row = {
+  id: string
+  cliente_id: string | null
+  cliente_nombre: string
+  tipo_contrato: string
+  empresa: string
+  fecha_firma_inicio: string | null
+  vigencia_anios: number | null
+  fecha_fin: string | null
+  garantia_meses: number | null
+  nota: string
+  created_at: string
+  docsCount: number
+  // Calculados
+  dias: number | null
+  estadoLabel: string
+  estadoCls: string
+  proximoVenc: string | null
+  renovaciones: number
+}
+
+export const emptyForm = {
+  cliente_id: '', tipo_contrato: '', empresa: '', fecha_firma_inicio: '', vigencia_anios: 1,
+  fecha_fin: '', garantia_meses: 12, nota: '',
+}
+
+function calcularFila(r: any, auto: boolean, hoy: string): Row {
+  if (auto) {
+    const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
+    const badge = estadoAutoBadge(calc?.estado || null)
+    return {
+      ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
+      dias: calc?.dias ?? null, estadoLabel: badge.label, estadoCls: badge.cls,
+      proximoVenc: calc?.proximoVenc ?? null, renovaciones: calc?.renovaciones ?? 0,
+    }
+  }
+  const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
+  const badge = estadoObraBadge(calc?.estado || null)
+  return {
+    ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
+    dias: null, estadoLabel: badge.label, estadoCls: badge.cls,
+    proximoVenc: calc?.garantiaHasta ?? null, renovaciones: 0,
+  }
+}
+
+export default function ContratosItemsPage({ categoria, titulo }: { categoria: Categoria; titulo: string }) {
+  const supabase = createClient()
+  const auto = esAutoRenovable(categoria)
+  const hoy = hoyISO()
+
+  const [rows, setRows]         = useState<Row[]>([])
+  const [clientes, setClientes] = useState<ClienteOpt[]>([])
+  const [empresas, setEmpresas] = useState<string[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [page, setPage]         = useState(1)
+
+  const [showModal, setShowModal] = useState(false)
+  const [paso, setPaso]           = useState<'cliente' | 'contrato'>('contrato')
+  const [clienteSearch, setClienteSearch] = useState('')
+  const [clienteLocked, setClienteLocked] = useState<ClienteOpt | null>(null)
+  const [form, setForm]           = useState(emptyForm)
+  const [saving, setSaving]       = useState(false)
+
+  const [editando, setEditando]   = useState<Row | null>(null)
+  const [editForm, setEditForm]   = useState(emptyForm)
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [confirmEliminar, setConfirmEliminar] = useState<Row | null>(null)
+  const [eliminando, setEliminando] = useState(false)
+
+  const [docsFor, setDocsFor] = useState<Row | null>(null)
+
+  useEffect(() => { fetchAll() }, [])
+
+  async function fetchAll() {
+    setLoading(true)
+    const [{ data: rowsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
+      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
+      supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
+      supabase.from('contratos_empresas').select('nombre').eq('categoria', categoria).order('nombre'),
+    ])
+    if (empresasData) setEmpresas(empresasData.map((e: any) => e.nombre))
+    if (clientesData) setClientes(clientesData)
+    if (rowsData) {
+      const mapped = rowsData.map((r: any) => calcularFila(r, auto, hoy))
+      const ids = mapped.map(r => r.id)
+      if (ids.length > 0) {
+        const { data: docsData } = await supabase.from('contratos_documentos').select('contrato_id').in('contrato_id', ids)
+        const counts: Record<string, number> = {}
+        ;(docsData || []).forEach((d: any) => { if (d.contrato_id) counts[d.contrato_id] = (counts[d.contrato_id] || 0) + 1 })
+        mapped.forEach(r => { r.docsCount = counts[r.id] || 0 })
+      }
+      setRows(mapped)
+    }
+    setLoading(false)
+  }
+
+  function payloadDe(f: typeof emptyForm) {
+    const base: any = {
+      categoria,
+      cliente_id: f.cliente_id,
+      tipo_contrato: f.tipo_contrato || null,
+      empresa: f.empresa || null,
+      nota: f.nota || null,
+    }
+    if (auto) {
+      base.fecha_firma_inicio = f.fecha_firma_inicio || null
+      base.vigencia_anios = f.vigencia_anios || null
+      base.fecha_fin = null
+      base.garantia_meses = null
+    } else {
+      base.fecha_firma_inicio = f.fecha_firma_inicio || null
+      base.fecha_fin = f.fecha_fin || null
+      base.garantia_meses = f.garantia_meses || 0
+      base.vigencia_anios = null
+    }
+    return base
+  }
+
+  async function guardar() {
+    if (!form.cliente_id) return
+    setSaving(true)
+    const payload = payloadDe(form)
+    const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
+    if (!error && data) {
+      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${categoriaLabel(categoria).toLowerCase()} creado`, datosDespues: data })
+      setForm(emptyForm)
+      setClienteLocked(null)
+      setShowModal(false)
+      await fetchAll()
+    }
+    setSaving(false)
+  }
+
+  function abrirEditar(r: Row) {
+    setEditando(r)
+    setEditForm({
+      cliente_id: r.cliente_id || '', tipo_contrato: r.tipo_contrato || '', empresa: r.empresa || '',
+      fecha_firma_inicio: r.fecha_firma_inicio || '', vigencia_anios: r.vigencia_anios || 1,
+      fecha_fin: r.fecha_fin || '', garantia_meses: r.garantia_meses || 12, nota: r.nota || '',
+    })
+  }
+
+  async function guardarEdicion() {
+    if (!editando) return
+    setSavingEdit(true)
+    const payload = payloadDe(editForm)
+    await supabase.from('contratos').update(payload).eq('id', editando.id)
+    await registrarAudit({ accion: 'editar', tabla: 'contratos', registroId: editando.id, descripcion: 'Contrato editado', datosDespues: editForm })
+    setEditando(null)
+    setSavingEdit(false)
+    await fetchAll()
+  }
+
+  async function confirmarEliminar() {
+    if (!confirmEliminar) return
+    setEliminando(true)
+    await supabase.from('contratos').delete().eq('id', confirmEliminar.id)
+    await registrarAudit({ accion: 'eliminar', tabla: 'contratos', registroId: confirmEliminar.id, descripcion: 'Contrato eliminado' })
+    setEliminando(false)
+    setConfirmEliminar(null)
+    await fetchAll()
+  }
+
+  const estadosDisponibles = Array.from(new Set(rows.map(r => r.estadoLabel).filter(Boolean)))
+
+  function matchFiltros(r: Row) {
+    const q = search.toLowerCase()
+    const matchQ = !q || r.cliente_nombre.toLowerCase().includes(q) || (r.empresa || '').toLowerCase().includes(q) || (r.tipo_contrato || '').toLowerCase().includes(q)
+    const matchEstado = !filtroEstado || r.estadoLabel === filtroEstado
+    return matchQ && matchEstado
+  }
+
+  const filtradosBase = rows.filter(matchFiltros)
+  const { sort, toggleSort, sorted: filtrados } = useSortFilter<Row>(filtradosBase)
+  const paginados = paginate(filtrados, page) as Row[]
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) || (c.direccion || '').toLowerCase().includes(clienteSearch.toLowerCase())
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>{titulo}</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{rows.length} contratos registrados</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <ExportButton
+            titulo={titulo}
+            subtitulo={`${filtrados.length} contratos`}
+            columnas={auto ? [
+              { header: 'Edificio', key: 'edificio', width: 110 },
+              { header: 'Empresa', key: 'empresa', width: 80 },
+              { header: 'Tipo', key: 'tipo', width: 90 },
+              { header: 'Firma', key: 'firma', width: 62 },
+              { header: 'Vigencia', key: 'vigencia', width: 50 },
+              { header: 'Próx. vencimiento', key: 'proximo', width: 65 },
+              { header: 'Estado', key: 'estado', width: 70 },
+            ] : [
+              { header: 'Edificio', key: 'edificio', width: 110 },
+              { header: 'Empresa', key: 'empresa', width: 80 },
+              { header: 'Tipo', key: 'tipo', width: 90 },
+              { header: 'Inicio', key: 'firma', width: 62 },
+              { header: 'Fin', key: 'fin', width: 62 },
+              { header: 'Garantía hasta', key: 'proximo', width: 65 },
+              { header: 'Estado', key: 'estado', width: 70 },
+            ]}
+            filas={filtrados.map(r => ({
+              edificio: r.cliente_nombre, empresa: r.empresa || '—', tipo: r.tipo_contrato || '—',
+              firma: formatFecha(r.fecha_firma_inicio), vigencia: r.vigencia_anios ? `${r.vigencia_anios} años` : '—',
+              fin: formatFecha(r.fecha_fin), proximo: formatFecha(r.proximoVenc), estado: r.estadoLabel,
+            }))}
+            filename={`contratos-${categoria}-fascioli`}
+          />
+          <button className="btn-primary" onClick={() => { setForm(emptyForm); setClienteLocked(null); setClienteSearch(''); setPaso('cliente'); setShowModal(true) }}>
+            <Plus size={15} /> Nuevo contrato
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <input placeholder="Buscar edificio, empresa, tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+        </div>
+        {estadosDisponibles.length > 0 && (
+          <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setPage(1) }}
+            style={{ padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--navy)' }}>
+            <option value="">Todos los estados</option>
+            {estadosDisponibles.map(es => <option key={es} value={es}>{es}</option>)}
+          </select>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+          <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
+          Cargando...
+        </div>
+      ) : filtrados.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin registros</div>
+          <div style={{ fontSize: 12 }}>{rows.length === 0 ? 'Registrá el primer contrato arriba' : 'Probá cambiando los filtros'}</div>
+        </div>
+      ) : (
+        <div className="table-card">
+          <table>
+            <thead>
+              <tr>
+                <SortHeader label="Edificio" col="cliente_nombre" sort={sort} onSort={toggleSort} />
+                <th>Empresa</th>
+                <th>Tipo de contrato</th>
+                {auto ? (
+                  <>
+                    <SortHeader label="Firma" col="fecha_firma_inicio" sort={sort} onSort={toggleSort} />
+                    <th>Vigencia</th>
+                    <SortHeader label="Próx. vencimiento" col="proximoVenc" sort={sort} onSort={toggleSort} />
+                  </>
+                ) : (
+                  <>
+                    <SortHeader label="Inicio" col="fecha_firma_inicio" sort={sort} onSort={toggleSort} />
+                    <SortHeader label="Fin" col="fecha_fin" sort={sort} onSort={toggleSort} />
+                    <SortHeader label="Garantía hasta" col="proximoVenc" sort={sort} onSort={toggleSort} />
+                  </>
+                )}
+                <th>Estado</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginados.map(r => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600 }}>{r.cliente_nombre}</td>
+                  <td>{r.empresa || '—'}</td>
+                  <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={r.tipo_contrato}>{r.tipo_contrato || '—'}</td>
+                  {auto ? (
+                    <>
+                      <td>{formatFecha(r.fecha_firma_inicio)}</td>
+                      <td>{r.vigencia_anios ? `${r.vigencia_anios} ${r.vigencia_anios === 1 ? 'año' : 'años'}` : '—'}</td>
+                      <td>{formatFecha(r.proximoVenc)}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td>{formatFecha(r.fecha_firma_inicio)}</td>
+                      <td>{formatFecha(r.fecha_fin)}</td>
+                      <td>{formatFecha(r.proximoVenc)}</td>
+                    </>
+                  )}
+                  <td><span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span></td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
+                      <ActionsMenu actions={[
+                        { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(r) },
+                        { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(r), danger: true },
+                      ]} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mobile-list" style={{ display: 'none' }}>
+            {paginados.map(r => (
+              <div key={r.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{r.cliente_nombre}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span>
+                    <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
+                    <ActionsMenu actions={[
+                      { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(r) },
+                      { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(r), danger: true },
+                    ]} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {r.empresa}{r.empresa && ' · '}{r.tipo_contrato}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {auto ? `Próx. vencimiento: ${formatFecha(r.proximoVenc)}` : `Garantía hasta: ${formatFecha(r.proximoVenc)}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Pagination page={page} total={filtrados.length} onChange={setPage} />
+
+      {/* Modal nuevo contrato */}
+      {showModal && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800 }}>{paso === 'cliente' ? 'Seleccionar edificio' : `Nuevo contrato — ${titulo}`}</h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Paso {paso === 'cliente' ? '1' : '2'} de 2</div>
+                {paso === 'contrato' && clienteLocked && (
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold)', marginTop: 6, lineHeight: 1.2 }}>{clienteLocked.nombre}</div>
+                )}
+              </div>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+              {['cliente', 'contrato'].map((p, i) => {
+                const idx = ['cliente', 'contrato'].indexOf(paso)
+                return <div key={p} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= idx ? 'var(--gold)' : 'var(--border)', transition: 'background .2s' }} />
+              })}
+            </div>
+
+            {paso === 'cliente' && (
+              <>
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input placeholder="Buscar edificio..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} autoFocus
+                    style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+                </div>
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {clientesFiltrados.map(c => (
+                    <div key={c.id} onClick={() => { setClienteLocked(c); setForm((p: any) => ({ ...p, cliente_id: c.id })); setPaso('contrato') }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 9, border: '1.5px solid var(--border-soft)', cursor: 'pointer', background: 'var(--bg-card)', transition: 'all .12s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLDivElement).style.background = 'var(--gold-pale)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLDivElement).style.background = 'white' }}
+                    >
+                      <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--gold)', fontSize: 14, flexShrink: 0 }}>
+                        {c.nombre.trim()[0]?.toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{c.nombre}</div>
+                        {c.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.direccion}</div>}
+                      </div>
+                    </div>
+                  ))}
+                  {clientesFiltrados.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Sin edificios</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {paso === 'contrato' && (
+              <>
+                <ContratoForm form={form} setForm={setForm} auto={auto} empresas={empresas} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar edificio</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-outline" onClick={() => setShowModal(false)}>Cancelar</button>
+                    <button className="btn-primary" onClick={guardar} disabled={saving || !form.cliente_id}>
+                      {saving ? <><Loader2 size={14} /> Guardando...</> : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar */}
+      {editando && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditando(null) }}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar contrato</h3>
+              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', marginBottom: 14 }}>{editando.cliente_nombre}</div>
+            <ContratoForm form={editForm} setForm={setEditForm} auto={auto} empresas={empresas} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { setConfirmEliminar(editando); setEditando(null) }}>
+                <Trash2 size={14} /> Eliminar
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={guardarEdicion} disabled={savingEdit}>
+                  {savingEdit ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar */}
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title="¿Eliminar este contrato?"
+        message={<>Se va a eliminar el contrato de <strong style={{ color: 'var(--text-main)' }}>{confirmEliminar?.cliente_nombre}</strong> y sus documentos adjuntos. Esta acción no se puede deshacer.</>}
+        loading={eliminando}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setConfirmEliminar(null)}
+      />
+
+      {/* Modal documentos */}
+      {docsFor && (
+        <ContratosDocumentos
+          contratoId={docsFor.id}
+          clienteNombre={docsFor.cliente_nombre}
+          tiposSugeridos={DOCS_TIPOS[categoria]}
+          onClose={() => setDocsFor(null)}
+        />
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      title={count > 0 ? `${count} documento${count > 1 ? 's' : ''} adjunto${count > 1 ? 's' : ''}` : 'Sin documentos — click para adjuntar'}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{
+        position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+        color: count > 0 ? 'var(--gold)' : 'var(--text-muted)', padding: '4px 6px',
+        display: 'inline-flex', alignItems: 'center', borderRadius: 6, opacity: count > 0 ? 1 : 0.55,
+      }}
+    >
+      <Paperclip size={15} fill={count > 0 ? 'currentColor' : 'none'} fillOpacity={count > 0 ? 0.15 : 0} />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -1, right: -1, background: 'var(--gold)', color: 'var(--navy)',
+          fontSize: 9, fontWeight: 800, borderRadius: 8, minWidth: 13, height: 13, lineHeight: '13px',
+          textAlign: 'center', padding: '0 2px',
+        }}>{count}</span>
+      )}
+    </button>
+  )
+}
+
+export function ContratoForm({ form, setForm, auto, empresas }: { form: typeof emptyForm; setForm: (f: any) => void; auto: boolean; empresas: string[] }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
+        <select value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} style={{ color: form.empresa ? 'var(--navy)' : 'var(--slate)' }}>
+          <option value="">— Seleccionar —</option>
+          {empresas.map(e => <option key={e} value={e}>{e}</option>)}
+          {form.empresa && !empresas.includes(form.empresa) && <option value={form.empresa}>{form.empresa}</option>}
+        </select>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se administran desde Configuración</div>
+      </div>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Tipo de contrato</label>
+        <input value={form.tipo_contrato} onChange={e => setForm((p: any) => ({ ...p, tipo_contrato: e.target.value }))} placeholder="Ej: Mantenimiento, Mantenimiento + reparaciones..." /></div>
+
+      {auto ? (
+        <>
+          <div className="fgroup"><label>Fecha de firma / inicio</label>
+            <DatePicker value={form.fecha_firma_inicio} onChange={v => setForm((p: any) => ({ ...p, fecha_firma_inicio: v }))} placeholder="¿Cuándo se firmó?" /></div>
+          <div className="fgroup"><label>Vigencia (años)</label>
+            <input type="number" min={1} value={form.vigencia_anios}
+              onChange={e => setForm((p: any) => ({ ...p, vigencia_anios: Math.max(1, parseInt(e.target.value) || 1) }))}
+              style={{ width: '100%', padding: '9px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se renueva sola cada {form.vigencia_anios || 1} {(form.vigencia_anios || 1) === 1 ? 'año' : 'años'}</div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="fgroup"><label>Fecha de inicio</label>
+            <DatePicker value={form.fecha_firma_inicio} onChange={v => setForm((p: any) => ({ ...p, fecha_firma_inicio: v }))} placeholder="Inicio de obra" /></div>
+          <div className="fgroup"><label>Fecha de fin</label>
+            <DatePicker value={form.fecha_fin} onChange={v => setForm((p: any) => ({ ...p, fecha_fin: v }))} placeholder="Fin de obra" /></div>
+          <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Garantía (meses)</label>
+            <input type="number" min={0} value={form.garantia_meses}
+              onChange={e => setForm((p: any) => ({ ...p, garantia_meses: Math.max(0, parseInt(e.target.value) || 0) }))}
+              style={{ width: '100%', padding: '9px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>A partir de la fecha de fin, cuenta como "En garantía" durante este período</div>
+          </div>
+        </>
+      )}
+
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nota</label>
+        <textarea value={form.nota} onChange={e => setForm((p: any) => ({ ...p, nota: e.target.value }))} rows={2}
+          style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', resize: 'vertical' }} /></div>
+    </div>
+  )
+}

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { esAutoRenovable, calcularAuto, calcularObra, hoyISO } from '@/lib/contratosConfig'
 
 const NAVY = '#0F1E35'
 const GOLD = '#C9A84C'
@@ -58,6 +59,7 @@ export default function HubPage() {
   const [loading, setLoading]   = useState(true)
   const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, vencidas: 0, pendientes: 0 })
   const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
+  const [contratosStats, setContratosStats] = useState({ contratos: 0, porVencer: 0 })
 
   useEffect(() => {
     async function init() {
@@ -111,6 +113,21 @@ export default function HubPage() {
       const vencen30Mant = extVigentes.filter(r => enRango(r.vencimiento)).length + tanVigentes.filter(r => enRango(r.vencimiento)).length
       setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant })
 
+      // Load contratos stats (vigencia calculada en vivo, no hay estado guardado)
+      const { data: contratosData } = await supabase.from('contratos').select('categoria, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses')
+      const hoyC = hoyISO()
+      let porVencer = 0
+      ;(contratosData || []).forEach((r: any) => {
+        if (esAutoRenovable(r.categoria)) {
+          const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoyC)
+          if (calc && (calc.estado === 'Por vencer' || calc.estado === 'Renovado hoy')) porVencer++
+        } else {
+          const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoyC)
+          if (calc && calc.estado === 'En ejecución') porVencer++
+        }
+      })
+      setContratosStats({ contratos: (contratosData || []).length, porVencer })
+
       setLoading(false)
     }
     init()
@@ -152,11 +169,15 @@ export default function HubPage() {
     {
       id: 'contratos',
       label: 'Contratos',
-      description: 'Gestión de contratos y proveedores',
+      description: 'Ascensores, rampas, servicios y obras',
       route: '/contratos',
-      ready: false,
+      ready: true,
       accent: '#9D7FD4',
       icon: <IconFile />,
+      stats: [
+        { label: 'Contratos', value: contratosStats.contratos },
+        { label: 'Por vencer', value: contratosStats.porVencer },
+      ],
     },
   ]
 
