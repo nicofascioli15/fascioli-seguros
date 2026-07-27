@@ -5,6 +5,7 @@ import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Pa
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { eliminarEdificioCompleto } from '@/lib/edificios'
 import ActionsMenu from '@/components/ActionsMenu'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
@@ -39,6 +40,9 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
   const [editando, setEditando] = useState<Cliente | null>(null)
   const [editForm, setEditForm] = useState(emptyCliente)
   const [savingEdit, setSavingEdit] = useState(false)
+
+  const [confirmEliminar, setConfirmEliminar] = useState<Cliente | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   // Importación CSV
   const [showImport, setShowImport] = useState(false)
@@ -80,6 +84,16 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
     await registrarAudit({ accion: 'editar', tabla: 'mant_clientes', registroId: editando.id, descripcion: `Edificio editado (desde Contratos): ${editForm.nombre}`, datosDespues: editForm })
     setEditando(null)
     setSavingEdit(false)
+    await fetchClientes()
+  }
+
+  async function confirmarEliminar() {
+    if (!confirmEliminar) return
+    setEliminando(true)
+    await eliminarEdificioCompleto(supabase, confirmEliminar.id)
+    await registrarAudit({ accion: 'eliminar', tabla: 'mant_clientes', registroId: confirmEliminar.id, descripcion: `Edificio eliminado (desde Contratos): ${confirmEliminar.nombre}, junto con sus registros de mantenimiento y contratos` })
+    setEliminando(false)
+    setConfirmEliminar(null)
     await fetchClientes()
   }
 
@@ -166,10 +180,16 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
                 <div className="edif-addr">{c.direccion || 'Sin dirección registrada'}</div>
                 {c.contacto && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{c.contacto}</div>}
               </div>
-              <button title="Editar" onClick={e => { e.stopPropagation(); abrirEditar(c) }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                <Pencil size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                <button title="Editar" onClick={() => abrirEditar(c)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
+                  <Pencil size={14} />
+                </button>
+                <button title="Eliminar edificio" onClick={() => setConfirmEliminar(c)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           ))}
           {filtrados.length === 0 && (
@@ -291,6 +311,15 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmEliminar}
+        title={`¿Eliminar "${confirmEliminar?.nombre}"?`}
+        message={<>Se va a eliminar el edificio y <strong style={{ color: 'var(--text-main)' }}>todos</strong> sus registros: extintores, tanques de agua y contratos (ascensores, rampas, servicios, obras), en Mantenimiento y en Contratos, junto con sus documentos adjuntos. Esta acción no se puede deshacer.</>}
+        loading={eliminando}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setConfirmEliminar(null)}
+      />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
