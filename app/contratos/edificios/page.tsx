@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download, RotateCw } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -14,7 +14,7 @@ import { Pagination, paginate } from '@/components/Pagination'
 import {
   fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha,
   garantiaMesesDesde, garantiaValorEnUnidad,
-  calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge,
+  calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge, prioridadEstado,
 } from '@/lib/contratosConfig'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
@@ -353,7 +353,7 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
 type ContratoRow = {
   id: string; categoria: string; tipo_contrato: string; empresa: string
   fecha_firma_inicio: string | null; vigencia_anios: number | null
-  fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; nota: string
+  fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null
 }
@@ -361,8 +361,8 @@ type ContratoRow = {
 function calcularFila(r: any, tipo: TipoCategoria, hoy: string): ContratoRow {
   if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
-    const badge = estadoAutoBadge(calc?.estado || null)
-    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.proximoVenc ?? null }
+    const badge = estadoAutoBadge(calc?.estado || null, r.renovado)
+    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null }
   }
   const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
   const badge = estadoObraBadge(calc?.estado || null)
@@ -375,6 +375,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   const [loading, setLoading]     = useState(true)
   const [categorias, setCategorias] = useState<CategoriaRow[]>([])
   const [empresasPorCat, setEmpresasPorCat] = useState<Record<string, string[]>>({})
+  const [tiposPorCat, setTiposPorCat] = useState<Record<string, string[]>>({})
 
   const [addForm, setAddForm]   = useState({ ...emptyContratoForm, categoria: '' })
   const [showAdd, setShowAdd]   = useState(false)
@@ -408,13 +409,18 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
       ;(data || []).forEach((e: any) => { (map[e.categoria] ||= []).push(e.nombre) })
       setEmpresasPorCat(map)
     })
+    supabase.from('contratos_tipos').select('nombre, categoria').then(({ data }) => {
+      const map: Record<string, string[]> = {}
+      ;(data || []).forEach((t: any) => { (map[t.categoria] ||= []).push(t.nombre) })
+      setTiposPorCat(map)
+    })
   }, [])
 
   async function fetchContratos() {
     if (categorias.length === 0) return
     setLoading(true)
     const hoy = hoyISO()
-    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, nota, created_at').eq('cliente_id', cliente.id).order('created_at')
+    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at').eq('cliente_id', cliente.id).order('created_at')
     const mapped = (data || []).map((r: any) => calcularFila(r, tipoDe(r.categoria), hoy))
     const ids = mapped.map(r => r.id)
     if (ids.length > 0) {
@@ -493,6 +499,29 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     await fetchContratos()
   }
 
+  const [renovarDe, setRenovarDe] = useState<ContratoRow | null>(null)
+  const [renovarForm, setRenovarForm] = useState({ ...emptyContratoForm, categoria: '' })
+  const [renovando, setRenovando] = useState(false)
+
+  function abrirRenovar(r: ContratoRow) {
+    setRenovarDe(r)
+    setRenovarForm({ ...emptyContratoForm, categoria: r.categoria, empresa: r.empresa || '', tipo_contrato: r.tipo_contrato || '', vigencia_anios: r.vigencia_anios || 1 })
+  }
+
+  async function confirmarRenovar() {
+    if (!renovarDe || !renovarForm.fecha_firma_inicio) return
+    setRenovando(true)
+    const payload = payloadDe(renovarForm)
+    const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
+    if (!error && data) {
+      await supabase.from('contratos').update({ renovado: true }).eq('id', renovarDe.id)
+      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Renovación de contrato de ${labelDe(renovarDe.categoria).toLowerCase()} para ${cliente.nombre}`, datosDespues: data })
+      setRenovarDe(null)
+      await fetchContratos()
+    }
+    setRenovando(false)
+  }
+
   return (
     <div>
       <button onClick={onBack} className="btn-outline btn-sm" style={{ marginBottom: 16 }}><ArrowLeft size={13} /> Volver a edificios</button>
@@ -522,7 +551,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
         </div>
       ) : (
         categorias.map(cat => {
-          const items = contratos.filter(c => c.categoria === cat.slug)
+          const items = contratos.filter(c => c.categoria === cat.slug).sort((a, b) => prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel))
           if (items.length === 0) return null
           return (
             <div key={cat.slug} className="table-card" style={{ marginBottom: 20 }}>
@@ -544,6 +573,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     <span className={`badge ${it.estadoCls}`} style={{ marginRight: 6 }}>{it.estadoLabel}</span>
                     <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                     <ActionsMenu actions={[
+                      ...(tipoDe(it.categoria) === 'auto' && !it.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(it) }] : []),
                       { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                       { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
                     ]} />
@@ -568,8 +598,9 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                 {categorias.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}
               </select>
             </div>
-            <ContratoForm form={addForm} setForm={setAddForm} tipo={tipoDe(addForm.categoria)} categoria={addForm.categoria} empresas={empresasPorCat[addForm.categoria] || []}
-              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [addForm.categoria]: Array.from(new Set([...(p[addForm.categoria] || []), nombre])).sort() }))} />
+            <ContratoForm form={addForm} setForm={setAddForm} tipo={tipoDe(addForm.categoria)} categoria={addForm.categoria} empresas={empresasPorCat[addForm.categoria] || []} tipos={tiposPorCat[addForm.categoria] || []}
+              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [addForm.categoria]: Array.from(new Set([...(p[addForm.categoria] || []), nombre])).sort() }))}
+              onTipoAgregado={nombre => setTiposPorCat(p => ({ ...p, [addForm.categoria]: Array.from(new Set([...(p[addForm.categoria] || []), nombre])).sort() }))} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowAdd(false)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarNuevo} disabled={saving}>
@@ -587,8 +618,9 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
               <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar contrato — {labelDe(editando.categoria)}</h3>
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipoDe(editForm.categoria)} categoria={editForm.categoria} empresas={empresasPorCat[editForm.categoria] || []}
-              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [editForm.categoria]: Array.from(new Set([...(p[editForm.categoria] || []), nombre])).sort() }))} />
+            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipoDe(editForm.categoria)} categoria={editForm.categoria} empresas={empresasPorCat[editForm.categoria] || []} tipos={tiposPorCat[editForm.categoria] || []}
+              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [editForm.categoria]: Array.from(new Set([...(p[editForm.categoria] || []), nombre])).sort() }))}
+              onTipoAgregado={nombre => setTiposPorCat(p => ({ ...p, [editForm.categoria]: Array.from(new Set([...(p[editForm.categoria] || []), nombre])).sort() }))} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -601,6 +633,29 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                   {savingEdit ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renovarDe && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setRenovarDe(null) }}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Renovar contrato — {labelDe(renovarDe.categoria)}</h3>
+              <button onClick={() => setRenovarDe(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+              Vencía el {formatFecha(renovarDe.proximoVenc)}. Cargá el nuevo período — el contrato anterior queda marcado "Renovado" y este pasa a ser el vigente.
+            </div>
+            <ContratoForm form={renovarForm} setForm={setRenovarForm} tipo={tipoDe(renovarForm.categoria)} categoria={renovarForm.categoria} empresas={empresasPorCat[renovarForm.categoria] || []} tipos={tiposPorCat[renovarForm.categoria] || []}
+              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [renovarForm.categoria]: Array.from(new Set([...(p[renovarForm.categoria] || []), nombre])).sort() }))}
+              onTipoAgregado={nombre => setTiposPorCat(p => ({ ...p, [renovarForm.categoria]: Array.from(new Set([...(p[renovarForm.categoria] || []), nombre])).sort() }))} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setRenovarDe(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={confirmarRenovar} disabled={renovando || !renovarForm.fecha_firma_inicio}>
+                {renovando ? <><Loader2 size={14} /> Renovando...</> : 'Renovar'}
+              </button>
             </div>
           </div>
         </div>

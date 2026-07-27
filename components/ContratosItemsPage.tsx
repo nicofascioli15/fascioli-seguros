@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check, RotateCw } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -14,7 +14,7 @@ import ContratosDocumentos from '@/components/ContratosDocumentos'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import {
   TipoCategoria, docsTipos, hoyISO, formatFecha, garantiaMesesDesde, garantiaValorEnUnidad, UnidadGarantia,
-  calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge,
+  calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge, prioridadEstado,
 } from '@/lib/contratosConfig'
 
 type ClienteOpt = { id: string; nombre: string; direccion?: string }
@@ -30,6 +30,7 @@ type Row = {
   fecha_fin: string | null
   garantia_meses: number | null
   garantia_unidad: UnidadGarantia
+  renovado: boolean
   nota: string
   created_at: string
   docsCount: number
@@ -38,7 +39,6 @@ type Row = {
   estadoLabel: string
   estadoCls: string
   proximoVenc: string | null
-  renovaciones: number
 }
 
 export const emptyForm = {
@@ -49,11 +49,11 @@ export const emptyForm = {
 function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
   if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
-    const badge = estadoAutoBadge(calc?.estado || null)
+    const badge = estadoAutoBadge(calc?.estado || null, r.renovado)
     return {
       ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
       dias: calc?.dias ?? null, estadoLabel: badge.label, estadoCls: badge.cls,
-      proximoVenc: calc?.proximoVenc ?? null, renovaciones: calc?.renovaciones ?? 0,
+      proximoVenc: calc?.vencimiento ?? null,
     }
   }
   const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
@@ -61,7 +61,7 @@ function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
   return {
     ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
     dias: null, estadoLabel: badge.label, estadoCls: badge.cls,
-    proximoVenc: calc?.garantiaHasta ?? null, renovaciones: 0,
+    proximoVenc: calc?.garantiaHasta ?? null,
   }
 }
 
@@ -73,6 +73,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
   const [rows, setRows]         = useState<Row[]>([])
   const [clientes, setClientes] = useState<ClienteOpt[]>([])
   const [empresas, setEmpresas] = useState<string[]>([])
+  const [tipos, setTipos]       = useState<string[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
@@ -92,18 +93,25 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
   const [confirmEliminar, setConfirmEliminar] = useState<Row | null>(null)
   const [eliminando, setEliminando] = useState(false)
 
+  const [renovarDe, setRenovarDe] = useState<Row | null>(null)
+  const [renovarForm, setRenovarForm] = useState(emptyForm)
+  const [renovando, setRenovando] = useState(false)
+
   const [docsFor, setDocsFor] = useState<Row | null>(null)
+  const [detalle, setDetalle] = useState<Row | null>(null)
 
   useEffect(() => { fetchAll() }, [categoria])
 
   async function fetchAll() {
     setLoading(true)
-    const [{ data: rowsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
-      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
+    const [{ data: rowsData }, { data: clientesData }, { data: empresasData }, { data: tiposData }] = await Promise.all([
+      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
       supabase.from('contratos_empresas').select('nombre').eq('categoria', categoria).order('nombre'),
+      supabase.from('contratos_tipos').select('nombre').eq('categoria', categoria).order('nombre'),
     ])
     if (empresasData) setEmpresas(empresasData.map((e: any) => e.nombre))
+    if (tiposData) setTipos(tiposData.map((t: any) => t.nombre))
     if (clientesData) setClientes(clientesData)
     if (rowsData) {
       const mapped = rowsData.map((r: any) => calcularFila(r, tipo, hoy))
@@ -191,6 +199,25 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
     await fetchAll()
   }
 
+  function abrirRenovar(r: Row) {
+    setRenovarDe(r)
+    setRenovarForm({ ...emptyForm, cliente_id: r.cliente_id || '', empresa: r.empresa || '', tipo_contrato: r.tipo_contrato || '', vigencia_anios: r.vigencia_anios || 1 })
+  }
+
+  async function confirmarRenovar() {
+    if (!renovarDe || !renovarForm.fecha_firma_inicio) return
+    setRenovando(true)
+    const payload = payloadDe(renovarForm)
+    const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
+    if (!error && data) {
+      await supabase.from('contratos').update({ renovado: true }).eq('id', renovarDe.id)
+      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Renovación de contrato de ${titulo.toLowerCase()} (reemplaza a ${renovarDe.id})`, datosDespues: data })
+      setRenovarDe(null)
+      await fetchAll()
+    }
+    setRenovando(false)
+  }
+
   const estadosDisponibles = Array.from(new Set(rows.map(r => r.estadoLabel).filter(Boolean)))
 
   function matchFiltros(r: Row) {
@@ -200,7 +227,8 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
     return matchQ && matchEstado
   }
 
-  const filtradosBase = rows.filter(matchFiltros)
+  // Orden base (antes de que el usuario elija una columna): a vencer primero, seguimiento, y lo resuelto al final.
+  const filtradosBase = rows.filter(matchFiltros).sort((a, b) => prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel))
   const { sort, toggleSort, sorted: filtrados } = useSortFilter<Row>(filtradosBase)
   const paginados = paginate(filtrados, page) as Row[]
   const clientesFiltrados = clientes.filter(c =>
@@ -300,7 +328,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             </thead>
             <tbody>
               {paginados.map(r => (
-                <tr key={r.id}>
+                <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => setDetalle(r)}>
                   <td style={{ fontWeight: 600 }}>{r.cliente_nombre}</td>
                   <td>{r.empresa || '—'}</td>
                   <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={r.tipo_contrato}>{r.tipo_contrato || '—'}</td>
@@ -318,10 +346,11 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                     </>
                   )}
                   <td><span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span></td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
                       <ActionsMenu actions={[
+                        ...(auto && !r.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(r) }] : []),
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(r) },
                         { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(r), danger: true },
                       ]} />
@@ -334,13 +363,14 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
           <div className="mobile-list" style={{ display: 'none' }}>
             {paginados.map(r => (
-              <div key={r.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB' }}>
+              <div key={r.id} style={{ padding: '14px 16px', borderBottom: '1px solid #F1F5FB', cursor: 'pointer' }} onClick={() => setDetalle(r)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{r.cliente_nombre}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
                     <span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span>
                     <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
                     <ActionsMenu actions={[
+                      ...(auto && !r.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(r) }] : []),
                       { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(r) },
                       { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(r), danger: true },
                     ]} />
@@ -413,7 +443,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
             {paso === 'contrato' && (
               <>
-                <ContratoForm form={form} setForm={setForm} tipo={tipo} categoria={categoria} empresas={empresas} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} />
+                <ContratoForm form={form} setForm={setForm} tipo={tipo} categoria={categoria} empresas={empresas} tipos={tipos} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} onTipoAgregado={nombre => setTipos(p => Array.from(new Set([...p, nombre])).sort())} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar edificio</button>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -438,7 +468,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', marginBottom: 14 }}>{editando.cliente_nombre}</div>
-            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipo} categoria={categoria} empresas={empresas} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} />
+            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipo} categoria={categoria} empresas={empresas} tipos={tipos} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} onTipoAgregado={nombre => setTipos(p => Array.from(new Set([...p, nombre])).sort())} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -449,6 +479,92 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
                 <button className="btn-primary" onClick={guardarEdicion} disabled={savingEdit}>
                   {savingEdit ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal renovar */}
+      {renovarDe && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setRenovarDe(null) }}>
+          <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Renovar contrato</h3>
+              <button onClick={() => setRenovarDe(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', marginBottom: 4 }}>{renovarDe.cliente_nombre}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+              Vencía el {formatFecha(renovarDe.proximoVenc)}. Cargá el nuevo período — el contrato anterior queda marcado "Renovado" y este pasa a ser el vigente.
+            </div>
+            <ContratoForm form={renovarForm} setForm={setRenovarForm} tipo={tipo} categoria={categoria} empresas={empresas} tipos={tipos} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} onTipoAgregado={nombre => setTipos(p => Array.from(new Set([...p, nombre])).sort())} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setRenovarDe(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={confirmarRenovar} disabled={renovando || !renovarForm.fecha_firma_inicio}>
+                {renovando ? <><Loader2 size={14} /> Renovando...</> : 'Renovar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal detalle de contrato */}
+      {detalle && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setDetalle(null) }}>
+          <div className="pago-modal" style={{ width: 440 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>{detalle.cliente_nombre}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <span className="badge badge-neutral">{titulo}</span>
+                  <span className={`badge ${detalle.estadoCls}`}>{detalle.estadoLabel}</span>
+                </div>
+              </div>
+              <button onClick={() => setDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              {[
+                { label: 'Empresa', value: detalle.empresa || '—' },
+                { label: 'Tipo de contrato', value: detalle.tipo_contrato || '—' },
+                ...(auto ? [
+                  { label: 'Firma / inicio', value: formatFecha(detalle.fecha_firma_inicio) },
+                  { label: 'Vigencia', value: detalle.vigencia_anios ? `${detalle.vigencia_anios} ${detalle.vigencia_anios === 1 ? 'año' : 'años'}` : '—' },
+                  { label: 'Próx. vencimiento', value: formatFecha(detalle.proximoVenc) },
+                ] : [
+                  { label: 'Inicio', value: formatFecha(detalle.fecha_firma_inicio) },
+                  { label: 'Fin', value: formatFecha(detalle.fecha_fin) },
+                  { label: 'Garantía hasta', value: formatFecha(detalle.proximoVenc) },
+                ]),
+              ].map(f => (
+                <div key={f.label}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 2 }}>{f.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{f.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {detalle.nota && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 4 }}>Nota</div>
+                <div style={{ fontSize: 13.5, color: 'var(--text-main)' }}>{detalle.nota}</div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => { setDocsFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
+                <Paperclip size={14} /> Documentos {detalle.docsCount > 0 ? `(${detalle.docsCount})` : ''}
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-outline" onClick={() => setDetalle(null)}>Cerrar</button>
+                {auto && !detalle.renovado && (
+                  <button className="btn-primary" onClick={() => { abrirRenovar(detalle); setDetalle(null) }}>
+                    <RotateCw size={14} /> Renovar
+                  </button>
+                )}
+                <button className="btn-primary" onClick={() => { abrirEditar(detalle); setDetalle(null) }}>
+                  <Pencil size={14} /> Editar
                 </button>
               </div>
             </div>
@@ -504,62 +620,82 @@ function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
   )
 }
 
-const NUEVA_EMPRESA_SENTINEL = '__nueva__'
+const NUEVO_SENTINEL = '__nuevo__'
 
-export function ContratoForm({ form, setForm, tipo, categoria, empresas, onEmpresaAgregada }: {
-  form: typeof emptyForm; setForm: (f: any) => void; tipo: TipoCategoria; categoria: string; empresas: string[]; onEmpresaAgregada?: (nombre: string) => void
+// Select con opción "+ Agregar nuevo..." encadenada: crea el registro en el catálogo (contratos_empresas
+// o contratos_tipos, según "tabla") y lo deja seleccionado al toque, sin salir del formulario.
+function CatalogoSelect({ tabla, categoria, value, onChange, opciones, onAgregado, placeholderNuevo }: {
+  tabla: 'contratos_empresas' | 'contratos_tipos'; categoria: string; value: string; onChange: (v: string) => void
+  opciones: string[]; onAgregado?: (nombre: string) => void; placeholderNuevo: string
 }) {
   const supabase = createClient()
-  const auto = tipo === 'auto'
-  const [agregandoEmpresa, setAgregandoEmpresa] = useState(false)
-  const [nuevaEmpresa, setNuevaEmpresa] = useState('')
-  const [guardandoEmpresa, setGuardandoEmpresa] = useState(false)
+  const [agregando, setAgregando] = useState(false)
+  const [nuevo, setNuevo] = useState('')
+  const [guardando, setGuardando] = useState(false)
 
-  async function confirmarNuevaEmpresa() {
-    const nombre = nuevaEmpresa.trim()
-    if (!nombre) { setAgregandoEmpresa(false); return }
-    setGuardandoEmpresa(true)
-    const { error } = await supabase.from('contratos_empresas').insert([{ nombre, categoria }])
-    setGuardandoEmpresa(false)
+  async function confirmar() {
+    const nombre = nuevo.trim()
+    if (!nombre) { setAgregando(false); return }
+    setGuardando(true)
+    const { error } = await supabase.from(tabla).insert([{ nombre, categoria }])
+    setGuardando(false)
     if (!error || error.message.includes('unique')) {
-      setForm((p: any) => ({ ...p, empresa: nombre }))
-      onEmpresaAgregada?.(nombre)
+      onChange(nombre)
+      onAgregado?.(nombre)
     }
-    setAgregandoEmpresa(false)
-    setNuevaEmpresa('')
+    setAgregando(false)
+    setNuevo('')
   }
+
+  if (agregando) {
+    return (
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input value={nuevo} onChange={e => setNuevo(e.target.value)} autoFocus placeholder={placeholderNuevo}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmar() } if (e.key === 'Escape') { setAgregando(false); setNuevo('') } }}
+          style={{ flex: 1 }} />
+        <button type="button" onClick={confirmar} disabled={guardando || !nuevo.trim()} className="btn-primary" style={{ padding: '0 12px' }}>
+          {guardando ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+        </button>
+        <button type="button" onClick={() => { setAgregando(false); setNuevo('') }} className="btn-outline" style={{ padding: '0 10px' }}>
+          <X size={14} />
+        </button>
+      </div>
+    )
+  }
+  return (
+    <select value={value} onChange={e => {
+      if (e.target.value === NUEVO_SENTINEL) { setAgregando(true); return }
+      onChange(e.target.value)
+    }} style={{ color: value ? 'var(--navy)' : 'var(--slate)' }}>
+      <option value="">— Seleccionar —</option>
+      {opciones.map(o => <option key={o} value={o}>{o}</option>)}
+      {value && !opciones.includes(value) && <option value={value}>{value}</option>}
+      <option value={NUEVO_SENTINEL}>+ Agregar nuevo...</option>
+    </select>
+  )
+}
+
+export function ContratoForm({ form, setForm, tipo, categoria, empresas, tipos, onEmpresaAgregada, onTipoAgregado }: {
+  form: typeof emptyForm; setForm: (f: any) => void; tipo: TipoCategoria; categoria: string
+  empresas: string[]; tipos: string[]
+  onEmpresaAgregada?: (nombre: string) => void; onTipoAgregado?: (nombre: string) => void
+}) {
+  const auto = tipo === 'auto'
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
-        {agregandoEmpresa ? (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input value={nuevaEmpresa} onChange={e => setNuevaEmpresa(e.target.value)} autoFocus placeholder="Nombre de la empresa"
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmarNuevaEmpresa() } if (e.key === 'Escape') { setAgregandoEmpresa(false); setNuevaEmpresa('') } }}
-              style={{ flex: 1 }} />
-            <button type="button" onClick={confirmarNuevaEmpresa} disabled={guardandoEmpresa || !nuevaEmpresa.trim()}
-              className="btn-primary" style={{ padding: '0 12px' }}>
-              {guardandoEmpresa ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
-            </button>
-            <button type="button" onClick={() => { setAgregandoEmpresa(false); setNuevaEmpresa('') }} className="btn-outline" style={{ padding: '0 10px' }}>
-              <X size={14} />
-            </button>
-          </div>
-        ) : (
-          <select value={form.empresa} onChange={e => {
-            if (e.target.value === NUEVA_EMPRESA_SENTINEL) { setAgregandoEmpresa(true); return }
-            setForm((p: any) => ({ ...p, empresa: e.target.value }))
-          }} style={{ color: form.empresa ? 'var(--navy)' : 'var(--slate)' }}>
-            <option value="">— Seleccionar —</option>
-            {empresas.map(e => <option key={e} value={e}>{e}</option>)}
-            {form.empresa && !empresas.includes(form.empresa) && <option value={form.empresa}>{form.empresa}</option>}
-            <option value={NUEVA_EMPRESA_SENTINEL}>+ Agregar nueva empresa...</option>
-          </select>
-        )}
+        <CatalogoSelect tabla="contratos_empresas" categoria={categoria} value={form.empresa}
+          onChange={v => setForm((p: any) => ({ ...p, empresa: v }))} opciones={empresas} onAgregado={onEmpresaAgregada}
+          placeholderNuevo="Nombre de la empresa" />
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>También se administran desde Configuración</div>
       </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Tipo de contrato</label>
-        <input value={form.tipo_contrato} onChange={e => setForm((p: any) => ({ ...p, tipo_contrato: e.target.value }))} placeholder="Ej: Mantenimiento, Mantenimiento + reparaciones..." /></div>
+        <CatalogoSelect tabla="contratos_tipos" categoria={categoria} value={form.tipo_contrato}
+          onChange={v => setForm((p: any) => ({ ...p, tipo_contrato: v }))} opciones={tipos} onAgregado={onTipoAgregado}
+          placeholderNuevo="Ej: Integral, Básico..." />
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>También se administran desde Configuración</div>
+      </div>
 
       {auto ? (
         <>

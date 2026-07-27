@@ -8,7 +8,7 @@ import { fetchCategorias, slugify, CategoriaRow, TipoCategoria } from '@/lib/con
 
 type Item = { id: string; nombre: string }
 
-function EmpresasSeccion({ categoria }: { categoria: CategoriaRow }) {
+function CatalogoSeccion({ categoria, tabla, titulo, placeholder }: { categoria: CategoriaRow; tabla: 'contratos_empresas' | 'contratos_tipos'; titulo: string; placeholder: string }) {
   const supabase = createClient()
   const [items, setItems]     = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,7 +23,7 @@ function EmpresasSeccion({ categoria }: { categoria: CategoriaRow }) {
 
   async function fetch() {
     setLoading(true)
-    const { data } = await supabase.from('contratos_empresas').select('id, nombre').eq('categoria', categoria.slug).order('nombre')
+    const { data } = await supabase.from(tabla).select('id, nombre').eq('categoria', categoria.slug).order('nombre')
     if (data) setItems(data)
     setLoading(false)
   }
@@ -32,7 +32,7 @@ function EmpresasSeccion({ categoria }: { categoria: CategoriaRow }) {
     const nombre = nuevo.trim()
     if (!nombre) return
     setSaving(true)
-    const { error } = await supabase.from('contratos_empresas').insert([{ nombre, categoria: categoria.slug }])
+    const { error } = await supabase.from(tabla).insert([{ nombre, categoria: categoria.slug }])
     if (error) showToast(`❌ ${error.message.includes('unique') ? 'Ya existe ese nombre' : error.message}`)
     else { setNuevo(''); showToast(`✓ "${nombre}" agregado`); await fetch() }
     setSaving(false)
@@ -41,7 +41,7 @@ function EmpresasSeccion({ categoria }: { categoria: CategoriaRow }) {
   async function eliminar() {
     if (!confirmEliminar) return
     setEliminando(true)
-    const { error } = await supabase.from('contratos_empresas').delete().eq('id', confirmEliminar.id)
+    const { error } = await supabase.from(tabla).delete().eq('id', confirmEliminar.id)
     setEliminando(false)
     if (error) showToast('❌ No se pudo eliminar — puede estar en uso')
     else { showToast(`"${confirmEliminar.nombre}" eliminado`); await fetch() }
@@ -55,13 +55,13 @@ function EmpresasSeccion({ categoria }: { categoria: CategoriaRow }) {
           <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--gold)', letterSpacing: '.04em' }}>{categoria.slug.slice(0, 3).toUpperCase()}</span>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, color: 'white', fontSize: 14 }}>Empresas — {categoria.label}</div>
+          <div style={{ fontWeight: 700, color: 'white', fontSize: 14 }}>{titulo} — {categoria.label}</div>
           <div style={{ fontSize: 11, color: 'var(--slate-light)', marginTop: 1 }}>{loading ? '...' : `${items.length} registros`}</div>
         </div>
       </div>
       <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
         <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregar()}
-          placeholder="Ej: Otis, TKE, Delta..."
+          placeholder={placeholder}
           style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--text-main)', transition: 'border-color .14s' }}
           onFocus={e => (e.target.style.borderColor = 'var(--gold)')} onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
         <button className="btn-primary" onClick={agregar} disabled={saving || !nuevo.trim()} style={{ padding: '8px 14px', fontSize: 13 }}>
@@ -110,6 +110,7 @@ function CategoriasSeccion({ categorias, onChange }: { categorias: CategoriaRow[
   const supabase = createClient()
   const [nombre, setNombre] = useState('')
   const [tipo, setTipo]     = useState<TipoCategoria>('auto')
+  const [empresaInicial, setEmpresaInicial] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast]   = useState<string | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState<CategoriaRow | null>(null)
@@ -127,9 +128,17 @@ function CategoriasSeccion({ categorias, onChange }: { categorias: CategoriaRow[
     while (categorias.some(c => c.slug === slug)) { slug = `${slugify(label)}-${++intento}` }
     const orden = (categorias.reduce((max, c) => Math.max(max, c.orden), 0) || 0) + 1
     const { error } = await supabase.from('contratos_categorias').insert([{ slug, label, tipo, orden }])
+    const empresa = empresaInicial.trim()
+    if (!error && empresa) {
+      await supabase.from('contratos_empresas').insert([{ nombre: empresa, categoria: slug }])
+    }
     setSaving(false)
     if (error) showToast(`❌ ${error.message}`)
-    else { setNombre(''); showToast(`✓ "${label}" agregada — ya aparece en el menú`); onChange() }
+    else {
+      setNombre(''); setEmpresaInicial('')
+      showToast(`✓ "${label}" agregada${empresa ? ` con empresa "${empresa}"` : ''} — ya aparece en el menú`)
+      onChange()
+    }
   }
 
   async function eliminar() {
@@ -170,6 +179,9 @@ function CategoriasSeccion({ categorias, onChange }: { categorias: CategoriaRow[
           <option value="auto">Se renueva sola (vigencia en años)</option>
           <option value="garantia">Fecha fin fija + garantía</option>
         </select>
+        <input value={empresaInicial} onChange={e => setEmpresaInicial(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregar()}
+          placeholder="Empresa inicial (opcional)"
+          style={{ flex: 1, minWidth: 160, padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', color: 'var(--text-main)' }} />
         <button className="btn-primary" onClick={agregar} disabled={saving || !nombre.trim()} style={{ padding: '8px 14px', fontSize: 13 }}>
           {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />}
         </button>
@@ -226,7 +238,7 @@ export default function ConfiguracionContratosPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Configuración</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
-          Categorías de contrato y catálogo de empresas por categoría
+          Categorías de contrato y catálogos de empresas / tipos de contrato por categoría
         </p>
       </div>
 
@@ -236,7 +248,12 @@ export default function ConfiguracionContratosPage() {
 
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-          {categorias.map(c => <EmpresasSeccion key={c.id} categoria={c} />)}
+          {categorias.map(c => (
+            <CatalogoSeccion key={`emp-${c.id}`} categoria={c} tabla="contratos_empresas" titulo="Empresas" placeholder="Ej: Otis, TKE, Delta..." />
+          ))}
+          {categorias.map(c => (
+            <CatalogoSeccion key={`tipo-${c.id}`} categoria={c} tabla="contratos_tipos" titulo="Tipos de contrato" placeholder="Ej: Básico, Integral, Premium..." />
+          ))}
         </div>
       )}
     </div>

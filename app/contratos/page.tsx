@@ -13,6 +13,7 @@ type Contrato = {
   vigencia_anios: number | null
   fecha_fin: string | null
   garantia_meses: number | null
+  renovado: boolean
   mant_clientes: { nombre: string } | null
 }
 
@@ -22,8 +23,8 @@ export default function ContratosDashboard() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [edificios, setEdificios] = useState(0)
+  const [vencidos, setVencidos] = useState(0)
   const [porVencer, setPorVencer] = useState(0)
-  const [seguimiento, setSeguimiento] = useState(0)
   const [vigentes, setVigentes] = useState(0)
   const [categorias, setCategorias] = useState<CategoriaRow[]>([])
   const [porCategoria, setPorCategoria] = useState<Record<string, number>>({})
@@ -36,44 +37,44 @@ export default function ContratosDashboard() {
     const [{ count: edifCount }, cats, { data: contratosData }] = await Promise.all([
       supabase.from('mant_clientes').select('*', { count: 'exact', head: true }),
       fetchCategorias(supabase),
-      supabase.from('contratos').select('id, categoria, cliente_id, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, mant_clientes(nombre)'),
+      supabase.from('contratos').select('id, categoria, cliente_id, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, renovado, mant_clientes(nombre)'),
     ])
     setEdificios(edifCount || 0)
     setCategorias(cats)
     const tipoDe = (slug: string) => cats.find(c => c.slug === slug)?.tipo || 'auto'
 
-    const rows = (contratosData || []) as any as Contrato[]
+    // Los contratos ya renovados (reemplazados por uno nuevo) no cuentan como notificación activa.
+    const rows = ((contratosData || []) as any as Contrato[]).filter(r => !r.renovado)
     const counts: Record<string, number> = {}
-    let pv = 0, sg = 0, vg = 0
+    let vd = 0, pv = 0, vg = 0
     rows.forEach(r => {
       counts[r.categoria] = (counts[r.categoria] || 0) + 1
       if (tipoDe(r.categoria) === 'auto') {
         const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
         if (calc) {
-          if (calc.estado === 'Por vencer' || calc.estado === 'Renovado hoy') pv++
-          else if (calc.estado === 'Seguimiento') sg++
+          if (calc.estado === 'Vencido') vd++
+          else if (calc.estado === 'Por vencer' || calc.estado === 'Seguimiento') pv++
           else vg++
         }
       } else {
         const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
         if (calc) {
           if (calc.estado === 'En ejecución') pv++
-          else if (calc.estado === 'En garantía') sg++
           else vg++
         }
       }
     })
     setPorCategoria(counts)
+    setVencidos(vd)
     setPorVencer(pv)
-    setSeguimiento(sg)
     setVigentes(vg)
     setLoading(false)
   }
 
   const statCards = [
     { label: 'Edificios', value: edificios, sub: 'Cartera compartida con Mantenimiento', icon: Building2, bg: '#EDE9FE', iconColor: '#7C3AED', href: '/contratos/edificios' },
-    { label: 'Por vencer / en ejecución', value: porVencer, sub: '≤95 días o en curso', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
-    { label: 'Seguimiento / garantía', value: seguimiento, sub: '≤180 días o en garantía', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
+    { label: 'Vencidos', value: vencidos, sub: 'No se renuevan solos — hay que actuar', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
+    { label: 'Por vencer / seguimiento', value: porVencer, sub: '≤180 días o en garantía/ejecución', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
     { label: 'Vigentes', value: vigentes, sub: 'Sin novedades', icon: CheckCircle2, bg: '#E6F5EF', iconColor: '#1A7A4E', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
   ]
 

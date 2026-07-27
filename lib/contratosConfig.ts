@@ -78,52 +78,43 @@ export function garantiaValorEnUnidad(meses: number, unidad: UnidadGarantia): nu
 }
 
 // ── Modelo auto-renovable (fecha de firma + vigencia en años) ────────────────
+// IMPORTANTE: acá "auto" se refiere solo a que el vencimiento se calcula solo
+// (fecha de firma + vigencia). El contrato NO se renueva solo: si se vence,
+// queda mostrando "Vencido" de forma persistente (para no perder de vista que
+// hay que hacer algo) hasta que alguien lo renueve a mano con el botón Renovar.
 
-// Cantidad de renovaciones ya cumplidas a hoy (equivalente a MAX(0, INT(YEARFRAC/vigencia)) del Excel,
-// pero calculado por aniversarios exactos en vez de aproximación por fracción de año).
-export function renovacionesAcumuladas(fechaFirma: string, vigenciaAnios: number, hoy = hoyISO()): number {
-  if (!fechaFirma || !vigenciaAnios) return 0
-  let k = 0
-  while (k < 200 && addAnios(fechaFirma, vigenciaAnios * (k + 1)) <= hoy) k++
-  return k
+export function vencimientoAuto(fechaFirma: string, vigenciaAnios: number): string {
+  return addAnios(fechaFirma, vigenciaAnios)
 }
 
-export function ultimaRenovacionVigente(fechaFirma: string, vigenciaAnios: number, renovaciones: number): string {
-  return addAnios(fechaFirma, vigenciaAnios * renovaciones)
-}
+export type EstadoAuto = 'Vencido' | 'Por vencer' | 'Seguimiento' | 'Vigente'
 
-export function proximoVencimiento(fechaFirma: string, vigenciaAnios: number, renovaciones: number): string {
-  return addAnios(fechaFirma, vigenciaAnios * (renovaciones + 1))
-}
-
-export type EstadoAuto = 'Renovado hoy' | 'Por vencer' | 'Seguimiento' | 'Vigente'
-
-// Umbrales tomados tal cual de la planilla: Por vencer <=95 días, Seguimiento <=180 días, si no Vigente.
-export function estadoAuto(dias: number, renovaciones: number, ultimaRenovVigente: string, hoy = hoyISO()): EstadoAuto {
-  if (renovaciones > 0 && ultimaRenovVigente === hoy) return 'Renovado hoy'
+// Umbrales tomados de la planilla original: Por vencer <=95 días, Seguimiento <=180 días, si no Vigente.
+// A diferencia de la planilla, acá los días pueden ser negativos (contrato vencido) y no se recalculan solos.
+export function estadoAuto(dias: number): EstadoAuto {
+  if (dias < 0) return 'Vencido'
   if (dias <= 95) return 'Por vencer'
   if (dias <= 180) return 'Seguimiento'
   return 'Vigente'
 }
 
-export function estadoAutoBadge(estado: EstadoAuto | null): { label: string; cls: string } {
+export function estadoAutoBadge(estado: EstadoAuto | null, renovado?: boolean): { label: string; cls: string } {
+  if (renovado) return { label: 'Renovado', cls: 'badge-blue' }
   if (!estado) return { label: 'Sin datos', cls: 'badge-neutral' }
-  if (estado === 'Renovado hoy') return { label: 'Renovado hoy', cls: 'badge-blue' }
+  if (estado === 'Vencido') return { label: 'Vencido', cls: 'badge-danger' }
   if (estado === 'Por vencer') return { label: 'Por vencer', cls: 'badge-danger' }
   if (estado === 'Seguimiento') return { label: 'Seguimiento', cls: 'badge-warning' }
   return { label: 'Vigente', cls: 'badge-success' }
 }
 
-// Calcula todos los derivados de un contrato auto-renovable a partir de fecha_firma_inicio + vigencia_anios.
-// Devuelve null si faltan datos (equivalente a las celdas en blanco del Excel).
+// Calcula el vencimiento y estado de un contrato auto-renovable a partir de fecha_firma_inicio + vigencia_anios.
+// Devuelve null si faltan datos.
 export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | null, hoy = hoyISO()) {
   if (!fechaFirma || !vigenciaAnios) return null
-  const renovaciones = renovacionesAcumuladas(fechaFirma, vigenciaAnios, hoy)
-  const ultimaVigente = ultimaRenovacionVigente(fechaFirma, vigenciaAnios, renovaciones)
-  const proximoVenc = proximoVencimiento(fechaFirma, vigenciaAnios, renovaciones)
-  const dias = diasHasta(proximoVenc)!
-  const estado = estadoAuto(dias, renovaciones, ultimaVigente, hoy)
-  return { renovaciones, ultimaVigente, proximoVenc, dias, estado }
+  const vencimiento = vencimientoAuto(fechaFirma, vigenciaAnios)
+  const dias = diasHasta(vencimiento)!
+  const estado = estadoAuto(dias)
+  return { vencimiento, dias, estado }
 }
 
 // ── Modelo de garantía (fecha fija + período de garantía) ────────────────────
@@ -153,4 +144,26 @@ export function calcularObra(fechaFin: string | null, garantiaMeses: number | nu
   const gh = garantiaHasta(fechaFin, garantiaMeses || 0)
   const estado = estadoObra(fechaFin, garantiaMeses || 0, hoy)
   return { garantiaHasta: gh, estado }
+}
+
+// ── Orden por defecto (antes de aplicar cualquier orden que elija el usuario) ─
+// Siempre primero lo que hay que atender: a vencer/vencido, después seguimiento,
+// y al final lo que está resuelto (vigente, en garantía, renovado, etc).
+export function prioridadEstado(label: string): number {
+  switch (label) {
+    case 'Vencido':
+    case 'Por vencer':
+    case 'En ejecución':
+      return 0
+    case 'Seguimiento':
+      return 1
+    case 'Vigente':
+    case 'En garantía':
+      return 2
+    case 'Garantía vencida':
+    case 'Renovado':
+      return 3
+    default:
+      return 4
+  }
 }
