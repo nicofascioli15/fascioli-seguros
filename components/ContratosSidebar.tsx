@@ -4,26 +4,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeProvider'
+import { fetchCategorias, CategoriaRow } from '@/lib/contratosConfig'
 import {
-  LayoutDashboard, Building2, ArrowUpDown, Accessibility, FileCog, HardHat, Settings, LogOut, Sun, Moon, LayoutGrid, X
+  LayoutDashboard, Building2, FileText, Settings, LogOut, Sun, Moon, LayoutGrid, X
 } from 'lucide-react'
-
-type NavItem = { href: string; icon: any; label: string }
-const navItems: NavItem[] = [
-  { href: '/contratos',            icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/contratos/edificios',  icon: Building2,        label: 'Edificios' },
-  { href: '/contratos/ascensores', icon: ArrowUpDown,      label: 'Ascensores' },
-  { href: '/contratos/rampas',     icon: Accessibility,    label: 'Rampas' },
-  { href: '/contratos/servicios',  icon: FileCog,          label: 'Otros servicios' },
-  { href: '/contratos/obras',      icon: HardHat,          label: 'Obras' },
-]
-
-const bottomNavItems: NavItem[] = [
-  { href: '/contratos',            icon: LayoutDashboard, label: 'Inicio' },
-  { href: '/contratos/edificios',  icon: Building2,        label: 'Edificios' },
-  { href: '/contratos/ascensores', icon: ArrowUpDown,      label: 'Ascensores' },
-  { href: '/contratos/obras',      icon: HardHat,          label: 'Obras' },
-]
 
 export default function ContratosSidebar() {
   const pathname = usePathname()
@@ -32,14 +16,28 @@ export default function ContratosSidebar() {
   const { theme, toggleTheme } = useTheme()
 
   const [open, setOpen] = useState(false)
+  const [categorias, setCategorias] = useState<CategoriaRow[]>([])
 
   useEffect(() => { setOpen(false) }, [pathname])
+  useEffect(() => { fetchCategorias(supabase).then(setCategorias) }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
   }
+
+  const navItems = [
+    { href: '/contratos', icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/contratos/edificios', icon: Building2, label: 'Edificios' },
+    ...categorias.map(c => ({ href: `/contratos/categoria/${c.slug}`, icon: FileText, label: c.label })),
+  ]
+
+  const bottomNavItems = [
+    { href: '/contratos', icon: LayoutDashboard, label: 'Inicio' },
+    { href: '/contratos/edificios', icon: Building2, label: 'Edificios' },
+    ...categorias.slice(0, 2).map(c => ({ href: `/contratos/categoria/${c.slug}`, icon: FileText, label: c.label })),
+  ]
 
   return (
     <>

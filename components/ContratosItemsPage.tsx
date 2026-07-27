@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -13,7 +13,7 @@ import ActionsMenu from '@/components/ActionsMenu'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import {
-  Categoria, esAutoRenovable, categoriaLabel, DOCS_TIPOS, hoyISO, formatFecha,
+  TipoCategoria, docsTipos, hoyISO, formatFecha, garantiaMesesDesde, garantiaValorEnUnidad, UnidadGarantia,
   calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge,
 } from '@/lib/contratosConfig'
 
@@ -29,6 +29,7 @@ type Row = {
   vigencia_anios: number | null
   fecha_fin: string | null
   garantia_meses: number | null
+  garantia_unidad: UnidadGarantia
   nota: string
   created_at: string
   docsCount: number
@@ -42,11 +43,11 @@ type Row = {
 
 export const emptyForm = {
   cliente_id: '', tipo_contrato: '', empresa: '', fecha_firma_inicio: '', vigencia_anios: 1,
-  fecha_fin: '', garantia_meses: 12, nota: '',
+  fecha_fin: '', garantia_valor: 12, garantia_unidad: 'meses' as UnidadGarantia, nota: '',
 }
 
-function calcularFila(r: any, auto: boolean, hoy: string): Row {
-  if (auto) {
+function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
+  if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
     const badge = estadoAutoBadge(calc?.estado || null)
     return {
@@ -64,9 +65,9 @@ function calcularFila(r: any, auto: boolean, hoy: string): Row {
   }
 }
 
-export default function ContratosItemsPage({ categoria, titulo }: { categoria: Categoria; titulo: string }) {
+export default function ContratosItemsPage({ categoria, titulo, tipo }: { categoria: string; titulo: string; tipo: TipoCategoria }) {
   const supabase = createClient()
-  const auto = esAutoRenovable(categoria)
+  const auto = tipo === 'auto'
   const hoy = hoyISO()
 
   const [rows, setRows]         = useState<Row[]>([])
@@ -93,19 +94,19 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
 
   const [docsFor, setDocsFor] = useState<Row | null>(null)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchAll() }, [categoria])
 
   async function fetchAll() {
     setLoading(true)
     const [{ data: rowsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
-      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
+      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
       supabase.from('contratos_empresas').select('nombre').eq('categoria', categoria).order('nombre'),
     ])
     if (empresasData) setEmpresas(empresasData.map((e: any) => e.nombre))
     if (clientesData) setClientes(clientesData)
     if (rowsData) {
-      const mapped = rowsData.map((r: any) => calcularFila(r, auto, hoy))
+      const mapped = rowsData.map((r: any) => calcularFila(r, tipo, hoy))
       const ids = mapped.map(r => r.id)
       if (ids.length > 0) {
         const { data: docsData } = await supabase.from('contratos_documentos').select('contrato_id').in('contrato_id', ids)
@@ -131,10 +132,12 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
       base.vigencia_anios = f.vigencia_anios || null
       base.fecha_fin = null
       base.garantia_meses = null
+      base.garantia_unidad = 'meses'
     } else {
       base.fecha_firma_inicio = f.fecha_firma_inicio || null
       base.fecha_fin = f.fecha_fin || null
-      base.garantia_meses = f.garantia_meses || 0
+      base.garantia_meses = garantiaMesesDesde(f.garantia_valor || 0, f.garantia_unidad)
+      base.garantia_unidad = f.garantia_unidad
       base.vigencia_anios = null
     }
     return base
@@ -146,7 +149,7 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
     const payload = payloadDe(form)
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
-      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${categoriaLabel(categoria).toLowerCase()} creado`, datosDespues: data })
+      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${titulo.toLowerCase()} creado`, datosDespues: data })
       setForm(emptyForm)
       setClienteLocked(null)
       setShowModal(false)
@@ -160,7 +163,10 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
     setEditForm({
       cliente_id: r.cliente_id || '', tipo_contrato: r.tipo_contrato || '', empresa: r.empresa || '',
       fecha_firma_inicio: r.fecha_firma_inicio || '', vigencia_anios: r.vigencia_anios || 1,
-      fecha_fin: r.fecha_fin || '', garantia_meses: r.garantia_meses || 12, nota: r.nota || '',
+      fecha_fin: r.fecha_fin || '',
+      garantia_valor: garantiaValorEnUnidad(r.garantia_meses || 12, r.garantia_unidad || 'meses'),
+      garantia_unidad: r.garantia_unidad || 'meses',
+      nota: r.nota || '',
     })
   }
 
@@ -407,7 +413,7 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
 
             {paso === 'contrato' && (
               <>
-                <ContratoForm form={form} setForm={setForm} auto={auto} empresas={empresas} />
+                <ContratoForm form={form} setForm={setForm} tipo={tipo} categoria={categoria} empresas={empresas} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <button className="btn-outline" onClick={() => setPaso('cliente')}>← Cambiar edificio</button>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -432,7 +438,7 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', marginBottom: 14 }}>{editando.cliente_nombre}</div>
-            <ContratoForm form={editForm} setForm={setEditForm} auto={auto} empresas={empresas} />
+            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipo} categoria={categoria} empresas={empresas} onEmpresaAgregada={nombre => setEmpresas(p => Array.from(new Set([...p, nombre])).sort())} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -465,7 +471,7 @@ export default function ContratosItemsPage({ categoria, titulo }: { categoria: C
         <ContratosDocumentos
           contratoId={docsFor.id}
           clienteNombre={docsFor.cliente_nombre}
-          tiposSugeridos={DOCS_TIPOS[categoria]}
+          tiposSugeridos={docsTipos(tipo)}
           onClose={() => setDocsFor(null)}
         />
       )}
@@ -498,16 +504,59 @@ function DocsClip({ count, onClick }: { count: number; onClick: () => void }) {
   )
 }
 
-export function ContratoForm({ form, setForm, auto, empresas }: { form: typeof emptyForm; setForm: (f: any) => void; auto: boolean; empresas: string[] }) {
+const NUEVA_EMPRESA_SENTINEL = '__nueva__'
+
+export function ContratoForm({ form, setForm, tipo, categoria, empresas, onEmpresaAgregada }: {
+  form: typeof emptyForm; setForm: (f: any) => void; tipo: TipoCategoria; categoria: string; empresas: string[]; onEmpresaAgregada?: (nombre: string) => void
+}) {
+  const supabase = createClient()
+  const auto = tipo === 'auto'
+  const [agregandoEmpresa, setAgregandoEmpresa] = useState(false)
+  const [nuevaEmpresa, setNuevaEmpresa] = useState('')
+  const [guardandoEmpresa, setGuardandoEmpresa] = useState(false)
+
+  async function confirmarNuevaEmpresa() {
+    const nombre = nuevaEmpresa.trim()
+    if (!nombre) { setAgregandoEmpresa(false); return }
+    setGuardandoEmpresa(true)
+    const { error } = await supabase.from('contratos_empresas').insert([{ nombre, categoria }])
+    setGuardandoEmpresa(false)
+    if (!error || error.message.includes('unique')) {
+      setForm((p: any) => ({ ...p, empresa: nombre }))
+      onEmpresaAgregada?.(nombre)
+    }
+    setAgregandoEmpresa(false)
+    setNuevaEmpresa('')
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Empresa</label>
-        <select value={form.empresa} onChange={e => setForm((p: any) => ({ ...p, empresa: e.target.value }))} style={{ color: form.empresa ? 'var(--navy)' : 'var(--slate)' }}>
-          <option value="">— Seleccionar —</option>
-          {empresas.map(e => <option key={e} value={e}>{e}</option>)}
-          {form.empresa && !empresas.includes(form.empresa) && <option value={form.empresa}>{form.empresa}</option>}
-        </select>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se administran desde Configuración</div>
+        {agregandoEmpresa ? (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input value={nuevaEmpresa} onChange={e => setNuevaEmpresa(e.target.value)} autoFocus placeholder="Nombre de la empresa"
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmarNuevaEmpresa() } if (e.key === 'Escape') { setAgregandoEmpresa(false); setNuevaEmpresa('') } }}
+              style={{ flex: 1 }} />
+            <button type="button" onClick={confirmarNuevaEmpresa} disabled={guardandoEmpresa || !nuevaEmpresa.trim()}
+              className="btn-primary" style={{ padding: '0 12px' }}>
+              {guardandoEmpresa ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+            </button>
+            <button type="button" onClick={() => { setAgregandoEmpresa(false); setNuevaEmpresa('') }} className="btn-outline" style={{ padding: '0 10px' }}>
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <select value={form.empresa} onChange={e => {
+            if (e.target.value === NUEVA_EMPRESA_SENTINEL) { setAgregandoEmpresa(true); return }
+            setForm((p: any) => ({ ...p, empresa: e.target.value }))
+          }} style={{ color: form.empresa ? 'var(--navy)' : 'var(--slate)' }}>
+            <option value="">— Seleccionar —</option>
+            {empresas.map(e => <option key={e} value={e}>{e}</option>)}
+            {form.empresa && !empresas.includes(form.empresa) && <option value={form.empresa}>{form.empresa}</option>}
+            <option value={NUEVA_EMPRESA_SENTINEL}>+ Agregar nueva empresa...</option>
+          </select>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>También se administran desde Configuración</div>
       </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Tipo de contrato</label>
         <input value={form.tipo_contrato} onChange={e => setForm((p: any) => ({ ...p, tipo_contrato: e.target.value }))} placeholder="Ej: Mantenimiento, Mantenimiento + reparaciones..." /></div>
@@ -526,13 +575,19 @@ export function ContratoForm({ form, setForm, auto, empresas }: { form: typeof e
       ) : (
         <>
           <div className="fgroup"><label>Fecha de inicio</label>
-            <DatePicker value={form.fecha_firma_inicio} onChange={v => setForm((p: any) => ({ ...p, fecha_firma_inicio: v }))} placeholder="Inicio de obra" /></div>
+            <DatePicker value={form.fecha_firma_inicio} onChange={v => setForm((p: any) => ({ ...p, fecha_firma_inicio: v }))} placeholder="Inicio" /></div>
           <div className="fgroup"><label>Fecha de fin</label>
-            <DatePicker value={form.fecha_fin} onChange={v => setForm((p: any) => ({ ...p, fecha_fin: v }))} placeholder="Fin de obra" /></div>
-          <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Garantía (meses)</label>
-            <input type="number" min={0} value={form.garantia_meses}
-              onChange={e => setForm((p: any) => ({ ...p, garantia_meses: Math.max(0, parseInt(e.target.value) || 0) }))}
-              style={{ width: '100%', padding: '9px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+            <DatePicker value={form.fecha_fin} onChange={v => setForm((p: any) => ({ ...p, fecha_fin: v }))} placeholder="Fin" /></div>
+          <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Garantía</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="number" min={0} value={form.garantia_valor}
+                onChange={e => setForm((p: any) => ({ ...p, garantia_valor: Math.max(0, parseInt(e.target.value) || 0) }))}
+                style={{ flex: 1, padding: '9px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }} />
+              <select value={form.garantia_unidad} onChange={e => setForm((p: any) => ({ ...p, garantia_unidad: e.target.value as UnidadGarantia }))} style={{ width: 110 }}>
+                <option value="meses">Meses</option>
+                <option value="anios">Años</option>
+              </select>
+            </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>A partir de la fecha de fin, cuenta como "En garantía" durante este período</div>
           </div>
         </>

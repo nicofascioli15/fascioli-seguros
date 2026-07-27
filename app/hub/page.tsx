@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { esAutoRenovable, calcularAuto, calcularObra, hoyISO } from '@/lib/contratosConfig'
+import { fetchCategorias, calcularAuto, calcularObra, hoyISO } from '@/lib/contratosConfig'
 
 const NAVY = '#0F1E35'
 const GOLD = '#C9A84C'
@@ -114,11 +114,15 @@ export default function HubPage() {
       setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant })
 
       // Load contratos stats (vigencia calculada en vivo, no hay estado guardado)
-      const { data: contratosData } = await supabase.from('contratos').select('categoria, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses')
+      const [catsContratos, { data: contratosData }] = await Promise.all([
+        fetchCategorias(supabase),
+        supabase.from('contratos').select('categoria, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses'),
+      ])
+      const tipoDeContrato = (slug: string) => catsContratos.find(c => c.slug === slug)?.tipo || 'auto'
       const hoyC = hoyISO()
       let porVencer = 0
       ;(contratosData || []).forEach((r: any) => {
-        if (esAutoRenovable(r.categoria)) {
+        if (tipoDeContrato(r.categoria) === 'auto') {
           const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoyC)
           if (calc && (calc.estado === 'Por vencer' || calc.estado === 'Renovado hoy')) porVencer++
         } else {

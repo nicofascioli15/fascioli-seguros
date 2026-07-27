@@ -1,31 +1,32 @@
 // Configuración y lógica de cálculo del módulo Contratos.
-// El modelo "auto-renovable" (ascensor / rampa / servicio) replica exactamente
-// las fórmulas de la planilla Excel de referencia (fecha de firma + vigencia en años),
-// pero se calcula en vivo — no se guarda ningún estado de renovación en la base.
-// El modelo "obra" es distinto: fecha de inicio + fecha de fin fija + período de garantía.
+// Las categorías (Ascensores, Rampas, Obras, y las que se agreguen desde Configuración)
+// se guardan en la tabla contratos_categorias — no hay nada fijo en código, así que crear
+// una categoría nueva alcanza para que aparezca en el nav y tenga su propia página.
+//
+// Cada categoría tiene un "tipo" que define cómo se calcula la vigencia:
+//   'auto'     -> se renueva sola (fecha de firma + vigencia en años), calculado en vivo.
+//   'garantia' -> fecha de inicio + fecha de fin fija + período de garantía (en meses o años).
 
-export type Categoria = 'ascensor' | 'rampa' | 'servicio' | 'obra'
+export type TipoCategoria = 'auto' | 'garantia'
+export type CategoriaRow = { id: string; slug: string; label: string; tipo: TipoCategoria; orden: number }
 
-export const CATEGORIAS: { value: Categoria; label: string; auto: boolean; ruta: string }[] = [
-  { value: 'ascensor', label: 'Ascensores',      auto: true,  ruta: '/contratos/ascensores' },
-  { value: 'rampa',    label: 'Rampas',           auto: true,  ruta: '/contratos/rampas' },
-  { value: 'servicio', label: 'Otros servicios',  auto: true,  ruta: '/contratos/servicios' },
-  { value: 'obra',     label: 'Obras',            auto: false, ruta: '/contratos/obras' },
-]
-
-export function categoriaLabel(c: string): string {
-  return CATEGORIAS.find(cat => cat.value === c)?.label || c
+export async function fetchCategorias(supabase: any): Promise<CategoriaRow[]> {
+  const { data } = await supabase.from('contratos_categorias').select('id, slug, label, tipo, orden').order('orden')
+  return (data || []) as CategoriaRow[]
 }
 
-export function esAutoRenovable(c: string): boolean {
-  return CATEGORIAS.find(cat => cat.value === c)?.auto ?? true
+// Genera un slug simple y estable a partir del nombre visible (sin tildes, minúsculas, guiones).
+export function slugify(s: string): string {
+  const sinAcentos = s.trim().toLowerCase().normalize('NFD').split('').filter(ch => {
+    const code = ch.charCodeAt(0)
+    return code < 0x0300 || code > 0x036f
+  }).join('')
+  const base = sinAcentos.replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '')
+  return base || 'categoria'
 }
 
-export const DOCS_TIPOS: Record<Categoria, string[]> = {
-  ascensor: ['Contrato', 'Factura', 'Otro'],
-  rampa: ['Contrato', 'Factura', 'Otro'],
-  servicio: ['Contrato', 'Factura', 'Otro'],
-  obra: ['Contrato', 'Garantía', 'Factura', 'Otro'],
+export function docsTipos(tipo: TipoCategoria): string[] {
+  return tipo === 'garantia' ? ['Contrato', 'Garantía', 'Factura', 'Otro'] : ['Contrato', 'Factura', 'Otro']
 }
 
 export function hoyISO(): string {
@@ -63,7 +64,20 @@ export function addMeses(iso: string, meses: number): string {
   return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(Math.min(d, maxDay)).padStart(2, '0')}`
 }
 
-// ── Modelo auto-renovable (ascensor / rampa / servicio) ──────────────────────
+// ── Unidad de la garantía (meses o años) ─────────────────────────────────────
+// El cálculo interno siempre es en meses; estas funciones solo convierten lo que
+// se escribe/lee en el formulario para poder cargarla como "6 meses" o "2 años".
+export type UnidadGarantia = 'meses' | 'anios'
+
+export function garantiaMesesDesde(valor: number, unidad: UnidadGarantia): number {
+  return unidad === 'anios' ? Math.round(valor * 12) : Math.round(valor)
+}
+
+export function garantiaValorEnUnidad(meses: number, unidad: UnidadGarantia): number {
+  return unidad === 'anios' ? Math.round(meses / 12) : meses
+}
+
+// ── Modelo auto-renovable (fecha de firma + vigencia en años) ────────────────
 
 // Cantidad de renovaciones ya cumplidas a hoy (equivalente a MAX(0, INT(YEARFRAC/vigencia)) del Excel,
 // pero calculado por aniversarios exactos en vez de aproximación por fracción de año).
@@ -112,7 +126,7 @@ export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | 
   return { renovaciones, ultimaVigente, proximoVenc, dias, estado }
 }
 
-// ── Modelo de obra (fecha fija + garantía) ───────────────────────────────────
+// ── Modelo de garantía (fecha fija + período de garantía) ────────────────────
 
 export type EstadoObra = 'En ejecución' | 'En garantía' | 'Garantía vencida'
 

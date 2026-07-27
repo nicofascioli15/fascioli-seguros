@@ -12,7 +12,8 @@ import ContratosDocumentos from '@/components/ContratosDocumentos'
 import { ContratoForm, emptyForm as emptyContratoForm } from '@/components/ContratosItemsPage'
 import { Pagination, paginate } from '@/components/Pagination'
 import {
-  Categoria, CATEGORIAS, categoriaLabel, esAutoRenovable, DOCS_TIPOS, hoyISO, formatFecha,
+  fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha,
+  garantiaMesesDesde, garantiaValorEnUnidad,
   calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge,
 } from '@/lib/contratosConfig'
 
@@ -350,16 +351,15 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
 // ── Detalle del edificio: contratos de todas las categorías ──────────────────
 
 type ContratoRow = {
-  id: string; categoria: Categoria; tipo_contrato: string; empresa: string
+  id: string; categoria: string; tipo_contrato: string; empresa: string
   fecha_firma_inicio: string | null; vigencia_anios: number | null
-  fecha_fin: string | null; garantia_meses: number | null; nota: string
+  fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null
 }
 
-function calcularFila(r: any, hoy: string): ContratoRow {
-  const auto = esAutoRenovable(r.categoria)
-  if (auto) {
+function calcularFila(r: any, tipo: TipoCategoria, hoy: string): ContratoRow {
+  if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
     const badge = estadoAutoBadge(calc?.estado || null)
     return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.proximoVenc ?? null }
@@ -373,22 +373,36 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   const supabase = createClient()
   const [contratos, setContratos] = useState<ContratoRow[]>([])
   const [loading, setLoading]     = useState(true)
+  const [categorias, setCategorias] = useState<CategoriaRow[]>([])
   const [empresasPorCat, setEmpresasPorCat] = useState<Record<string, string[]>>({})
 
-  const [addForm, setAddForm]   = useState({ ...emptyContratoForm, categoria: 'ascensor' as Categoria })
+  const [addForm, setAddForm]   = useState({ ...emptyContratoForm, categoria: '' })
   const [showAdd, setShowAdd]   = useState(false)
   const [saving, setSaving]     = useState(false)
 
   const [editando, setEditando] = useState<ContratoRow | null>(null)
-  const [editForm, setEditForm] = useState({ ...emptyContratoForm, categoria: 'ascensor' as Categoria })
+  const [editForm, setEditForm] = useState({ ...emptyContratoForm, categoria: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   const [confirmEliminar, setConfirmEliminar] = useState<ContratoRow | null>(null)
   const [eliminando, setEliminando] = useState(false)
   const [docsFor, setDocsFor] = useState<ContratoRow | null>(null)
 
-  useEffect(() => { fetchContratos() }, [cliente.id])
+  function tipoDe(slug: string): TipoCategoria {
+    return categorias.find(c => c.slug === slug)?.tipo || 'auto'
+  }
+  function labelDe(slug: string): string {
+    return categorias.find(c => c.slug === slug)?.label || slug
+  }
+
+  useEffect(() => { fetchContratos() }, [cliente.id, categorias.length])
   useEffect(() => {
+    fetchCategorias(supabase).then(cats => {
+      setCategorias(cats)
+      const primeraSlug = cats[0]?.slug || ''
+      setAddForm(p => ({ ...p, categoria: p.categoria || primeraSlug }))
+      setEditForm(p => ({ ...p, categoria: p.categoria || primeraSlug }))
+    })
     supabase.from('contratos_empresas').select('nombre, categoria').then(({ data }) => {
       const map: Record<string, string[]> = {}
       ;(data || []).forEach((e: any) => { (map[e.categoria] ||= []).push(e.nombre) })
@@ -397,10 +411,11 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   }, [])
 
   async function fetchContratos() {
+    if (categorias.length === 0) return
     setLoading(true)
     const hoy = hoyISO()
-    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, nota, created_at').eq('cliente_id', cliente.id).order('created_at')
-    const mapped = (data || []).map((r: any) => calcularFila(r, hoy))
+    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, nota, created_at').eq('cliente_id', cliente.id).order('created_at')
+    const mapped = (data || []).map((r: any) => calcularFila(r, tipoDe(r.categoria), hoy))
     const ids = mapped.map(r => r.id)
     if (ids.length > 0) {
       const { data: docsData } = await supabase.from('contratos_documentos').select('contrato_id').in('contrato_id', ids)
@@ -413,17 +428,19 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   }
 
   function payloadDe(f: typeof addForm) {
-    const auto = esAutoRenovable(f.categoria)
+    const auto = tipoDe(f.categoria) === 'auto'
     const base: any = { categoria: f.categoria, cliente_id: cliente.id, tipo_contrato: f.tipo_contrato || null, empresa: f.empresa || null, nota: f.nota || null }
     if (auto) {
       base.fecha_firma_inicio = f.fecha_firma_inicio || null
       base.vigencia_anios = f.vigencia_anios || null
       base.fecha_fin = null
       base.garantia_meses = null
+      base.garantia_unidad = 'meses'
     } else {
       base.fecha_firma_inicio = f.fecha_firma_inicio || null
       base.fecha_fin = f.fecha_fin || null
-      base.garantia_meses = f.garantia_meses || 0
+      base.garantia_meses = garantiaMesesDesde(f.garantia_valor || 0, f.garantia_unidad)
+      base.garantia_unidad = f.garantia_unidad
       base.vigencia_anios = null
     }
     return base
@@ -434,9 +451,9 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     const payload = payloadDe(addForm)
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
-      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${categoriaLabel(addForm.categoria).toLowerCase()} creado para ${cliente.nombre}`, datosDespues: data })
+      await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${labelDe(addForm.categoria).toLowerCase()} creado para ${cliente.nombre}`, datosDespues: data })
       setShowAdd(false)
-      setAddForm({ ...emptyContratoForm, categoria: 'ascensor' })
+      setAddForm({ ...emptyContratoForm, categoria: categorias[0]?.slug || '' })
       await fetchContratos()
     }
     setSaving(false)
@@ -447,7 +464,10 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     setEditForm({
       categoria: r.categoria, tipo_contrato: r.tipo_contrato || '', empresa: r.empresa || '',
       fecha_firma_inicio: r.fecha_firma_inicio || '', vigencia_anios: r.vigencia_anios || 1,
-      fecha_fin: r.fecha_fin || '', garantia_meses: r.garantia_meses || 12, nota: r.nota || '',
+      fecha_fin: r.fecha_fin || '',
+      garantia_valor: garantiaValorEnUnidad(r.garantia_meses || 12, r.garantia_unidad || 'meses'),
+      garantia_unidad: r.garantia_unidad || 'meses',
+      nota: r.nota || '',
       cliente_id: cliente.id,
     })
   }
@@ -488,7 +508,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
           {cliente.tel && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={12} /> {cliente.tel}</span>}
           {cliente.email && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Mail size={12} /> {cliente.email}</span>}
         </div>
-        <button className="btn-primary btn-sm" onClick={() => { setAddForm({ ...emptyContratoForm, categoria: 'ascensor' }); setShowAdd(true) }}>
+        <button className="btn-primary btn-sm" onClick={() => { setAddForm({ ...emptyContratoForm, categoria: categorias[0]?.slug || '' }); setShowAdd(true) }}>
           <Plus size={13} /> Nuevo contrato
         </button>
       </div>
@@ -501,11 +521,11 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
           <div style={{ fontSize: 12 }}>Agregá el primero arriba</div>
         </div>
       ) : (
-        CATEGORIAS.map(cat => {
-          const items = contratos.filter(c => c.categoria === cat.value)
+        categorias.map(cat => {
+          const items = contratos.filter(c => c.categoria === cat.slug)
           if (items.length === 0) return null
           return (
-            <div key={cat.value} className="table-card" style={{ marginBottom: 20 }}>
+            <div key={cat.slug} className="table-card" style={{ marginBottom: 20 }}>
               <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 14 }}>
                 {cat.label} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({items.length})</span>
               </div>
@@ -515,7 +535,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     {it.empresa && <span style={{ fontWeight: 600 }}>{it.empresa}</span>}
                     {it.tipo_contrato && <span style={{ color: 'var(--text-muted)' }}> · {it.tipo_contrato}</span>}
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-                      {esAutoRenovable(it.categoria)
+                      {tipoDe(it.categoria) === 'auto'
                         ? <>Firma {formatFecha(it.fecha_firma_inicio)} · Vigencia {it.vigencia_anios || '—'} {it.vigencia_anios === 1 ? 'año' : 'años'} · Próx. vencimiento {formatFecha(it.proximoVenc)}</>
                         : <>Inicio {formatFecha(it.fecha_firma_inicio)} · Fin {formatFecha(it.fecha_fin)} · Garantía hasta {formatFecha(it.proximoVenc)}</>}
                     </div>
@@ -544,11 +564,12 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
             </div>
             <div className="fgroup" style={{ marginBottom: 12 }}>
               <label>Categoría</label>
-              <select value={addForm.categoria} onChange={e => setAddForm(p => ({ ...p, categoria: e.target.value as Categoria }))}>
-                {CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              <select value={addForm.categoria} onChange={e => setAddForm(p => ({ ...p, categoria: e.target.value }))}>
+                {categorias.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}
               </select>
             </div>
-            <ContratoForm form={addForm} setForm={setAddForm} auto={esAutoRenovable(addForm.categoria)} empresas={empresasPorCat[addForm.categoria] || []} />
+            <ContratoForm form={addForm} setForm={setAddForm} tipo={tipoDe(addForm.categoria)} categoria={addForm.categoria} empresas={empresasPorCat[addForm.categoria] || []}
+              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [addForm.categoria]: Array.from(new Set([...(p[addForm.categoria] || []), nombre])).sort() }))} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setShowAdd(false)}>Cancelar</button>
               <button className="btn-primary" onClick={guardarNuevo} disabled={saving}>
@@ -563,10 +584,11 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditando(null) }}>
           <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar contrato — {categoriaLabel(editando.categoria)}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar contrato — {labelDe(editando.categoria)}</h3>
               <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
-            <ContratoForm form={editForm} setForm={setEditForm} auto={esAutoRenovable(editForm.categoria)} empresas={empresasPorCat[editForm.categoria] || []} />
+            <ContratoForm form={editForm} setForm={setEditForm} tipo={tipoDe(editForm.categoria)} categoria={editForm.categoria} empresas={empresasPorCat[editForm.categoria] || []}
+              onEmpresaAgregada={nombre => setEmpresasPorCat(p => ({ ...p, [editForm.categoria]: Array.from(new Set([...(p[editForm.categoria] || []), nombre])).sort() }))} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -597,7 +619,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
         <ContratosDocumentos
           contratoId={docsFor.id}
           clienteNombre={cliente.nombre}
-          tiposSugeridos={DOCS_TIPOS[docsFor.categoria]}
+          tiposSugeridos={docsTipos(tipoDe(docsFor.categoria))}
           onClose={() => setDocsFor(null)}
         />
       )}

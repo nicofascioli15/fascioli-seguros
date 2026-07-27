@@ -1,7 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import ContratosItemsPage from '@/components/ContratosItemsPage'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default function ServiciosPage() {
-  return <ContratosItemsPage categoria="servicio" titulo="Otros servicios" />
+// Ruta vieja — las categorías ahora son dinámicas y viven en /contratos/categoria/[slug]
+export default function ServiciosRedirect() {
+  const router = useRouter()
+  useEffect(() => { router.replace('/contratos/categoria/servicio') }, [])
+  return null
 }
