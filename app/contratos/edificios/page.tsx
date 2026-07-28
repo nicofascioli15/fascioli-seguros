@@ -578,7 +578,9 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
         </div>
       ) : (
         categorias.map(cat => {
-          const items = contratos.filter(c => c.categoria === cat.slug).sort((a, b) => prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel))
+          const items = contratos.filter(c => c.categoria === cat.slug).sort((a, b) =>
+            prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel) || (Number(b.telegrama_no_renovacion) - Number(a.telegrama_no_renovacion))
+          )
           if (items.length === 0) return null
           return (
             <div key={cat.slug} className="table-card" style={{ marginBottom: 20 }}>

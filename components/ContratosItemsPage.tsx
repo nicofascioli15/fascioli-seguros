@@ -84,6 +84,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroTelegrama, setFiltroTelegrama] = useState<'' | 'si' | 'no'>('')
   const [page, setPage]         = useState(1)
 
   const [showModal, setShowModal] = useState(false)
@@ -255,11 +256,15 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
     const q = search.toLowerCase()
     const matchQ = !q || r.cliente_nombre.toLowerCase().includes(q) || (r.empresa || '').toLowerCase().includes(q) || (r.tipo_contrato || '').toLowerCase().includes(q)
     const matchEstado = !filtroEstado || r.estadoLabel === filtroEstado
-    return matchQ && matchEstado
+    const matchTelegrama = !filtroTelegrama || (filtroTelegrama === 'si' ? r.telegrama_no_renovacion : !r.telegrama_no_renovacion)
+    return matchQ && matchEstado && matchTelegrama
   }
 
-  // Orden base (antes de que el usuario elija una columna): a vencer primero, seguimiento, y lo resuelto al final.
-  const filtradosBase = rows.filter(matchFiltros).sort((a, b) => prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel))
+  // Orden base (antes de que el usuario elija una columna): a vencer primero, seguimiento, y lo resuelto al final;
+  // dentro de cada grupo, los que tienen telegrama de no renovación enviado quedan primero.
+  const filtradosBase = rows.filter(matchFiltros).sort((a, b) =>
+    prioridadEstado(a.estadoLabel) - prioridadEstado(b.estadoLabel) || (Number(b.telegrama_no_renovacion) - Number(a.telegrama_no_renovacion))
+  )
   const { sort, toggleSort, sorted: filtrados } = useSortFilter<Row>(filtradosBase)
   const paginados = paginate(filtrados, page) as Row[]
   const clientesFiltrados = clientes.filter(c =>
@@ -327,6 +332,14 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             {estadosDisponibles.map(es => <option key={es} value={es}>{es}</option>)}
           </select>
         )}
+        {auto && (
+          <select value={filtroTelegrama} onChange={e => { setFiltroTelegrama(e.target.value as any); setPage(1) }}
+            style={{ padding: '8px 12px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--navy)' }}>
+            <option value="">Telegrama: todos</option>
+            <option value="si">Con telegrama enviado</option>
+            <option value="no">Sin telegrama</option>
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -362,7 +375,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                   </>
                 )}
                 <th>Estado</th>
-                {auto && <th title="Telegrama de no renovación automática">Telegrama</th>}
+                {auto && <SortHeader label="Telegrama" col="telegrama_no_renovacion" sort={sort} onSort={toggleSort} />}
                 <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
