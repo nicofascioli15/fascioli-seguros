@@ -257,6 +257,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
               { header: 'Firma', key: 'firma', width: 62 },
               { header: 'Vigencia', key: 'vigencia', width: 50 },
               { header: 'Próx. vencimiento', key: 'proximo', width: 65 },
+              { header: 'Días', key: 'dias', width: 75 },
               { header: 'Estado', key: 'estado', width: 70 },
             ] : [
               { header: 'Edificio', key: 'edificio', width: 110 },
@@ -265,12 +266,13 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
               { header: 'Inicio', key: 'firma', width: 62 },
               { header: 'Fin', key: 'fin', width: 62 },
               { header: 'Garantía hasta', key: 'proximo', width: 65 },
+              { header: 'Días', key: 'dias', width: 75 },
               { header: 'Estado', key: 'estado', width: 70 },
             ]}
             filas={filtrados.map(r => ({
               edificio: r.cliente_nombre, empresa: r.empresa || '—', tipo: r.tipo_contrato || '—',
               firma: formatFecha(r.fecha_firma_inicio), vigencia: r.vigencia_anios ? `${r.vigencia_anios} años` : '—',
-              fin: formatFecha(r.fecha_fin), proximo: formatFecha(r.proximoVenc), estado: r.estadoLabel,
+              fin: formatFecha(r.fecha_fin), proximo: formatFecha(r.proximoVenc), dias: formatDias(r.dias) || '—', estado: r.estadoLabel,
             }))}
             filename={`contratos-${categoria}-fascioli`}
           />
