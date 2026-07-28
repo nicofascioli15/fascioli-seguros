@@ -153,6 +153,7 @@ function CategoriasSeccion({ categorias, onChange }: { categorias: CategoriaRow[
     }
     await supabase.from('contratos_categorias').delete().eq('id', confirmEliminar.id)
     await supabase.from('contratos_empresas').delete().eq('categoria', confirmEliminar.slug)
+    await supabase.from('contratos_tipos').delete().eq('categoria', confirmEliminar.slug)
     setEliminando(false)
     showToast(`"${confirmEliminar.label}" eliminada`)
     setConfirmEliminar(null)
