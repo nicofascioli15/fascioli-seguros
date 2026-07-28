@@ -46,6 +46,15 @@ export function formatFecha(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`
 }
 
+// Texto corto de días restantes/vencidos, para saber a tiempo cuándo hay que mandar el
+// telegrama (con margen, antes de los 90 días de vencimiento).
+export function formatDias(dias: number | null): string {
+  if (dias === null) return ''
+  if (dias === 0) return 'vence hoy'
+  if (dias < 0) return `vencido hace ${Math.abs(dias)} ${Math.abs(dias) === 1 ? 'día' : 'días'}`
+  return `vence en ${dias} ${dias === 1 ? 'día' : 'días'}`
+}
+
 // Suma años calendario a una fecha 'YYYY-MM-DD' (equivalente a EDATE de Excel), clampeando fin de mes.
 export function addAnios(iso: string, anios: number): string {
   const [y, m, d] = iso.split('-').map(Number)

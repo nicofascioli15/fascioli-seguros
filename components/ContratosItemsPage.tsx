@@ -1,6 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check, RotateCw } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
@@ -13,7 +13,7 @@ import ActionsMenu from '@/components/ActionsMenu'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import {
-  TipoCategoria, docsTipos, hoyISO, formatFecha, garantiaMesesDesde, garantiaValorEnUnidad, UnidadGarantia,
+  TipoCategoria, docsTipos, hoyISO, formatFecha, formatDias, diasHasta, garantiaMesesDesde, garantiaValorEnUnidad, UnidadGarantia,
   calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge, prioridadEstado,
 } from '@/lib/contratosConfig'
 
@@ -60,7 +60,7 @@ function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
   const badge = estadoObraBadge(calc?.estado || null)
   return {
     ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
-    dias: null, estadoLabel: badge.label, estadoCls: badge.cls,
+    dias: diasHasta(calc?.garantiaHasta ?? null), estadoLabel: badge.label, estadoCls: badge.cls,
     proximoVenc: calc?.garantiaHasta ?? null,
   }
 }
@@ -336,13 +336,19 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                     <>
                       <td>{formatFecha(r.fecha_firma_inicio)}</td>
                       <td>{r.vigencia_anios ? `${r.vigencia_anios} ${r.vigencia_anios === 1 ? 'año' : 'años'}` : '—'}</td>
-                      <td>{formatFecha(r.proximoVenc)}</td>
+                      <td>
+                        {formatFecha(r.proximoVenc)}
+                        {r.dias !== null && <div style={{ fontSize: 11, color: r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias <= 90 ? 700 : 400, marginTop: 1 }}>{formatDias(r.dias)}</div>}
+                      </td>
                     </>
                   ) : (
                     <>
                       <td>{formatFecha(r.fecha_firma_inicio)}</td>
                       <td>{formatFecha(r.fecha_fin)}</td>
-                      <td>{formatFecha(r.proximoVenc)}</td>
+                      <td>
+                        {formatFecha(r.proximoVenc)}
+                        {r.dias !== null && <div style={{ fontSize: 11, color: r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias <= 90 ? 700 : 400, marginTop: 1 }}>{formatDias(r.dias)}</div>}
+                      </td>
                     </>
                   )}
                   <td><span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span></td>
@@ -379,8 +385,9 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {r.empresa}{r.empresa && ' · '}{r.tipo_contrato}
                 </div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: 11.5, color: r.dias !== null && r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias !== null && r.dias <= 90 ? 700 : 400, marginTop: 4 }}>
                   {auto ? `Próx. vencimiento: ${formatFecha(r.proximoVenc)}` : `Garantía hasta: ${formatFecha(r.proximoVenc)}`}
+                  {r.dias !== null && ` · ${formatDias(r.dias)}`}
                 </div>
               </div>
             ))}
@@ -526,16 +533,16 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               {[
-                { label: 'Empresa', value: detalle.empresa || '—' },
-                { label: 'Tipo de contrato', value: detalle.tipo_contrato || '—' },
+                { label: 'Empresa', value: detalle.empresa || '—' as ReactNode },
+                { label: 'Tipo de contrato', value: detalle.tipo_contrato || '—' as ReactNode },
                 ...(auto ? [
-                  { label: 'Firma / inicio', value: formatFecha(detalle.fecha_firma_inicio) },
-                  { label: 'Vigencia', value: detalle.vigencia_anios ? `${detalle.vigencia_anios} ${detalle.vigencia_anios === 1 ? 'año' : 'años'}` : '—' },
-                  { label: 'Próx. vencimiento', value: formatFecha(detalle.proximoVenc) },
+                  { label: 'Firma / inicio', value: formatFecha(detalle.fecha_firma_inicio) as ReactNode },
+                  { label: 'Vigencia', value: (detalle.vigencia_anios ? `${detalle.vigencia_anios} ${detalle.vigencia_anios === 1 ? 'año' : 'años'}` : '—') as ReactNode },
+                  { label: 'Próx. vencimiento', value: <VencValor fecha={detalle.proximoVenc} dias={detalle.dias} /> },
                 ] : [
-                  { label: 'Inicio', value: formatFecha(detalle.fecha_firma_inicio) },
-                  { label: 'Fin', value: formatFecha(detalle.fecha_fin) },
-                  { label: 'Garantía hasta', value: formatFecha(detalle.proximoVenc) },
+                  { label: 'Inicio', value: formatFecha(detalle.fecha_firma_inicio) as ReactNode },
+                  { label: 'Fin', value: formatFecha(detalle.fecha_fin) as ReactNode },
+                  { label: 'Garantía hasta', value: <VencValor fecha={detalle.proximoVenc} dias={detalle.dias} /> },
                 ]),
               ].map(f => (
                 <div key={f.label}>
@@ -594,6 +601,19 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
+  )
+}
+
+function VencValor({ fecha, dias }: { fecha: string | null; dias: number | null }) {
+  return (
+    <>
+      {formatFecha(fecha)}
+      {dias !== null && (
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', marginTop: 2 }}>
+          {formatDias(dias)}
+        </div>
+      )}
+    </>
   )
 }
 

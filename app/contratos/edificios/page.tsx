@@ -12,7 +12,7 @@ import ContratosDocumentos from '@/components/ContratosDocumentos'
 import { ContratoForm, emptyForm as emptyContratoForm } from '@/components/ContratosItemsPage'
 import { Pagination, paginate } from '@/components/Pagination'
 import {
-  fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha,
+  fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha, formatDias, diasHasta,
   garantiaMesesDesde, garantiaValorEnUnidad,
   calcularAuto, estadoAutoBadge, calcularObra, estadoObraBadge, prioridadEstado,
 } from '@/lib/contratosConfig'
@@ -355,18 +355,18 @@ type ContratoRow = {
   fecha_firma_inicio: string | null; vigencia_anios: number | null
   fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean; nota: string
   docsCount: number
-  estadoLabel: string; estadoCls: string; proximoVenc: string | null
+  estadoLabel: string; estadoCls: string; proximoVenc: string | null; dias: number | null
 }
 
 function calcularFila(r: any, tipo: TipoCategoria, hoy: string): ContratoRow {
   if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
     const badge = estadoAutoBadge(calc?.estado || null, r.renovado)
-    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null }
+    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null, dias: calc?.dias ?? null }
   }
   const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
   const badge = estadoObraBadge(calc?.estado || null)
-  return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.garantiaHasta ?? null }
+  return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.garantiaHasta ?? null, dias: diasHasta(calc?.garantiaHasta ?? null) }
 }
 
 function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => void }) {
@@ -567,6 +567,9 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                       {tipoDe(it.categoria) === 'auto'
                         ? <>Firma {formatFecha(it.fecha_firma_inicio)} · Vigencia {it.vigencia_anios || '—'} {it.vigencia_anios === 1 ? 'año' : 'años'} · Próx. vencimiento {formatFecha(it.proximoVenc)}</>
                         : <>Inicio {formatFecha(it.fecha_firma_inicio)} · Fin {formatFecha(it.fecha_fin)} · Garantía hasta {formatFecha(it.proximoVenc)}</>}
+                      {it.dias !== null && (
+                        <span style={{ color: it.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: it.dias <= 90 ? 700 : 400 }}> · {formatDias(it.dias)}</span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
