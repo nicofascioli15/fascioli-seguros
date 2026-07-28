@@ -23,7 +23,7 @@ export default function ContratosDashboard() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [edificios, setEdificios] = useState(0)
-  const [vencidos, setVencidos] = useState(0)
+  const [autoRenovados, setAutoRenovados] = useState(0)
   const [porVencer, setPorVencer] = useState(0)
   const [vigentes, setVigentes] = useState(0)
   const [categorias, setCategorias] = useState<CategoriaRow[]>([])
@@ -46,14 +46,14 @@ export default function ContratosDashboard() {
     // Los contratos ya renovados (reemplazados por uno nuevo) no cuentan como notificación activa.
     const rows = ((contratosData || []) as any as Contrato[]).filter(r => !r.renovado)
     const counts: Record<string, number> = {}
-    let vd = 0, pv = 0, vg = 0
+    let ar = 0, pv = 0, vg = 0
     rows.forEach(r => {
       counts[r.categoria] = (counts[r.categoria] || 0) + 1
       if (tipoDe(r.categoria) === 'auto') {
         const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
         if (calc) {
-          if (calc.estado === 'Vencido') vd++
-          else if (calc.estado === 'Por vencer' || calc.estado === 'Seguimiento') pv++
+          if (calc.autoRenovado) ar++
+          if (calc.estado === 'Por vencer' || calc.estado === 'Seguimiento') pv++
           else vg++
         }
       } else {
@@ -65,7 +65,7 @@ export default function ContratosDashboard() {
       }
     })
     setPorCategoria(counts)
-    setVencidos(vd)
+    setAutoRenovados(ar)
     setPorVencer(pv)
     setVigentes(vg)
     setLoading(false)
@@ -73,7 +73,7 @@ export default function ContratosDashboard() {
 
   const statCards = [
     { label: 'Edificios', value: edificios, sub: 'Cartera compartida con Mantenimiento', icon: Building2, bg: '#EDE9FE', iconColor: '#7C3AED', href: '/contratos/edificios' },
-    { label: 'Vencidos', value: vencidos, sub: 'No se renuevan solos — hay que actuar', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
+    { label: 'Auto-renovados a revisar', value: autoRenovados, sub: 'Vencieron sin renovación manual — se renovaron solos', icon: AlertTriangle, bg: '#DBEAFE', iconColor: '#1D4ED8', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
     { label: 'Por vencer / seguimiento', value: porVencer, sub: '≤180 días o en garantía/ejecución', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
     { label: 'Vigentes', value: vigentes, sub: 'Sin novedades', icon: CheckCircle2, bg: '#E6F5EF', iconColor: '#1A7A4E', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
   ]

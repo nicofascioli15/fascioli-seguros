@@ -59,7 +59,7 @@ export default function HubPage() {
   const [loading, setLoading]   = useState(true)
   const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, vencidas: 0, pendientes: 0 })
   const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
-  const [contratosStats, setContratosStats] = useState({ contratos: 0, vencidos: 0 })
+  const [contratosStats, setContratosStats] = useState({ contratos: 0, autoRenovados: 0 })
 
   useEffect(() => {
     async function init() {
@@ -113,22 +113,23 @@ export default function HubPage() {
       const vencen30Mant = extVigentes.filter(r => enRango(r.vencimiento)).length + tanVigentes.filter(r => enRango(r.vencimiento)).length
       setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant })
 
-      // Load contratos stats (vigencia calculada en vivo, no hay estado guardado; nunca se renueva sola)
+      // Load contratos stats (vigencia calculada en vivo; si se vence sin renovación manual, el
+      // sistema la da por renovada sola con las mismas condiciones y queda marcada para revisar)
       const [catsContratos, { data: contratosData }] = await Promise.all([
         fetchCategorias(supabase),
         supabase.from('contratos').select('categoria, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, renovado'),
       ])
       const tipoDeContrato = (slug: string) => catsContratos.find(c => c.slug === slug)?.tipo || 'auto'
       const hoyC = hoyISO()
-      let vencidosContr = 0
+      let autoRenovadosContr = 0
       const contratosActivos = (contratosData || []).filter((r: any) => !r.renovado)
       contratosActivos.forEach((r: any) => {
         if (tipoDeContrato(r.categoria) === 'auto') {
           const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoyC)
-          if (calc && calc.estado === 'Vencido') vencidosContr++
+          if (calc && calc.autoRenovado) autoRenovadosContr++
         }
       })
-      setContratosStats({ contratos: contratosActivos.length, vencidos: vencidosContr })
+      setContratosStats({ contratos: contratosActivos.length, autoRenovados: autoRenovadosContr })
 
       setLoading(false)
     }
@@ -178,7 +179,7 @@ export default function HubPage() {
       icon: <IconFile />,
       stats: [
         { label: 'Contratos', value: contratosStats.contratos },
-        { label: 'Vencidos', value: contratosStats.vencidos },
+        { label: 'Auto-renovados', value: contratosStats.autoRenovados },
       ],
     },
   ]

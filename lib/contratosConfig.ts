@@ -87,10 +87,13 @@ export function garantiaValorEnUnidad(meses: number, unidad: UnidadGarantia): nu
 }
 
 // ── Modelo auto-renovable (fecha de firma + vigencia en años) ────────────────
-// IMPORTANTE: acá "auto" se refiere solo a que el vencimiento se calcula solo
-// (fecha de firma + vigencia). El contrato NO se renueva solo: si se vence,
-// queda mostrando "Vencido" de forma persistente (para no perder de vista que
-// hay que hacer algo) hasta que alguien lo renueve a mano con el botón Renovar.
+// "auto" = fecha de firma + vigencia en años. Si llega la fecha de vencimiento y
+// nadie lo renovó a mano, el sistema lo da por renovado automáticamente con las
+// mismas condiciones (misma empresa/tipo/vigencia) — igual que pasa en la
+// realidad con estos contratos de mantenimiento — y lo marca "Auto-renovado"
+// para poder revisarlo cuando haya tiempo. El botón "Renovar" sigue disponible
+// en cualquier momento para cargar a mano un cambio real (otra empresa, otra
+// vigencia, etc.), lo que crea un contrato nuevo y marca el anterior "Renovado".
 
 export function vencimientoAuto(fechaFirma: string, vigenciaAnios: number): string {
   return addAnios(fechaFirma, vigenciaAnios)
@@ -99,7 +102,6 @@ export function vencimientoAuto(fechaFirma: string, vigenciaAnios: number): stri
 export type EstadoAuto = 'Vencido' | 'Por vencer' | 'Seguimiento' | 'Vigente'
 
 // Umbrales tomados de la planilla original: Por vencer <=95 días, Seguimiento <=180 días, si no Vigente.
-// A diferencia de la planilla, acá los días pueden ser negativos (contrato vencido) y no se recalculan solos.
 export function estadoAuto(dias: number): EstadoAuto {
   if (dias < 0) return 'Vencido'
   if (dias <= 95) return 'Por vencer'
@@ -117,13 +119,20 @@ export function estadoAutoBadge(estado: EstadoAuto | null, renovado?: boolean): 
 }
 
 // Calcula el vencimiento y estado de un contrato auto-renovable a partir de fecha_firma_inicio + vigencia_anios.
+// Si ya pasaron uno o más ciclos completos de vigencia sin renovación manual, avanza el cálculo
+// ciclo por ciclo (mismas condiciones) hasta el ciclo vigente hoy, y marca autoRenovado = true.
 // Devuelve null si faltan datos.
 export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | null, hoy = hoyISO()) {
-  if (!fechaFirma || !vigenciaAnios) return null
-  const vencimiento = vencimientoAuto(fechaFirma, vigenciaAnios)
+  if (!fechaFirma || !vigenciaAnios || vigenciaAnios <= 0) return null
+  let ciclos = 0
+  while (ciclos < 500 && addAnios(fechaFirma, vigenciaAnios * (ciclos + 1)) <= hoy) {
+    ciclos++
+  }
+  const inicioCiclo = ciclos > 0 ? addAnios(fechaFirma, vigenciaAnios * ciclos) : fechaFirma
+  const vencimiento = addAnios(inicioCiclo, vigenciaAnios)
   const dias = diasHasta(vencimiento)!
   const estado = estadoAuto(dias)
-  return { vencimiento, dias, estado }
+  return { vencimiento, dias, estado, autoRenovado: ciclos > 0, inicioCiclo, ciclos }
 }
 
 // ── Modelo de garantía (fecha fija + período de garantía) ────────────────────

@@ -39,6 +39,8 @@ type Row = {
   estadoLabel: string
   estadoCls: string
   proximoVenc: string | null
+  autoRenovado: boolean
+  inicioCiclo: string | null
 }
 
 export const emptyForm = {
@@ -54,6 +56,7 @@ function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
       ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
       dias: calc?.dias ?? null, estadoLabel: badge.label, estadoCls: badge.cls,
       proximoVenc: calc?.vencimiento ?? null,
+      autoRenovado: !r.renovado && (calc?.autoRenovado ?? false), inicioCiclo: calc?.inicioCiclo ?? null,
     }
   }
   const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
@@ -62,6 +65,7 @@ function calcularFila(r: any, tipo: TipoCategoria, hoy: string): Row {
     ...r, cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', docsCount: 0,
     dias: diasHasta(calc?.garantiaHasta ?? null), estadoLabel: badge.label, estadoCls: badge.cls,
     proximoVenc: calc?.garantiaHasta ?? null,
+    autoRenovado: false, inicioCiclo: null,
   }
 }
 
@@ -351,7 +355,12 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                       </td>
                     </>
                   )}
-                  <td><span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span></td>
+                  <td>
+                    <span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span>
+                    {r.autoRenovado && (
+                      <span className="badge badge-blue" style={{ marginLeft: 5 }} title={`Se renovó sola el ${formatFecha(r.inicioCiclo)} por no registrarse una renovación manual`}>Auto-renovado</span>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
@@ -374,6 +383,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{r.cliente_nombre}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
                     <span className={`badge ${r.estadoCls}`}>{r.estadoLabel}</span>
+                    {r.autoRenovado && <span className="badge badge-blue" title={`Se renovó sola el ${formatFecha(r.inicioCiclo)}`}>Auto-renovado</span>}
                     <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
                     <ActionsMenu actions={[
                       ...(auto && !r.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(r) }] : []),
@@ -526,6 +536,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                   <span className="badge badge-neutral">{titulo}</span>
                   <span className={`badge ${detalle.estadoCls}`}>{detalle.estadoLabel}</span>
+                  {detalle.autoRenovado && <span className="badge badge-blue">Auto-renovado</span>}
                 </div>
               </div>
               <button onClick={() => setDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
@@ -551,6 +562,14 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 </div>
               ))}
             </div>
+
+            {detalle.autoRenovado && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', background: '#EFF6FF', margin: '16px -20px 0', padding: '12px 20px' }}>
+                <div style={{ fontSize: 12.5, color: '#1D4ED8' }}>
+                  Se renovó sola el {formatFecha(detalle.inicioCiclo)} por no registrarse una renovación manual a tiempo — mismas condiciones (empresa, tipo, vigencia). Revisá si sigue correcto o usá "Renovar" para cargar un cambio.
+                </div>
+              </div>
+            )}
 
             {detalle.nota && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>

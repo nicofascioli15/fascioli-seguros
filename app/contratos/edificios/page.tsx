@@ -356,17 +356,18 @@ type ContratoRow = {
   fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null; dias: number | null
+  autoRenovado: boolean; inicioCiclo: string | null
 }
 
 function calcularFila(r: any, tipo: TipoCategoria, hoy: string): ContratoRow {
   if (tipo === 'auto') {
     const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
     const badge = estadoAutoBadge(calc?.estado || null, r.renovado)
-    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null, dias: calc?.dias ?? null }
+    return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null, dias: calc?.dias ?? null, autoRenovado: !r.renovado && (calc?.autoRenovado ?? false), inicioCiclo: calc?.inicioCiclo ?? null }
   }
   const calc = calcularObra(r.fecha_fin, r.garantia_meses, hoy)
   const badge = estadoObraBadge(calc?.estado || null)
-  return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.garantiaHasta ?? null, dias: diasHasta(calc?.garantiaHasta ?? null) }
+  return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.garantiaHasta ?? null, dias: diasHasta(calc?.garantiaHasta ?? null), autoRenovado: false, inicioCiclo: null }
 }
 
 function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => void }) {
@@ -573,7 +574,8 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span className={`badge ${it.estadoCls}`} style={{ marginRight: 6 }}>{it.estadoLabel}</span>
+                    <span className={`badge ${it.estadoCls}`} style={{ marginRight: it.autoRenovado ? 4 : 6 }}>{it.estadoLabel}</span>
+                    {it.autoRenovado && <span className="badge badge-blue" style={{ marginRight: 6 }} title={`Se renovó sola el ${formatFecha(it.inicioCiclo)}`}>Auto-renovado</span>}
                     <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                     <ActionsMenu actions={[
                       ...(tipoDe(it.categoria) === 'auto' && !it.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(it) }] : []),
