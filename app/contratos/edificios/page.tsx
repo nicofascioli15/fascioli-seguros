@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download, RotateCw } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download, RotateCw, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -9,6 +9,7 @@ import { eliminarEdificioCompleto } from '@/lib/edificios'
 import ActionsMenu from '@/components/ActionsMenu'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
+import ContratoHistorial from '@/components/ContratoHistorial'
 import { ContratoForm, emptyForm as emptyContratoForm } from '@/components/ContratosItemsPage'
 import { Pagination, paginate } from '@/components/Pagination'
 import {
@@ -352,7 +353,7 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
 
 type ContratoRow = {
   id: string; categoria: string; tipo_contrato: string; empresa: string
-  fecha_firma_inicio: string | null; vigencia_anios: number | null
+  fecha_firma_inicio: string | null; fecha_firma_original: string | null; vigencia_anios: number | null
   fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null; dias: number | null
@@ -389,6 +390,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   const [confirmEliminar, setConfirmEliminar] = useState<ContratoRow | null>(null)
   const [eliminando, setEliminando] = useState(false)
   const [docsFor, setDocsFor] = useState<ContratoRow | null>(null)
+  const [historialFor, setHistorialFor] = useState<ContratoRow | null>(null)
 
   function tipoDe(slug: string): TipoCategoria {
     return categorias.find(c => c.slug === slug)?.tipo || 'auto'
@@ -421,7 +423,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     if (categorias.length === 0) return
     setLoading(true)
     const hoy = hoyISO()
-    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at').eq('cliente_id', cliente.id).order('created_at')
+    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at').eq('cliente_id', cliente.id).eq('renovado', false).order('created_at')
     const mapped = (data || []).map((r: any) => calcularFila(r, tipoDe(r.categoria), hoy))
     const ids = mapped.map(r => r.id)
     if (ids.length > 0) {
@@ -456,6 +458,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   async function guardarNuevo() {
     setSaving(true)
     const payload = payloadDe(addForm)
+    if (tipoDe(addForm.categoria) === 'auto') payload.fecha_firma_original = addForm.fecha_firma_inicio || null
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
       await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${labelDe(addForm.categoria).toLowerCase()} creado para ${cliente.nombre}`, datosDespues: data })
@@ -513,6 +516,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     if (!renovarDe || !renovarForm.fecha_firma_inicio) return
     setRenovando(true)
     const payload = payloadDe(renovarForm)
+    if (tipoDe(renovarForm.categoria) === 'auto') payload.fecha_firma_original = renovarForm.fecha_firma_inicio || null
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
       await supabase.from('contratos').update({ renovado: true }).eq('id', renovarDe.id)
@@ -566,7 +570,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     {it.tipo_contrato && <span style={{ color: 'var(--text-muted)' }}> · {it.tipo_contrato}</span>}
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                       {tipoDe(it.categoria) === 'auto'
-                        ? <>Firma {formatFecha(it.fecha_firma_inicio)} · Vigencia {it.vigencia_anios || '—'} {it.vigencia_anios === 1 ? 'año' : 'años'} · Próx. vencimiento {formatFecha(it.proximoVenc)}</>
+                        ? <>Firma original {formatFecha(it.fecha_firma_original || it.fecha_firma_inicio)} · Últ. renovación {formatFecha(it.inicioCiclo || it.fecha_firma_inicio)} · Vigencia {it.vigencia_anios || '—'} {it.vigencia_anios === 1 ? 'año' : 'años'} · Próx. vencimiento {formatFecha(it.proximoVenc)}</>
                         : <>Inicio {formatFecha(it.fecha_firma_inicio)} · Fin {formatFecha(it.fecha_fin)} · Garantía hasta {formatFecha(it.proximoVenc)}</>}
                       {it.dias !== null && (
                         <span style={{ color: it.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: it.dias <= 90 ? 700 : 400 }}> · {formatDias(it.dias)}</span>
@@ -579,6 +583,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                     <ActionsMenu actions={[
                       ...(tipoDe(it.categoria) === 'auto' && !it.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(it) }] : []),
+                      ...(tipoDe(it.categoria) === 'auto' ? [{ label: 'Historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) }] : []),
                       { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                       { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
                     ]} />
@@ -681,6 +686,15 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
           clienteNombre={cliente.nombre}
           tiposSugeridos={docsTipos(tipoDe(docsFor.categoria))}
           onClose={() => setDocsFor(null)}
+        />
+      )}
+
+      {historialFor && (
+        <ContratoHistorial
+          clienteId={cliente.id}
+          categoria={historialFor.categoria}
+          clienteNombre={cliente.nombre}
+          onClose={() => setHistorialFor(null)}
         />
       )}
 

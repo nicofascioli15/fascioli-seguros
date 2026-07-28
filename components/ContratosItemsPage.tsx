@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, type ReactNode } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check, RotateCw } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, Paperclip, Check, RotateCw, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -11,6 +11,7 @@ import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import ActionsMenu from '@/components/ActionsMenu'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
+import ContratoHistorial from '@/components/ContratoHistorial'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import {
   TipoCategoria, docsTipos, hoyISO, formatFecha, formatDias, diasHasta, garantiaMesesDesde, garantiaValorEnUnidad, UnidadGarantia,
@@ -26,6 +27,7 @@ type Row = {
   tipo_contrato: string
   empresa: string
   fecha_firma_inicio: string | null
+  fecha_firma_original: string | null
   vigencia_anios: number | null
   fecha_fin: string | null
   garantia_meses: number | null
@@ -103,13 +105,14 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
   const [docsFor, setDocsFor] = useState<Row | null>(null)
   const [detalle, setDetalle] = useState<Row | null>(null)
+  const [historialFor, setHistorialFor] = useState<Row | null>(null)
 
   useEffect(() => { fetchAll() }, [categoria])
 
   async function fetchAll() {
     setLoading(true)
     const [{ data: rowsData }, { data: clientesData }, { data: empresasData }, { data: tiposData }] = await Promise.all([
-      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).order('created_at', { ascending: false }),
+      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).eq('renovado', false).order('created_at', { ascending: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
       supabase.from('contratos_empresas').select('nombre').eq('categoria', categoria).order('nombre'),
       supabase.from('contratos_tipos').select('nombre').eq('categoria', categoria).order('nombre'),
@@ -159,6 +162,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
     if (!form.cliente_id) return
     setSaving(true)
     const payload = payloadDe(form)
+    if (auto) payload.fecha_firma_original = form.fecha_firma_inicio || null
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
       await registrarAudit({ accion: 'crear', tabla: 'contratos', registroId: data.id, descripcion: `Contrato de ${titulo.toLowerCase()} creado`, datosDespues: data })
@@ -212,6 +216,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
     if (!renovarDe || !renovarForm.fecha_firma_inicio) return
     setRenovando(true)
     const payload = payloadDe(renovarForm)
+    if (auto) payload.fecha_firma_original = renovarForm.fecha_firma_inicio || null
     const { error, data } = await supabase.from('contratos').insert([payload]).select().single()
     if (!error && data) {
       await supabase.from('contratos').update({ renovado: true }).eq('id', renovarDe.id)
@@ -251,14 +256,15 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             titulo={titulo}
             subtitulo={`${filtrados.length} contratos`}
             columnas={auto ? [
-              { header: 'Edificio', key: 'edificio', width: 110 },
-              { header: 'Empresa', key: 'empresa', width: 80 },
-              { header: 'Tipo', key: 'tipo', width: 90 },
-              { header: 'Firma', key: 'firma', width: 62 },
-              { header: 'Vigencia', key: 'vigencia', width: 50 },
-              { header: 'Próx. vencimiento', key: 'proximo', width: 65 },
-              { header: 'Días', key: 'dias', width: 75 },
-              { header: 'Estado', key: 'estado', width: 70 },
+              { header: 'Edificio', key: 'edificio', width: 105 },
+              { header: 'Empresa', key: 'empresa', width: 75 },
+              { header: 'Tipo', key: 'tipo', width: 80 },
+              { header: 'Firma original', key: 'firmaOriginal', width: 62 },
+              { header: 'Últ. renovación', key: 'firma', width: 62 },
+              { header: 'Vigencia', key: 'vigencia', width: 48 },
+              { header: 'Próx. vencimiento', key: 'proximo', width: 62 },
+              { header: 'Días', key: 'dias', width: 70 },
+              { header: 'Estado', key: 'estado', width: 65 },
             ] : [
               { header: 'Edificio', key: 'edificio', width: 110 },
               { header: 'Empresa', key: 'empresa', width: 80 },
@@ -271,7 +277,9 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             ]}
             filas={filtrados.map(r => ({
               edificio: r.cliente_nombre, empresa: r.empresa || '—', tipo: r.tipo_contrato || '—',
-              firma: formatFecha(r.fecha_firma_inicio), vigencia: r.vigencia_anios ? `${r.vigencia_anios} años` : '—',
+              firmaOriginal: formatFecha(r.fecha_firma_original || r.fecha_firma_inicio),
+              firma: formatFecha(auto ? (r.inicioCiclo || r.fecha_firma_inicio) : r.fecha_firma_inicio),
+              vigencia: r.vigencia_anios ? `${r.vigencia_anios} años` : '—',
               fin: formatFecha(r.fecha_fin), proximo: formatFecha(r.proximoVenc), dias: formatDias(r.dias) || '—', estado: r.estadoLabel,
             }))}
             filename={`contratos-${categoria}-fascioli`}
@@ -317,7 +325,8 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 <th>Tipo de contrato</th>
                 {auto ? (
                   <>
-                    <SortHeader label="Firma" col="fecha_firma_inicio" sort={sort} onSort={toggleSort} />
+                    <th>Firma original</th>
+                    <SortHeader label="Últ. renovación" col="fecha_firma_inicio" sort={sort} onSort={toggleSort} />
                     <th>Vigencia</th>
                     <SortHeader label="Próx. vencimiento" col="proximoVenc" sort={sort} onSort={toggleSort} />
                   </>
@@ -340,7 +349,8 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                   <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={r.tipo_contrato}>{r.tipo_contrato || '—'}</td>
                   {auto ? (
                     <>
-                      <td>{formatFecha(r.fecha_firma_inicio)}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>{formatFecha(r.fecha_firma_original || r.fecha_firma_inicio)}</td>
+                      <td>{formatFecha(r.inicioCiclo || r.fecha_firma_inicio)}</td>
                       <td>{r.vigencia_anios ? `${r.vigencia_anios} ${r.vigencia_anios === 1 ? 'año' : 'años'}` : '—'}</td>
                       <td>
                         {formatFecha(r.proximoVenc)}
@@ -368,6 +378,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                       <DocsClip count={r.docsCount} onClick={() => setDocsFor(r)} />
                       <ActionsMenu actions={[
                         ...(auto && !r.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(r) }] : []),
+                        ...(auto ? [{ label: 'Historial', icon: <History size={14} />, onClick: () => setHistorialFor(r) }] : []),
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(r) },
                         { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(r), danger: true },
                       ]} />
@@ -397,6 +408,11 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {r.empresa}{r.empresa && ' · '}{r.tipo_contrato}
                 </div>
+                {auto && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Firma original {formatFecha(r.fecha_firma_original || r.fecha_firma_inicio)} · Últ. renovación {formatFecha(r.inicioCiclo || r.fecha_firma_inicio)}
+                  </div>
+                )}
                 <div style={{ fontSize: 11.5, color: r.dias !== null && r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias !== null && r.dias <= 90 ? 700 : 400, marginTop: 4 }}>
                   {auto ? `Próx. vencimiento: ${formatFecha(r.proximoVenc)}` : `Garantía hasta: ${formatFecha(r.proximoVenc)}`}
                   {r.dias !== null && ` · ${formatDias(r.dias)}`}
@@ -549,7 +565,8 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 { label: 'Empresa', value: detalle.empresa || '—' as ReactNode },
                 { label: 'Tipo de contrato', value: detalle.tipo_contrato || '—' as ReactNode },
                 ...(auto ? [
-                  { label: 'Firma / inicio', value: formatFecha(detalle.fecha_firma_inicio) as ReactNode },
+                  { label: 'Firma original', value: formatFecha(detalle.fecha_firma_original || detalle.fecha_firma_inicio) as ReactNode },
+                  { label: 'Última renovación', value: formatFecha(detalle.inicioCiclo || detalle.fecha_firma_inicio) as ReactNode },
                   { label: 'Vigencia', value: (detalle.vigencia_anios ? `${detalle.vigencia_anios} ${detalle.vigencia_anios === 1 ? 'año' : 'años'}` : '—') as ReactNode },
                   { label: 'Próx. vencimiento', value: <VencValor fecha={detalle.proximoVenc} dias={detalle.dias} /> },
                 ] : [
@@ -581,9 +598,16 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <button onClick={() => { setDocsFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
-                <Paperclip size={14} /> Documentos {detalle.docsCount > 0 ? `(${detalle.docsCount})` : ''}
-              </button>
+              <div style={{ display: 'flex', gap: 14 }}>
+                <button onClick={() => { setDocsFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
+                  <Paperclip size={14} /> Documentos {detalle.docsCount > 0 ? `(${detalle.docsCount})` : ''}
+                </button>
+                {auto && (
+                  <button onClick={() => { setHistorialFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
+                    <History size={14} /> Historial
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn-outline" onClick={() => setDetalle(null)}>Cerrar</button>
                 {auto && !detalle.renovado && (
@@ -598,6 +622,16 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal historial */}
+      {historialFor && historialFor.cliente_id && (
+        <ContratoHistorial
+          clienteId={historialFor.cliente_id}
+          categoria={categoria}
+          clienteNombre={historialFor.cliente_nombre}
+          onClose={() => setHistorialFor(null)}
+        />
       )}
 
       {/* Modal confirmar eliminar */}

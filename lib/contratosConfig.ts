@@ -135,6 +135,22 @@ export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | 
   return { vencimiento, dias, estado, autoRenovado: ciclos > 0, inicioCiclo, ciclos }
 }
 
+// Devuelve la fecha de inicio de cada ciclo de vigencia completado entre "fechaInicio" (exclusive)
+// y "hasta" (inclusive) — se usa para reconstruir el historial de renovaciones automáticas de un
+// contrato/tramo, sin necesidad de guardar cada ciclo en la base de datos (se recalcula siempre igual).
+export function enumerarCiclosAuto(fechaInicio: string, vigenciaAnios: number, hasta: string): string[] {
+  const fechas: string[] = []
+  if (!vigenciaAnios || vigenciaAnios <= 0) return fechas
+  let i = 1
+  while (i < 500) {
+    const f = addAnios(fechaInicio, vigenciaAnios * i)
+    if (f > hasta) break
+    fechas.push(f)
+    i++
+  }
+  return fechas
+}
+
 // ── Modelo de garantía (fecha fija + período de garantía) ────────────────────
 
 export type EstadoObra = 'En ejecución' | 'En garantía' | 'Garantía vencida'
