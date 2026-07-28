@@ -121,12 +121,17 @@ export function estadoAutoBadge(estado: EstadoAuto | null, renovado?: boolean): 
 // Calcula el vencimiento y estado de un contrato auto-renovable a partir de fecha_firma_inicio + vigencia_anios.
 // Si ya pasaron uno o más ciclos completos de vigencia sin renovación manual, avanza el cálculo
 // ciclo por ciclo (mismas condiciones) hasta el ciclo vigente hoy, y marca autoRenovado = true.
+// EXCEPCIÓN: si se envió el telegrama de no renovación automática (telegramaEnviado = true), la
+// renovación automática queda cortada — el cálculo NO avanza de ciclo, así que si se vence, queda
+// "Vencido" de forma persistente (como antes de tener auto-renovación) hasta que se renueve a mano.
 // Devuelve null si faltan datos.
-export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | null, hoy = hoyISO()) {
+export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | null, hoy = hoyISO(), telegramaEnviado = false) {
   if (!fechaFirma || !vigenciaAnios || vigenciaAnios <= 0) return null
   let ciclos = 0
-  while (ciclos < 500 && addAnios(fechaFirma, vigenciaAnios * (ciclos + 1)) <= hoy) {
-    ciclos++
+  if (!telegramaEnviado) {
+    while (ciclos < 500 && addAnios(fechaFirma, vigenciaAnios * (ciclos + 1)) <= hoy) {
+      ciclos++
+    }
   }
   const inicioCiclo = ciclos > 0 ? addAnios(fechaFirma, vigenciaAnios * ciclos) : fechaFirma
   const vencimiento = addAnios(inicioCiclo, vigenciaAnios)

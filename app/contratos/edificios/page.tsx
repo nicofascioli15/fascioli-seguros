@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download, RotateCw, History } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Phone, Mail, Paperclip, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download, RotateCw, History, Send } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -10,7 +10,7 @@ import ActionsMenu from '@/components/ActionsMenu'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import ContratosDocumentos from '@/components/ContratosDocumentos'
 import ContratoHistorial from '@/components/ContratoHistorial'
-import { ContratoForm, emptyForm as emptyContratoForm } from '@/components/ContratosItemsPage'
+import { ContratoForm, emptyForm as emptyContratoForm, TelegramaCheckbox } from '@/components/ContratosItemsPage'
 import { Pagination, paginate } from '@/components/Pagination'
 import {
   fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha, formatDias, diasHasta,
@@ -354,7 +354,8 @@ function ClienteForm({ form, setForm }: { form: typeof emptyCliente; setForm: (f
 type ContratoRow = {
   id: string; categoria: string; tipo_contrato: string; empresa: string
   fecha_firma_inicio: string | null; fecha_firma_original: string | null; vigencia_anios: number | null
-  fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean; nota: string
+  fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean
+  telegrama_no_renovacion: boolean; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null; dias: number | null
   autoRenovado: boolean; inicioCiclo: string | null
@@ -362,7 +363,7 @@ type ContratoRow = {
 
 function calcularFila(r: any, tipo: TipoCategoria, hoy: string): ContratoRow {
   if (tipo === 'auto') {
-    const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy)
+    const calc = calcularAuto(r.fecha_firma_inicio, r.vigencia_anios, hoy, r.telegrama_no_renovacion)
     const badge = estadoAutoBadge(calc?.estado || null, r.renovado)
     return { ...r, docsCount: 0, estadoLabel: badge.label, estadoCls: badge.cls, proximoVenc: calc?.vencimiento ?? null, dias: calc?.dias ?? null, autoRenovado: !r.renovado && (calc?.autoRenovado ?? false), inicioCiclo: calc?.inicioCiclo ?? null }
   }
@@ -391,6 +392,27 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   const [eliminando, setEliminando] = useState(false)
   const [docsFor, setDocsFor] = useState<ContratoRow | null>(null)
   const [historialFor, setHistorialFor] = useState<ContratoRow | null>(null)
+  const [confirmTelegrama, setConfirmTelegrama] = useState<{ row: ContratoRow; nuevo: boolean } | null>(null)
+  const [guardandoTelegrama, setGuardandoTelegrama] = useState(false)
+
+  function abrirConfirmTelegrama(row: ContratoRow, nuevo: boolean) {
+    setConfirmTelegrama({ row, nuevo })
+  }
+
+  async function confirmarTelegrama() {
+    if (!confirmTelegrama) return
+    setGuardandoTelegrama(true)
+    await supabase.from('contratos').update({ telegrama_no_renovacion: confirmTelegrama.nuevo }).eq('id', confirmTelegrama.row.id)
+    await registrarAudit({
+      accion: 'editar', tabla: 'contratos', registroId: confirmTelegrama.row.id,
+      descripcion: confirmTelegrama.nuevo
+        ? `Telegrama de no renovación automática registrado para ${cliente.nombre}`
+        : `Telegrama de no renovación automática desmarcado para ${cliente.nombre}`,
+    })
+    setGuardandoTelegrama(false)
+    setConfirmTelegrama(null)
+    await fetchContratos()
+  }
 
   function tipoDe(slug: string): TipoCategoria {
     return categorias.find(c => c.slug === slug)?.tipo || 'auto'
@@ -423,7 +445,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     if (categorias.length === 0) return
     setLoading(true)
     const hoy = hoyISO()
-    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, nota, created_at').eq('cliente_id', cliente.id).eq('renovado', false).order('created_at')
+    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, telegrama_no_renovacion, nota, created_at').eq('cliente_id', cliente.id).eq('renovado', false).order('created_at')
     const mapped = (data || []).map((r: any) => calcularFila(r, tipoDe(r.categoria), hoy))
     const ids = mapped.map(r => r.id)
     if (ids.length > 0) {
@@ -580,6 +602,11 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span className={`badge ${it.estadoCls}`} style={{ marginRight: it.autoRenovado ? 4 : 6 }}>{it.estadoLabel}</span>
                     {it.autoRenovado && <span className="badge badge-blue" style={{ marginRight: 6 }} title={`Se renovó sola el ${formatFecha(it.inicioCiclo)}`}>Auto-renovado</span>}
+                    {tipoDe(it.categoria) === 'auto' && (
+                      <span style={{ marginRight: 4 }} title="Telegrama de no renovación automática">
+                        <TelegramaCheckbox checked={it.telegrama_no_renovacion} onToggle={nuevo => abrirConfirmTelegrama(it, nuevo)} />
+                      </span>
+                    )}
                     <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
                     <ActionsMenu actions={[
                       ...(tipoDe(it.categoria) === 'auto' && !it.renovado ? [{ label: 'Renovar', icon: <RotateCw size={14} />, onClick: () => abrirRenovar(it) }] : []),
@@ -697,6 +724,23 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
           onClose={() => setHistorialFor(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmTelegrama}
+        tone="neutral"
+        icon={<Send size={24} color="var(--gold)" />}
+        title={confirmTelegrama?.nuevo ? '¿Marcar telegrama enviado?' : '¿Desmarcar telegrama enviado?'}
+        message={
+          confirmTelegrama?.nuevo
+            ? <>Confirmá que se envió el telegrama de no renovación automática para <strong style={{ color: 'var(--text-main)' }}>{cliente.nombre}</strong>. Este contrato va a dejar de renovarse solo — si se vence, va a quedar "Vencido" hasta que lo renueves a mano. Igual se va a seguir avisando que está por vencer.</>
+            : <>Confirmá que querés desmarcar el telegrama de <strong style={{ color: 'var(--text-main)' }}>{cliente.nombre}</strong>. Este contrato vuelve a renovarse solo automáticamente si se vence.</>
+        }
+        confirmLabel={confirmTelegrama?.nuevo ? 'Marcar' : 'Desmarcar'}
+        loadingLabel="Guardando..."
+        loading={guardandoTelegrama}
+        onConfirm={confirmarTelegrama}
+        onCancel={() => setConfirmTelegrama(null)}
+      />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
