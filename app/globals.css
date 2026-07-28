@@ -183,7 +183,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-page); 
 /* ── MODALS ── */
 .pago-overlay { position: fixed; inset: 0; background: rgba(15,30,53,.5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 350; opacity: 0; pointer-events: none; transition: opacity .18s; touch-action: none; }
 .pago-overlay.open { opacity: 1; pointer-events: all; }
-.pago-modal { background: var(--bg-card); border-radius: 16px; padding: 28px; width: 420px; max-width: 95vw; box-shadow: 0 24px 60px rgba(15,30,53,.22); transform: translateY(12px); transition: transform .18s; }
+.pago-modal { background: var(--bg-card); border-radius: 16px; padding: 28px; width: 420px; max-width: 95vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(15,30,53,.22); transform: translateY(12px); transition: transform .18s; }
 .pago-overlay.open .pago-modal { transform: translateY(0); }
 .fgroup { margin-bottom: 14px; }
 .fgroup label { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); margin-bottom: 5px; }
