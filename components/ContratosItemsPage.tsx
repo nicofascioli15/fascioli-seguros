@@ -34,6 +34,7 @@ type Row = {
   garantia_unidad: UnidadGarantia
   renovado: boolean
   telegrama_no_renovacion: boolean
+  telegrama_fecha: string | null
   nota: string
   created_at: string
   docsCount: number
@@ -108,21 +109,25 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
   const [docsFor, setDocsFor] = useState<Row | null>(null)
   const [detalle, setDetalle] = useState<Row | null>(null)
   const [historialFor, setHistorialFor] = useState<Row | null>(null)
-  const [confirmTelegrama, setConfirmTelegrama] = useState<{ row: Row; nuevo: boolean } | null>(null)
+  const [confirmTelegrama, setConfirmTelegrama] = useState<{ row: Row; nuevo: boolean; fecha: string } | null>(null)
   const [guardandoTelegrama, setGuardandoTelegrama] = useState(false)
 
   function abrirConfirmTelegrama(row: Row, nuevo: boolean) {
-    setConfirmTelegrama({ row, nuevo })
+    setConfirmTelegrama({ row, nuevo, fecha: nuevo ? (row.telegrama_fecha || hoyISO()) : '' })
   }
 
   async function confirmarTelegrama() {
     if (!confirmTelegrama) return
+    if (confirmTelegrama.nuevo && !confirmTelegrama.fecha) return
     setGuardandoTelegrama(true)
-    await supabase.from('contratos').update({ telegrama_no_renovacion: confirmTelegrama.nuevo }).eq('id', confirmTelegrama.row.id)
+    await supabase.from('contratos').update({
+      telegrama_no_renovacion: confirmTelegrama.nuevo,
+      telegrama_fecha: confirmTelegrama.nuevo ? confirmTelegrama.fecha : null,
+    }).eq('id', confirmTelegrama.row.id)
     await registrarAudit({
       accion: 'editar', tabla: 'contratos', registroId: confirmTelegrama.row.id,
       descripcion: confirmTelegrama.nuevo
-        ? `Telegrama de no renovación automática registrado para ${confirmTelegrama.row.cliente_nombre}`
+        ? `Telegrama de no renovación automática registrado para ${confirmTelegrama.row.cliente_nombre} (enviado el ${formatFecha(confirmTelegrama.fecha)})`
         : `Telegrama de no renovación automática desmarcado para ${confirmTelegrama.row.cliente_nombre}`,
     })
     setGuardandoTelegrama(false)
@@ -135,7 +140,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
   async function fetchAll() {
     setLoading(true)
     const [{ data: rowsData }, { data: clientesData }, { data: empresasData }, { data: tiposData }] = await Promise.all([
-      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, telegrama_no_renovacion, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).eq('renovado', false).order('created_at', { ascending: false }),
+      supabase.from('contratos').select('id, cliente_id, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, telegrama_no_renovacion, telegrama_fecha, nota, created_at, mant_clientes(nombre)').eq('categoria', categoria).eq('renovado', false).order('created_at', { ascending: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
       supabase.from('contratos_empresas').select('nombre').eq('categoria', categoria).order('nombre'),
       supabase.from('contratos_tipos').select('nombre').eq('categoria', categoria).order('nombre'),
@@ -413,7 +418,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                   </td>
                   {auto && (
                     <td onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
-                      <TelegramaCheckbox checked={r.telegrama_no_renovacion} onToggle={nuevo => abrirConfirmTelegrama(r, nuevo)} />
+                      <TelegramaCheckbox checked={r.telegrama_no_renovacion} fecha={r.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(r, nuevo)} />
                     </td>
                   )}
                   <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
@@ -459,8 +464,8 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 )}
                 {auto && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }} onClick={e => e.stopPropagation()}>
-                    <TelegramaCheckbox checked={r.telegrama_no_renovacion} onToggle={nuevo => abrirConfirmTelegrama(r, nuevo)} />
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telegrama de no renovación {r.telegrama_no_renovacion ? 'enviado' : 'no enviado'}</span>
+                    <TelegramaCheckbox checked={r.telegrama_no_renovacion} fecha={r.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(r, nuevo)} />
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telegrama de no renovación {r.telegrama_no_renovacion ? `enviado el ${formatFecha(r.telegrama_fecha)}` : 'no enviado'}</span>
                   </div>
                 )}
                 <div style={{ fontSize: 11.5, color: r.dias !== null && r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias !== null && r.dias <= 90 ? 700 : 400, marginTop: 4 }}>
@@ -634,9 +639,9 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
             {auto && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <TelegramaCheckbox checked={detalle.telegrama_no_renovacion} onToggle={nuevo => abrirConfirmTelegrama(detalle, nuevo)} />
+                <TelegramaCheckbox checked={detalle.telegrama_no_renovacion} fecha={detalle.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(detalle, nuevo)} />
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-                  Telegrama de no renovación automática enviado — {detalle.telegrama_no_renovacion ? 'este contrato no se renueva solo si se vence' : 'no se envió, sigue renovándose solo si se vence'}
+                  {detalle.telegrama_no_renovacion ? `Telegrama enviado el ${formatFecha(detalle.telegrama_fecha)} — este contrato no se renueva solo si se vence` : 'Telegrama de no renovación automática no enviado — sigue renovándose solo si se vence'}
                 </div>
               </div>
             )}
@@ -711,10 +716,17 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
         title={confirmTelegrama?.nuevo ? '¿Marcar telegrama enviado?' : '¿Desmarcar telegrama enviado?'}
         message={
           confirmTelegrama?.nuevo
-            ? <>Confirmá que se envió el telegrama de no renovación automática para <strong style={{ color: 'var(--text-main)' }}>{confirmTelegrama?.row.cliente_nombre}</strong>. Este contrato va a dejar de renovarse solo — si se vence, va a quedar "Vencido" hasta que lo renueves a mano. Igual se va a seguir avisando que está por vencer.</>
+            ? <>
+                <div>Confirmá que se envió el telegrama de no renovación automática para <strong style={{ color: 'var(--text-main)' }}>{confirmTelegrama?.row.cliente_nombre}</strong>. Este contrato va a dejar de renovarse solo — si se vence, va a quedar "Vencido" hasta que lo renueves a mano. Igual se va a seguir avisando que está por vencer.</div>
+                <div style={{ marginTop: 14, textAlign: 'left' }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Fecha de envío</label>
+                  <DatePicker value={confirmTelegrama?.fecha || ''} onChange={v => setConfirmTelegrama(p => p ? { ...p, fecha: v } : p)} placeholder="¿Cuándo se envió?" />
+                </div>
+              </>
             : <>Confirmá que querés desmarcar el telegrama de <strong style={{ color: 'var(--text-main)' }}>{confirmTelegrama?.row.cliente_nombre}</strong>. Este contrato vuelve a renovarse solo automáticamente si se vence.</>
         }
         confirmLabel={confirmTelegrama?.nuevo ? 'Marcar' : 'Desmarcar'}
+        confirmDisabled={!!confirmTelegrama?.nuevo && !confirmTelegrama?.fecha}
         loadingLabel="Guardando..."
         loading={guardandoTelegrama}
         onConfirm={confirmarTelegrama}
@@ -738,12 +750,12 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
 
 // Checkbox de "telegrama de no renovación automática enviado" — siempre pide confirmación,
 // tanto para marcarlo como para desmarcarlo, porque cambia si el contrato se renueva solo o no.
-export function TelegramaCheckbox({ checked, onToggle }: { checked: boolean; onToggle: (nuevo: boolean) => void }) {
+export function TelegramaCheckbox({ checked, fecha, onToggle }: { checked: boolean; fecha?: string | null; onToggle: (nuevo: boolean) => void }) {
   return (
     <button
       type="button"
       onClick={() => onToggle(!checked)}
-      title={checked ? 'Telegrama enviado — no se renueva sola' : 'Marcar telegrama de no renovación automática'}
+      title={checked ? `Telegrama enviado el ${formatFecha(fecha || null)} — no se renueva sola` : 'Marcar telegrama de no renovación automática'}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 20, height: 20, borderRadius: 5, cursor: 'pointer', padding: 0,

@@ -12,6 +12,7 @@ import ContratosDocumentos from '@/components/ContratosDocumentos'
 import ContratoHistorial from '@/components/ContratoHistorial'
 import { ContratoForm, emptyForm as emptyContratoForm, TelegramaCheckbox } from '@/components/ContratosItemsPage'
 import { Pagination, paginate } from '@/components/Pagination'
+import DatePicker from '@/components/DatePicker'
 import {
   fetchCategorias, CategoriaRow, TipoCategoria, docsTipos, hoyISO, formatFecha, formatDias, diasHasta,
   garantiaMesesDesde, garantiaValorEnUnidad,
@@ -355,7 +356,7 @@ type ContratoRow = {
   id: string; categoria: string; tipo_contrato: string; empresa: string
   fecha_firma_inicio: string | null; fecha_firma_original: string | null; vigencia_anios: number | null
   fecha_fin: string | null; garantia_meses: number | null; garantia_unidad: 'meses' | 'anios'; renovado: boolean
-  telegrama_no_renovacion: boolean; nota: string
+  telegrama_no_renovacion: boolean; telegrama_fecha: string | null; nota: string
   docsCount: number
   estadoLabel: string; estadoCls: string; proximoVenc: string | null; dias: number | null
   autoRenovado: boolean; inicioCiclo: string | null
@@ -392,21 +393,25 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
   const [eliminando, setEliminando] = useState(false)
   const [docsFor, setDocsFor] = useState<ContratoRow | null>(null)
   const [historialFor, setHistorialFor] = useState<ContratoRow | null>(null)
-  const [confirmTelegrama, setConfirmTelegrama] = useState<{ row: ContratoRow; nuevo: boolean } | null>(null)
+  const [confirmTelegrama, setConfirmTelegrama] = useState<{ row: ContratoRow; nuevo: boolean; fecha: string } | null>(null)
   const [guardandoTelegrama, setGuardandoTelegrama] = useState(false)
 
   function abrirConfirmTelegrama(row: ContratoRow, nuevo: boolean) {
-    setConfirmTelegrama({ row, nuevo })
+    setConfirmTelegrama({ row, nuevo, fecha: nuevo ? (row.telegrama_fecha || hoyISO()) : '' })
   }
 
   async function confirmarTelegrama() {
     if (!confirmTelegrama) return
+    if (confirmTelegrama.nuevo && !confirmTelegrama.fecha) return
     setGuardandoTelegrama(true)
-    await supabase.from('contratos').update({ telegrama_no_renovacion: confirmTelegrama.nuevo }).eq('id', confirmTelegrama.row.id)
+    await supabase.from('contratos').update({
+      telegrama_no_renovacion: confirmTelegrama.nuevo,
+      telegrama_fecha: confirmTelegrama.nuevo ? confirmTelegrama.fecha : null,
+    }).eq('id', confirmTelegrama.row.id)
     await registrarAudit({
       accion: 'editar', tabla: 'contratos', registroId: confirmTelegrama.row.id,
       descripcion: confirmTelegrama.nuevo
-        ? `Telegrama de no renovación automática registrado para ${cliente.nombre}`
+        ? `Telegrama de no renovación automática registrado para ${cliente.nombre} (enviado el ${formatFecha(confirmTelegrama.fecha)})`
         : `Telegrama de no renovación automática desmarcado para ${cliente.nombre}`,
     })
     setGuardandoTelegrama(false)
@@ -445,7 +450,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
     if (categorias.length === 0) return
     setLoading(true)
     const hoy = hoyISO()
-    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, telegrama_no_renovacion, nota, created_at').eq('cliente_id', cliente.id).eq('renovado', false).order('created_at')
+    const { data } = await supabase.from('contratos').select('id, categoria, tipo_contrato, empresa, fecha_firma_inicio, fecha_firma_original, vigencia_anios, fecha_fin, garantia_meses, garantia_unidad, renovado, telegrama_no_renovacion, telegrama_fecha, nota, created_at').eq('cliente_id', cliente.id).eq('renovado', false).order('created_at')
     const mapped = (data || []).map((r: any) => calcularFila(r, tipoDe(r.categoria), hoy))
     const ids = mapped.map(r => r.id)
     if (ids.length > 0) {
@@ -606,7 +611,7 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
                     {it.autoRenovado && <span className="badge badge-blue" style={{ marginRight: 6 }} title={`Se renovó sola el ${formatFecha(it.inicioCiclo)}`}>Auto-renovado</span>}
                     {tipoDe(it.categoria) === 'auto' && (
                       <span style={{ marginRight: 4 }} title="Telegrama de no renovación automática">
-                        <TelegramaCheckbox checked={it.telegrama_no_renovacion} onToggle={nuevo => abrirConfirmTelegrama(it, nuevo)} />
+                        <TelegramaCheckbox checked={it.telegrama_no_renovacion} fecha={it.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(it, nuevo)} />
                       </span>
                     )}
                     <DocsClip count={it.docsCount} onClick={() => setDocsFor(it)} />
@@ -734,10 +739,17 @@ function EdificioDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => 
         title={confirmTelegrama?.nuevo ? '¿Marcar telegrama enviado?' : '¿Desmarcar telegrama enviado?'}
         message={
           confirmTelegrama?.nuevo
-            ? <>Confirmá que se envió el telegrama de no renovación automática para <strong style={{ color: 'var(--text-main)' }}>{cliente.nombre}</strong>. Este contrato va a dejar de renovarse solo — si se vence, va a quedar "Vencido" hasta que lo renueves a mano. Igual se va a seguir avisando que está por vencer.</>
+            ? <>
+                <div>Confirmá que se envió el telegrama de no renovación automática para <strong style={{ color: 'var(--text-main)' }}>{cliente.nombre}</strong>. Este contrato va a dejar de renovarse solo — si se vence, va a quedar "Vencido" hasta que lo renueves a mano. Igual se va a seguir avisando que está por vencer.</div>
+                <div style={{ marginTop: 14, textAlign: 'left' }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Fecha de envío</label>
+                  <DatePicker value={confirmTelegrama?.fecha || ''} onChange={v => setConfirmTelegrama(p => p ? { ...p, fecha: v } : p)} placeholder="¿Cuándo se envió?" />
+                </div>
+              </>
             : <>Confirmá que querés desmarcar el telegrama de <strong style={{ color: 'var(--text-main)' }}>{cliente.nombre}</strong>. Este contrato vuelve a renovarse solo automáticamente si se vence.</>
         }
         confirmLabel={confirmTelegrama?.nuevo ? 'Marcar' : 'Desmarcar'}
+        confirmDisabled={!!confirmTelegrama?.nuevo && !confirmTelegrama?.fecha}
         loadingLabel="Guardando..."
         loading={guardandoTelegrama}
         onConfirm={confirmarTelegrama}
