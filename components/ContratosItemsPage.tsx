@@ -465,7 +465,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
                 {auto && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }} onClick={e => e.stopPropagation()}>
                     <TelegramaCheckbox checked={r.telegrama_no_renovacion} fecha={r.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(r, nuevo)} />
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telegrama de no renovación {r.telegrama_no_renovacion ? `enviado el ${formatFecha(r.telegrama_fecha)}` : 'no enviado'}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telegrama de no renovación {r.telegrama_no_renovacion ? (r.telegrama_fecha ? `enviado el ${formatFecha(r.telegrama_fecha)}` : 'enviado') : 'no enviado'}</span>
                   </div>
                 )}
                 <div style={{ fontSize: 11.5, color: r.dias !== null && r.dias <= 90 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: r.dias !== null && r.dias <= 90 ? 700 : 400, marginTop: 4 }}>
@@ -602,7 +602,7 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
       {/* Modal detalle de contrato */}
       {detalle && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setDetalle(null) }}>
-          <div className="pago-modal" style={{ width: 440 }} onClick={e => e.stopPropagation()}>
+          <div className="pago-modal" style={{ width: 520 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)' }}>{detalle.cliente_nombre}</h3>
@@ -641,7 +641,11 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <TelegramaCheckbox checked={detalle.telegrama_no_renovacion} fecha={detalle.telegrama_fecha} onToggle={nuevo => abrirConfirmTelegrama(detalle, nuevo)} />
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-                  {detalle.telegrama_no_renovacion ? `Telegrama enviado el ${formatFecha(detalle.telegrama_fecha)} — este contrato no se renueva solo si se vence` : 'Telegrama de no renovación automática no enviado — sigue renovándose solo si se vence'}
+                  {detalle.telegrama_no_renovacion
+                    ? (detalle.telegrama_fecha
+                        ? `Telegrama enviado el ${formatFecha(detalle.telegrama_fecha)} — este contrato no se renueva solo si se vence`
+                        : 'Telegrama enviado — este contrato no se renueva solo si se vence')
+                    : 'Telegrama de no renovación automática no enviado — sigue renovándose solo si se vence'}
                 </div>
               </div>
             )}
@@ -661,18 +665,18 @@ export default function ContratosItemsPage({ categoria, titulo, tipo }: { catego
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: 14 }}>
-                <button onClick={() => { setDocsFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, rowGap: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <button onClick={() => { setDocsFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   <Paperclip size={14} /> Documentos {detalle.docsCount > 0 ? `(${detalle.docsCount})` : ''}
                 </button>
                 {auto && (
-                  <button onClick={() => { setHistorialFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600 }}>
+                  <button onClick={() => { setHistorialFor(detalle); setDetalle(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
                     <History size={14} /> Historial
                   </button>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn-outline" onClick={() => setDetalle(null)}>Cerrar</button>
                 {auto && !detalle.renovado && (
                   <button className="btn-primary" onClick={() => { abrirRenovar(detalle); setDetalle(null) }}>
@@ -755,7 +759,7 @@ export function TelegramaCheckbox({ checked, fecha, onToggle }: { checked: boole
     <button
       type="button"
       onClick={() => onToggle(!checked)}
-      title={checked ? `Telegrama enviado el ${formatFecha(fecha || null)} — no se renueva sola` : 'Marcar telegrama de no renovación automática'}
+      title={checked ? (fecha ? `Telegrama enviado el ${formatFecha(fecha)} — no se renueva sola` : 'Telegrama enviado — no se renueva sola') : 'Marcar telegrama de no renovación automática'}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 20, height: 20, borderRadius: 5, cursor: 'pointer', padding: 0,
