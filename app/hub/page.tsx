@@ -43,6 +43,17 @@ function IconFile() {
     </svg>
   )
 }
+function IconHardHat() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 10V5a2 2 0 0 1 4 0v5"/>
+      <path d="M4 15a8 8 0 0 1 16 0Z"/>
+      <path d="M4 15h16"/>
+      <path d="M2 15h4"/>
+      <path d="M18 15h4"/>
+    </svg>
+  )
+}
 function IconArrow() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -172,7 +183,7 @@ export default function HubPage() {
     {
       id: 'contratos',
       label: 'Contratos',
-      description: 'Ascensores, rampas, servicios y obras',
+      description: 'Ascensores, rampas y servicios',
       route: '/contratos',
       ready: true,
       accent: '#9D7FD4',
@@ -181,6 +192,15 @@ export default function HubPage() {
         { label: 'Contratos', value: contratosStats.contratos },
         { label: 'Auto-renovados', value: contratosStats.autoRenovados },
       ],
+    },
+    {
+      id: 'obras',
+      label: 'Obras',
+      description: 'Seguimiento de obras y garantías',
+      route: '/obras',
+      ready: false,
+      accent: '#D9954F',
+      icon: <IconHardHat />,
     },
   ]
 
