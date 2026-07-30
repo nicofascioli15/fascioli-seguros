@@ -37,6 +37,7 @@ const accionColor2: Record<string, string> = {
 }
 const tablaLabel: Record<string, string> = {
   clientes: 'Cliente', polizas: 'Póliza', pagos: 'Pago', siniestros: 'Siniestro', documentos: 'Documento',
+  poliza_controles_mensuales: 'Control mensual',
 }
 
 function formatFecha(iso: string) {
@@ -72,6 +73,16 @@ export default function HistorialPage() {
     const { data } = await supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(200)
     if (data) setLogs(data)
     setLoading(false)
+  }
+
+  // Una acción sólo se puede revertir si revertir() de verdad va a poder hacer algo:
+  // crear necesita el id del registro para poder borrarlo, eliminar necesita el snapshot
+  // "antes" para poder reinsertarlo, y editar necesita el snapshot "antes" para restaurarlo.
+  function puedeRevertir(log: LogEntry) {
+    if (log.accion === 'crear')    return !!log.registro_id
+    if (log.accion === 'eliminar') return !!log.datos_antes
+    if (log.accion === 'editar')   return !!log.datos_antes && !!log.registro_id
+    return false
   }
 
   async function revertir(log: LogEntry) {
@@ -146,7 +157,7 @@ export default function HistorialPage() {
           <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Módulo:</span>
-            {['Todos','clientes','polizas','pagos','siniestros','documentos'].map(t =>
+            {['Todos','clientes','polizas','pagos','siniestros','documentos','poliza_controles_mensuales'].map(t =>
               <button key={t} onClick={() => { setFiltroTabla(t); setPage(1) }} className={`filter-btn ${filtroTabla === t ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
                 {t === 'Todos' ? 'Todos' : tablaLabel[t]}
               </button>
@@ -214,7 +225,7 @@ export default function HistorialPage() {
                 </div>
 
                 {/* Revertir */}
-                {!log.revertido && (log.accion !== 'editar' || log.datos_antes) && (
+                {!log.revertido && puedeRevertir(log) && (
                   <button className="btn-outline btn-sm"
                     style={{ fontSize: 11, color: 'var(--danger)', borderColor: '#FEE2E2', flexShrink: 0 }}
                     onClick={e => { e.stopPropagation(); revertir(log) }}

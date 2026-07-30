@@ -347,9 +347,13 @@ export default function PolizasPage() {
 
   async function marcarControlado(c: ControlMensual) {
     if (!detalle) return
-    await supabase.from('poliza_controles_mensuales').update({
-      estado: 'controlado', fecha_control: new Date().toISOString().slice(0, 10),
-    }).eq('id', c.id)
+    const fecha_control = new Date().toISOString().slice(0, 10)
+    await supabase.from('poliza_controles_mensuales').update({ estado: 'controlado', fecha_control }).eq('id', c.id)
+    await registrarAudit({
+      accion: 'editar', tabla: 'poliza_controles_mensuales', registroId: c.id,
+      descripcion: `Período ${formatPeriodo(c.periodo)} marcado Controlado — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosAntes: c, datosDespues: { ...c, estado: 'controlado', fecha_control },
+    })
     await refetchControlesMensuales(detalle.id)
   }
 
@@ -357,6 +361,11 @@ export default function PolizasPage() {
     if (!detalle) return
     const hoy = new Date().toISOString().slice(0, 10)
     await supabase.from('poliza_controles_mensuales').update({ estado: 'pagado', fecha_pago: hoy }).eq('id', c.id)
+    await registrarAudit({
+      accion: 'editar', tabla: 'poliza_controles_mensuales', registroId: c.id,
+      descripcion: `Período ${formatPeriodo(c.periodo)} marcado Pagado — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosAntes: c, datosDespues: { ...c, estado: 'pagado', fecha_pago: hoy },
+    })
     const proximoPeriodo = sumarUnMes(c.periodo)
     await supabase.from('polizas').update({ vencimiento: proximoPeriodo }).eq('id', detalle.id)
     const { data: existe } = await supabase.from('poliza_controles_mensuales').select('id')
@@ -373,16 +382,24 @@ export default function PolizasPage() {
   async function deshacerControl(c: ControlMensual) {
     if (!detalle) return
     const nuevoEstado = c.estado === 'pagado' ? 'controlado' : 'pendiente'
-    await supabase.from('poliza_controles_mensuales').update({
-      estado: nuevoEstado,
-      ...(nuevoEstado === 'controlado' ? { fecha_pago: null } : { fecha_control: null, fecha_pago: null }),
-    }).eq('id', c.id)
+    const cambios = nuevoEstado === 'controlado' ? { fecha_pago: null } : { fecha_control: null, fecha_pago: null }
+    await supabase.from('poliza_controles_mensuales').update({ estado: nuevoEstado, ...cambios }).eq('id', c.id)
+    await registrarAudit({
+      accion: 'editar', tabla: 'poliza_controles_mensuales', registroId: c.id,
+      descripcion: `Período ${formatPeriodo(c.periodo)} deshecho (${c.estado} → ${nuevoEstado}) — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosAntes: c, datosDespues: { ...c, estado: nuevoEstado, ...cambios },
+    })
     await refetchControlesMensuales(detalle.id)
   }
 
   async function confirmarEliminarControl() {
     if (!detalle || !confirmEliminarControl) return
     await supabase.from('poliza_controles_mensuales').delete().eq('id', confirmEliminarControl.id)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'poliza_controles_mensuales', registroId: confirmEliminarControl.id,
+      descripcion: `Período ${formatPeriodo(confirmEliminarControl.periodo)} eliminado — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosAntes: confirmEliminarControl,
+    })
     setConfirmEliminarControl(null)
     await refetchControlesMensuales(detalle.id)
   }
@@ -400,11 +417,16 @@ export default function PolizasPage() {
     setShowUploadModal(false)
     const path = `${detalle.cliente_id}/${detalle.id}/${Date.now()}_${uploadFile.name}`
     await supabase.storage.from('documentos').upload(path, uploadFile)
-    await supabase.from('documentos').insert([{
+    const { data: docData } = await supabase.from('documentos').insert([{
       cliente_id: detalle.cliente_id, poliza_id: detalle.id,
       nombre: uploadFile.name, tipo: uploadTipoDoc,
       storage_path: path, tamanio_bytes: uploadFile.size,
-    }])
+    }]).select().single()
+    await registrarAudit({
+      accion: 'crear', tabla: 'documentos', registroId: (docData as any)?.id,
+      descripcion: `Documento subido: ${uploadFile.name} — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosDespues: docData,
+    })
     setUploadingDoc(false)
     setUploadFile(null)
     await abrirDetalle(detalle)
@@ -419,19 +441,29 @@ export default function PolizasPage() {
     if (!confirm(`¿Eliminar "${doc.nombre}"?`)) return
     await supabase.storage.from('documentos').remove([doc.storage_path])
     await supabase.from('documentos').delete().eq('id', doc.id)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'documentos', registroId: doc.id,
+      descripcion: `Documento eliminado: ${doc.nombre} — ${detalle?.ramo || ''} ${detalle?.numero || ''} — ${detalle?.clientes?.nombre || ''}`,
+      datosAntes: doc,
+    })
     if (detalle) abrirDetalle(detalle)
   }
 
   async function registrarPago(cuotaNum: number) {
     if (!detalle) return
     setSavingPago(true)
-    await supabase.from('pagos').upsert([{
+    const { data: pagoData } = await supabase.from('pagos').upsert([{
       poliza_id:  detalle.id,
       cuota_num:  cuotaNum,
       fecha:      pagoForm.fecha,
       metodo:     pagoForm.metodo,
       referencia: pagoForm.referencia,
-    }], { onConflict: 'poliza_id,cuota_num' })
+    }], { onConflict: 'poliza_id,cuota_num' }).select().single()
+    await registrarAudit({
+      accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id,
+      descripcion: `Pago registrado: cuota ${cuotaNum} — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosDespues: pagoData,
+    })
     setShowPagoModal(null)
     setSavingPago(false)
     await abrirDetalle(detalle)
@@ -441,7 +473,13 @@ export default function PolizasPage() {
 
   async function deshacerPago(cuotaNum: number) {
     if (!detalle) return
+    const { data: pagoAntes } = await supabase.from('pagos').select('*').eq('poliza_id', detalle.id).eq('cuota_num', cuotaNum).maybeSingle()
     await supabase.from('pagos').delete().eq('poliza_id', detalle.id).eq('cuota_num', cuotaNum)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'pagos', registroId: pagoAntes?.id,
+      descripcion: `Pago deshecho: cuota ${cuotaNum} — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
+      datosAntes: pagoAntes,
+    })
     await abrirDetalle(detalle)
     fetchPolizas()
   }
@@ -519,6 +557,7 @@ export default function PolizasPage() {
     await registrarAudit({
       accion: 'editar', tabla: 'polizas', registroId: editando.id,
       descripcion: `Póliza editada: ${editForm.ramo} ${editForm.numero}`,
+      datosAntes: editando,
       datosDespues: editForm,
     })
     await fetchPolizas()
@@ -599,6 +638,7 @@ export default function PolizasPage() {
         await registrarAudit({
           accion: 'editar', tabla: 'polizas', registroId: form.renuevaPolizaId,
           descripcion: `Póliza marcada como renovada por la nueva póliza ${form.ramo} ${form.numero}${anterior ? ` (era ${anterior.ramo} ${anterior.numero})` : ''}`,
+          datosAntes: { renovada: anterior?.renovada ?? false },
           datosDespues: { renovada: true },
         })
       }

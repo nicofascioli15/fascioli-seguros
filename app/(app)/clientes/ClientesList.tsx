@@ -114,7 +114,7 @@ export default function ClientesList({ onSelect }: Props) {
       )
     }
 
-    await registrarAudit({ accion: 'editar', tabla: 'clientes', registroId: editando.id, descripcion: `Cliente editado: ${editForm.nombre}`, datosDespues: editForm })
+    await registrarAudit({ accion: 'editar', tabla: 'clientes', registroId: editando.id, descripcion: `Cliente editado: ${editForm.nombre}`, datosAntes: editando, datosDespues: editForm })
     setEditando(null)
     setSavingEdit(false)
     await fetchClientes()
@@ -155,8 +155,20 @@ export default function ClientesList({ onSelect }: Props) {
     setImporting(true)
     const { data, error } = await supabase.from('clientes').insert(csvPreview.rows).select()
     let ok = 0, skip = 0
-    if (error) { for (const row of csvPreview.rows) { const { error: e } = await supabase.from('clientes').insert([row]); if (e) skip++; else ok++ } }
-    else { ok = data?.length || csvPreview.rows.length }
+    let creados: any[] = []
+    if (error) {
+      for (const row of csvPreview.rows) {
+        const { error: e, data: rowData } = await supabase.from('clientes').insert([row]).select().single()
+        if (e) skip++; else { ok++; if (rowData) creados.push(rowData) }
+      }
+    } else { ok = data?.length || csvPreview.rows.length; creados = data || [] }
+    if (ok > 0) {
+      await registrarAudit({
+        accion: 'crear', tabla: 'clientes',
+        descripcion: `Importación CSV: ${ok} cliente${ok === 1 ? '' : 's'} creado${ok === 1 ? '' : 's'}${skip > 0 ? ` (${skip} omitido${skip === 1 ? '' : 's'})` : ''}`,
+        datosDespues: creados,
+      })
+    }
     setImporting(false); setImportDone({ ok, skip }); await fetchClientes()
   }
 

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 import { Pagination, paginate } from '@/components/Pagination'
 
@@ -100,15 +101,20 @@ export default function SiniestrosPage() {
   async function guardarSiniestro() {
     if (!clienteSel) return
     setSaving(true)
-    const { error } = await supabase.from('siniestros').insert([{
+    const { error, data } = await supabase.from('siniestros').insert([{
       cliente_id:       clienteSel.id,
       poliza_id:        polizaSel?.id || null,
       tipo:             form.tipo,
       descripcion:      form.descripcion,
       fecha_ocurrencia: form.fecha_ocurrencia || null,
       estado:           form.estado,
-    }])
+    }]).select().single()
     if (!error) {
+      await registrarAudit({
+        accion: 'crear', tabla: 'siniestros', registroId: (data as any)?.id,
+        descripcion: `Siniestro registrado: ${form.tipo} — ${clienteSel.nombre}${polizaSel ? ` — ${polizaSel.ramo} ${polizaSel.numero}` : ''}`,
+        datosDespues: data,
+      })
       cerrarModal()
       await fetchSiniestros()
     }
@@ -116,7 +122,14 @@ export default function SiniestrosPage() {
   }
 
   async function cambiarEstado(id: string, estado: string) {
+    const antes = siniestros.find(s => s.id === id)
     await supabase.from('siniestros').update({ estado }).eq('id', id)
+    await registrarAudit({
+      accion: 'editar', tabla: 'siniestros', registroId: id,
+      descripcion: `Siniestro cambió de estado: ${antes?.estado || '—'} → ${estado} — ${antes?.tipo || ''} — ${antes?.clientes?.nombre || ''}`,
+      datosAntes: antes ? { estado: antes.estado } : null,
+      datosDespues: { estado },
+    })
     await fetchSiniestros()
   }
 

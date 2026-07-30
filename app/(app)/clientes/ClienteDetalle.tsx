@@ -353,6 +353,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         .map(([campoId, valor]) => ({ poliza_id: editandoPoliza.id, campo_id: campoId, valor }))
       if (upserts.length > 0) await supabase.from('poliza_campos').upsert(upserts, { onConflict: 'poliza_id,campo_id' })
     }
+    await registrarAudit({
+      accion: 'editar', tabla: 'polizas', registroId: editandoPoliza.id,
+      descripcion: `Póliza editada: ${editPolizaForm.ramo} ${editPolizaForm.numero} — ${nombre}`,
+      datosAntes: editandoPoliza,
+      datosDespues: editPolizaForm,
+    })
     setEditandoPoliza(null)
     setSavingEditPoliza(false)
     showToast('Póliza actualizada')
@@ -471,6 +477,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
         await registrarAudit({
           accion: 'editar', tabla: 'polizas', registroId: polizaForm.renuevaPolizaId,
           descripcion: `Póliza marcada como renovada por la nueva póliza ${polizaForm.ramo} ${polizaForm.numero}${anterior ? ` (era ${anterior.ramo} ${anterior.numero})` : ''}`,
+          datosAntes: { renovada: anterior?.renovada ?? false },
           datosDespues: { renovada: true },
         })
       }
@@ -523,7 +530,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   async function deshacerPago(polizaId: string, cuotaNum: number) {
+    const { data: pagoAntes } = await supabase.from('pagos').select('*').eq('poliza_id', polizaId).eq('cuota_num', cuotaNum).maybeSingle()
+    const polDe = polizas.find(p => p.id === polizaId)
     await supabase.from('pagos').delete().eq('poliza_id', polizaId).eq('cuota_num', cuotaNum)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'pagos', registroId: pagoAntes?.id,
+      descripcion: `Pago deshecho: cuota ${cuotaNum} — ${polDe?.ramo || ''} ${polDe?.numero || ''} — ${nombre}`,
+      datosAntes: pagoAntes,
+    })
     await fetchPolizas()
   }
 
@@ -549,7 +563,13 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setShowUploadModal(false)
     const path = `${id}/${uploadPolizaId}/${Date.now()}_${uploadFile.name}`
     await supabase.storage.from('documentos').upload(path, uploadFile)
-    await supabase.from('documentos').insert([{ cliente_id: id, poliza_id: uploadPolizaId, nombre: uploadFile.name, tipo: uploadTipoDoc, storage_path: path, tamanio_bytes: uploadFile.size }])
+    const { data: docData } = await supabase.from('documentos').insert([{ cliente_id: id, poliza_id: uploadPolizaId, nombre: uploadFile.name, tipo: uploadTipoDoc, storage_path: path, tamanio_bytes: uploadFile.size }]).select().single()
+    const pol = polizas.find(p => p.id === uploadPolizaId)
+    await registrarAudit({
+      accion: 'crear', tabla: 'documentos', registroId: (docData as any)?.id,
+      descripcion: `Documento subido: ${uploadFile.name} — ${pol?.ramo || ''} ${pol?.numero || ''} — ${nombre}`,
+      datosDespues: docData,
+    })
     setUploadingDoc(null); setUploadPolizaId(null); setUploadFile(null)
     await fetchPolizas(); showToast('Documento subido')
   }
@@ -563,6 +583,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     if (!confirm(`¿Eliminar "${doc.nombre}"?`)) return
     await supabase.storage.from('documentos').remove([doc.storage_path])
     await supabase.from('documentos').delete().eq('id', doc.id)
+    const pol = polizas.find(p => p.id === (doc as any).poliza_id)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'documentos', registroId: doc.id,
+      descripcion: `Documento eliminado: ${doc.nombre} — ${pol?.ramo || ''} ${pol?.numero || ''} — ${nombre}`,
+      datosAntes: doc,
+    })
     await fetchPolizas(); showToast('Documento eliminado')
   }
 
