@@ -46,6 +46,127 @@ function formatFecha(iso: string) {
     ' ' + d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })
 }
 
+// Campos técnicos que no le sirven a nadie ver (ids, relaciones, metadata) — se ocultan siempre.
+const CAMPOS_OCULTOS = new Set([
+  'id', 'created_at', 'updated_at', 'cliente_id', 'poliza_id', 'campo_id',
+  'clientes', 'polizas', 'doc_count',
+])
+
+// Nombres de campo -> etiqueta en criollo. Cubre clientes, pólizas, pagos,
+// documentos, siniestros y controles mensuales. Lo que no está acá se
+// "humaniza" solo (reemplaza guiones bajos, pone mayúscula inicial).
+const CAMPO_LABEL: Record<string, string> = {
+  nombre: 'Nombre', direccion: 'Dirección', contacto: 'Contacto', tel: 'Teléfono', email: 'Email', tipo: 'Tipo',
+  numero: 'Número', ramo: 'Ramo', compania: 'Compañía', corredor: 'Corredor',
+  corredor_nombre: 'Nombre del corredor', corredor_tel: 'Teléfono del corredor',
+  moneda: 'Moneda', vencimiento: 'Vencimiento', nota: 'Nota', cuotas: 'Cantidad de cuotas',
+  cuota_mes: 'Fechas de cuotas', renovada: 'Renovada', renovacion_mensual: 'Renovación mensual',
+  cuota_num: 'Cuota', fecha: 'Fecha de pago', metodo: 'Método', referencia: 'Referencia',
+  tamanio_bytes: 'Tamaño', storage_path: 'Archivo',
+  descripcion: 'Descripción', fecha_ocurrencia: 'Fecha de ocurrencia', estado: 'Estado',
+  periodo: 'Período', fecha_control: 'Fecha de control', fecha_pago: 'Fecha de pago',
+}
+
+function humanizar(key: string): string {
+  const s = key.replace(/_/g, ' ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+function formatValorCampo(key: string, value: any): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No'
+  if (typeof value === 'object') return JSON.stringify(value)
+  const s = String(value)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, d] = s.split('-')
+    if (key === 'periodo') return `${MESES_LARGO[parseInt(m, 10) - 1]} ${y}`
+    return `${d}/${m}/${y}`
+  }
+  if (key === 'tamanio_bytes') {
+    const n = Number(value)
+    if (!isFinite(n)) return s
+    if (n < 1024) return `${n} B`
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    return `${(n / 1024 / 1024).toFixed(1)} MB`
+  }
+  return s
+}
+
+// Muestra los cambios de una entrada del historial en criollo: campo por campo,
+// con "antes → después" cuando hay comparación posible, en vez de tirar el JSON
+// crudo de la base de datos.
+function CambiosDetalle({ log }: { log: LogEntry }) {
+  const antes = log.datos_antes && typeof log.datos_antes === 'object' && !Array.isArray(log.datos_antes) ? log.datos_antes : null
+  const despues = log.datos_despues
+
+  if (!antes && !despues) {
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin detalle guardado para esta acción.</div>
+  }
+
+  // Alta masiva (ej. importación CSV): datos_despues es un array de registros.
+  if (Array.isArray(despues)) {
+    return (
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 6 }}>
+          Registros creados ({despues.length})
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 220, overflow: 'auto' }}>
+          {despues.slice(0, 80).map((r: any, i: number) => (
+            <div key={i} style={{ fontSize: 12.5, color: 'var(--text-main)' }}>{r?.nombre || `Registro ${i + 1}`}</div>
+          ))}
+          {despues.length > 80 && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>...y {despues.length - 80} más</div>}
+        </div>
+      </div>
+    )
+  }
+
+  // Los campos a mostrar son los del lado que representa "lo que se tocó":
+  // en una edición o alta, eso es 'después'; en una eliminación, es 'antes'.
+  const baseKeys = despues ? Object.keys(despues) : Object.keys(antes || {})
+  const claves = baseKeys.filter(k => !CAMPOS_OCULTOS.has(k))
+
+  const hayComparacion = !!antes && !!despues
+  const filas = claves
+    .map(k => ({ key: k, antes: antes ? antes[k] : undefined, despues: despues ? despues[k] : undefined }))
+    .filter(f => !hayComparacion || JSON.stringify(f.antes) !== JSON.stringify(f.despues))
+
+  const esEdicionSinAntes = log.accion === 'editar' && !antes
+
+  if (filas.length === 0) {
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No hay cambios en los campos registrados.</div>
+  }
+
+  return (
+    <div>
+      {esEdicionSinAntes && (
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 8 }}>
+          Esta edición es de antes de que empezáramos a guardar el estado anterior — solo se ve el resultado final.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {filas.map(f => (
+          <div key={f.key} style={{ display: 'flex', gap: 12, fontSize: 12.5, padding: '6px 0', borderBottom: '1px solid #F1F5FB' }}>
+            <div style={{ width: 160, flexShrink: 0, fontWeight: 700, color: 'var(--text-muted)' }}>{CAMPO_LABEL[f.key] || humanizar(f.key)}</div>
+            <div style={{ flex: 1, minWidth: 0, color: 'var(--text-main)' }}>
+              {hayComparacion ? (
+                <>
+                  <span style={{ textDecoration: 'line-through', color: '#991B1B', opacity: .7 }}>{formatValorCampo(f.key, f.antes)}</span>
+                  {'  →  '}
+                  <span style={{ fontWeight: 700, color: '#1A7A4E' }}>{formatValorCampo(f.key, f.despues)}</span>
+                </>
+              ) : (
+                <span>{formatValorCampo(f.key, despues ? f.despues : f.antes)}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function HistorialPage() {
   const supabase = createClient()
   const { esSuperAdmin, loading: loadingRol } = useRol()
@@ -242,25 +363,8 @@ export default function HistorialPage() {
 
               {/* Detalle */}
               {expandido === log.id && (
-                <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: log.datos_antes && log.datos_despues ? '1fr 1fr' : '1fr', gap: 12, marginTop: 12 }}>
-                    {log.datos_antes && (
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#991B1B', marginBottom: 6 }}>Antes</div>
-                        <pre style={{ fontSize: 11, background: '#FEF2F2', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--text-main)', margin: 0, lineHeight: 1.5 }}>
-                          {JSON.stringify(log.datos_antes, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                    {log.datos_despues && (
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#1A7A4E', marginBottom: 6 }}>Después</div>
-                        <pre style={{ fontSize: 11, background: '#F0FDF4', borderRadius: 8, padding: '10px 12px', overflow: 'auto', maxHeight: 200, color: 'var(--text-main)', margin: 0, lineHeight: 1.5 }}>
-                          {JSON.stringify(log.datos_despues, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
+                <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)', marginTop: 12 }}>
+                  <CambiosDetalle log={log} />
                 </div>
               )}
             </div>
