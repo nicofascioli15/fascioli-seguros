@@ -77,10 +77,10 @@ export default function ContratosDashboard() {
 
   const statCards = [
     { label: 'Edificios', value: edificios, sub: 'Cartera compartida con Mantenimiento', icon: Building2, bg: '#EDE9FE', iconColor: '#7C3AED', href: '/contratos/edificios' },
-    { label: 'Vencidos', value: vencidos, sub: 'Telegrama enviado — no se renueva solo, hay que actuar', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
-    { label: 'Auto-renovados a revisar', value: autoRenovados, sub: 'Vencieron sin renovación manual — se renovaron solos', icon: AlertTriangle, bg: '#DBEAFE', iconColor: '#1D4ED8', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
-    { label: 'Por vencer / seguimiento', value: porVencer, sub: '≤180 días o en garantía/ejecución', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
-    { label: 'Vigentes', value: vigentes, sub: 'Sin novedades', icon: CheckCircle2, bg: '#E6F5EF', iconColor: '#1A7A4E', href: categorias[0] ? `/contratos/categoria/${categorias[0].slug}` : '/contratos/edificios' },
+    { label: 'Vencidos', value: vencidos, sub: 'Telegrama enviado — no se renueva solo, hay que actuar', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/contratos/vencimientos?filtro=vencido' },
+    { label: 'Auto-renovados a revisar', value: autoRenovados, sub: 'Vencieron sin renovación manual — se renovaron solos', icon: AlertTriangle, bg: '#DBEAFE', iconColor: '#1D4ED8', href: '/contratos/vencimientos?filtro=auto-renovado' },
+    { label: 'Por vencer / seguimiento', value: porVencer, sub: '≤180 días o en garantía/ejecución', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: '/contratos/vencimientos?filtro=por-vencer' },
+    { label: 'Vigentes', value: vigentes, sub: 'Sin novedades', icon: CheckCircle2, bg: '#E6F5EF', iconColor: '#1A7A4E', href: '/contratos/vencimientos?filtro=vigente' },
   ]
 
   return (

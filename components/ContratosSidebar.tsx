@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeProvider'
 import { fetchCategorias, CategoriaRow } from '@/lib/contratosConfig'
 import {
-  LayoutDashboard, Building2, FileText, Settings, LogOut, Sun, Moon, LayoutGrid, X
+  LayoutDashboard, Building2, FileText, Settings, LogOut, Sun, Moon, LayoutGrid, X, AlertTriangle
 } from 'lucide-react'
 
 export default function ContratosSidebar() {
@@ -30,6 +30,7 @@ export default function ContratosSidebar() {
   const navItems = [
     { href: '/contratos', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/contratos/edificios', icon: Building2, label: 'Edificios' },
+    { href: '/contratos/vencimientos', icon: AlertTriangle, label: 'Vencimientos' },
     ...categorias.map(c => ({ href: `/contratos/categoria/${c.slug}`, icon: FileText, label: c.label })),
   ]
 
