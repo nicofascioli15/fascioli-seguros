@@ -118,9 +118,19 @@ export function estadoAutoBadge(estado: EstadoAuto | null, renovado?: boolean): 
   return { label: 'Vigente', cls: 'badge-success' }
 }
 
+// Cuántos días después de auto-renovarse un contrato se sigue marcando "Auto-renovado a
+// revisar". Pasada la ventana, se asume que ya se revisó (o que quedó aceptado tal cual) y
+// deja de figurar como pendiente — si no, con el tiempo TODOS los contratos terminan pasando
+// por al menos un ciclo sin renovación manual y la etiqueta pierde sentido (queda pegada para
+// siempre y ya no distingue nada).
+export const VENTANA_AUTO_RENOVADO_DIAS = 90
+
 // Calcula el vencimiento y estado de un contrato auto-renovable a partir de fecha_firma_inicio + vigencia_anios.
 // Si ya pasaron uno o más ciclos completos de vigencia sin renovación manual, avanza el cálculo
-// ciclo por ciclo (mismas condiciones) hasta el ciclo vigente hoy, y marca autoRenovado = true.
+// ciclo por ciclo (mismas condiciones) hasta el ciclo vigente hoy, y marca autoRenovado = true
+// — pero solo durante los VENTANA_AUTO_RENOVADO_DIAS días posteriores a esa renovación automática
+// (ver comentario arriba); estructuralmenteRenovado (ciclos > 0) indica si en algún momento pasó,
+// independientemente de la ventana.
 // EXCEPCIÓN: si se envió el telegrama de no renovación automática (telegramaEnviado = true), la
 // renovación automática queda cortada — el cálculo NO avanza de ciclo, así que si se vence, queda
 // "Vencido" de forma persistente (como antes de tener auto-renovación) hasta que se renueve a mano.
@@ -137,7 +147,10 @@ export function calcularAuto(fechaFirma: string | null, vigenciaAnios: number | 
   const vencimiento = addAnios(inicioCiclo, vigenciaAnios)
   const dias = diasHasta(vencimiento)!
   const estado = estadoAuto(dias)
-  return { vencimiento, dias, estado, autoRenovado: ciclos > 0, inicioCiclo, ciclos }
+  const diasDesdeRenovacion = ciclos > 0 ? -diasHasta(inicioCiclo)! : null
+  const estructuralmenteRenovado = ciclos > 0
+  const autoRenovado = estructuralmenteRenovado && diasDesdeRenovacion! <= VENTANA_AUTO_RENOVADO_DIAS
+  return { vencimiento, dias, estado, autoRenovado, estructuralmenteRenovado, inicioCiclo, ciclos }
 }
 
 // Devuelve la fecha de inicio de cada ciclo de vigencia completado entre "fechaInicio" (exclusive)

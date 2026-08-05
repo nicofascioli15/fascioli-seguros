@@ -9,6 +9,8 @@ import {
   hoyISO, formatFecha, formatDias, diasHasta,
 } from '@/lib/contratosConfig'
 import { Pagination, paginate } from '@/components/Pagination'
+import { SortHeader } from '@/components/SortHeader'
+import { useSortFilter } from '@/hooks/useSortFilter'
 
 type Filtro = 'vencido' | 'auto-renovado' | 'por-vencer' | 'vigente' | 'todos'
 
@@ -119,7 +121,8 @@ export default function VencimientosContratosPage() {
     const matchCat = !filtroCategoria || r.categoria === filtroCategoria
     return matchFiltroFor(filtro)(r) && matchSearch && matchCat
   })
-  const paginados = paginate(filtrados, page)
+  const { sort, toggleSort, sorted } = useSortFilter<Row>(filtrados)
+  const paginados = paginate(sorted, page)
 
   function irACategoria(r: Row) {
     router.push(`/contratos/categoria/${r.categoria}`)
@@ -182,11 +185,11 @@ export default function VencimientosContratosPage() {
           <table>
             <thead>
               <tr>
-                <th>Edificio</th>
-                <th>Categoría</th>
-                <th>Empresa</th>
-                <th>Tipo</th>
-                <th>Vencimiento</th>
+                <SortHeader label="Edificio" col="cliente_nombre" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Categoría" col="categoriaLabel" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Empresa" col="empresa" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Tipo" col="tipo_contrato" sort={sort} onSort={toggleSort} />
+                <SortHeader label="Vencimiento" col="proximoVenc" sort={sort} onSort={toggleSort} />
                 <th>Estado</th>
                 <th style={{ width: 30 }}></th>
               </tr>
