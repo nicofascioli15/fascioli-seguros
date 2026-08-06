@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { sanitizeFileName } from '@/lib/files'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
@@ -460,7 +461,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       }
       // Subir documento si se adjuntó
       if (docNueva) {
-        const path = `${id}/${polizaId}/${Date.now()}_${docNueva.file.name}`
+        const path = `${id}/${polizaId}/${Date.now()}_${sanitizeFileName(docNueva.file.name)}`
         await supabase.storage.from('documentos').upload(path, docNueva.file)
         await supabase.from('documentos').insert([{
           cliente_id: id, poliza_id: polizaId,
@@ -561,7 +562,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     if (!uploadFile || !uploadPolizaId) return
     setUploadingDoc(uploadPolizaId)
     setShowUploadModal(false)
-    const path = `${id}/${uploadPolizaId}/${Date.now()}_${uploadFile.name}`
+    const path = `${id}/${uploadPolizaId}/${Date.now()}_${sanitizeFileName(uploadFile.name)}`
     await supabase.storage.from('documentos').upload(path, uploadFile)
     const { data: docData } = await supabase.from('documentos').insert([{ cliente_id: id, poliza_id: uploadPolizaId, nombre: uploadFile.name, tipo: uploadTipoDoc, storage_path: path, tamanio_bytes: uploadFile.size }]).select().single()
     const pol = polizas.find(p => p.id === uploadPolizaId)

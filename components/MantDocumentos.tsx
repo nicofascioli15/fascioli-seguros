@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { sanitizeFileName } from '@/lib/files'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
@@ -51,7 +52,7 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
     const errores: string[] = []
     for (let i = 0; i < list.length; i++) {
       const file = list[i]
-      const path = `mantenimiento/${tabla}/${registroId}/${Date.now()}_${i}_${file.name.replace(/\s/g, '_')}`
+      const path = `mantenimiento/${tabla}/${registroId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`
       const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false })
       if (!error) {
         await supabase.from('mant_documentos').insert([{ [fkCol]: registroId, nombre: file.name, tipo, storage_path: path, tamanio_bytes: file.size }])

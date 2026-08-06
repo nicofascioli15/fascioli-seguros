@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { sanitizeFileName } from '@/lib/files'
 import { Pagination, paginate } from '@/components/Pagination'
 
 
@@ -111,7 +112,7 @@ export default function DocumentosPage() {
     setUploading(true)
     cerrarModal()
 
-    const path = `${clienteSel.id}/${polizaSel.id}/${Date.now()}_${fileSel.name.replace(/\s/g, '_')}`
+    const path = `${clienteSel.id}/${polizaSel.id}/${Date.now()}_${sanitizeFileName(fileSel.name)}`
 
     const { error: storageErr } = await supabase.storage
       .from('documentos')

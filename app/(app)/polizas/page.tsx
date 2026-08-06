@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { sanitizeFileName } from '@/lib/files'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
@@ -415,7 +416,7 @@ export default function PolizasPage() {
     if (!uploadFile || !detalle) return
     setUploadingDoc(true)
     setShowUploadModal(false)
-    const path = `${detalle.cliente_id}/${detalle.id}/${Date.now()}_${uploadFile.name}`
+    const path = `${detalle.cliente_id}/${detalle.id}/${Date.now()}_${sanitizeFileName(uploadFile.name)}`
     await supabase.storage.from('documentos').upload(path, uploadFile)
     const { data: docData } = await supabase.from('documentos').insert([{
       cliente_id: detalle.cliente_id, poliza_id: detalle.id,
@@ -617,7 +618,7 @@ export default function PolizasPage() {
       if (inserts.length > 0) await supabase.from('poliza_campos').insert(inserts)
       // Subir documento si se adjuntó
       if (docNueva) {
-        const path = `${clienteSeleccionado.id}/${polizaId}/${Date.now()}_${docNueva.file.name}`
+        const path = `${clienteSeleccionado.id}/${polizaId}/${Date.now()}_${sanitizeFileName(docNueva.file.name)}`
         await supabase.storage.from('documentos').upload(path, docNueva.file)
         await supabase.from('documentos').insert([{
           cliente_id: clienteSeleccionado.id, poliza_id: polizaId,
