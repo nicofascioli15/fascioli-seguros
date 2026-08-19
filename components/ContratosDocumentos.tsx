@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { sanitizeFileName } from '@/lib/files'
+import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
@@ -64,8 +64,7 @@ export default function ContratosDocumentos({ contratoId, clienteNombre, tiposSu
   }
 
   async function descargar(d: Doc) {
-    const { data } = await supabase.storage.from('documentos').createSignedUrl(d.storage_path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    await descargarDocumento(supabase, d.storage_path)
   }
 
   async function eliminar() {

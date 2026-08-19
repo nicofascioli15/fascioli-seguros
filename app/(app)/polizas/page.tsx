@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
-import { sanitizeFileName } from '@/lib/files'
+import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
@@ -434,8 +434,7 @@ export default function PolizasPage() {
   }
 
   async function descargarDoc(doc: Documento) {
-    const { data } = await supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    await descargarDocumento(supabase, doc.storage_path)
   }
 
   async function eliminarDoc(doc: Documento) {

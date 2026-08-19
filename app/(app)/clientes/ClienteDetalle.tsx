@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
-import { sanitizeFileName } from '@/lib/files'
+import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import { ChevronRight, Paperclip, Phone, Mail, MessageCircle, Plus, X, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
@@ -576,8 +576,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   async function descargarDoc(doc: Doc) {
-    const { data } = await supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    await descargarDocumento(supabase, doc.storage_path)
   }
 
   async function eliminarDoc(doc: Doc) {

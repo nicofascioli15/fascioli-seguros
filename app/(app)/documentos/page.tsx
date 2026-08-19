@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { sanitizeFileName } from '@/lib/files'
+import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { Pagination, paginate } from '@/components/Pagination'
 
 
@@ -146,8 +146,7 @@ export default function DocumentosPage() {
   }
 
   async function descargar(doc: Documento) {
-    const { data } = await supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    await descargarDocumento(supabase, doc.storage_path)
   }
 
   async function eliminar(doc: Documento) {
