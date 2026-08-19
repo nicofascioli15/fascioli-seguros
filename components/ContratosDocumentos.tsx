@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
+import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
@@ -60,7 +61,7 @@ export default function ContratosDocumentos({ contratoId, clienteNombre, tiposSu
     }
     await fetchDocs()
     setUploading(false)
-    if (errores.length > 0) alert(`Error al subir:\n${errores.join('\n')}`)
+    if (errores.length > 0) showToast(`Error al subir: ${errores.join(' · ')}`, 'error')
   }
 
   async function descargar(d: Doc) {

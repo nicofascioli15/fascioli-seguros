@@ -1,3 +1,5 @@
+import { showToast } from '@/lib/toast'
+
 // Limpia un nombre de archivo para usarlo como storage key en Supabase.
 // Saca acentos/tildes y reemplaza cualquier caracter que no sea letra, número,
 // punto o guión por "_". Sin esto, nombres con tildes (ej. "Deja Vú.pdf") o
@@ -23,7 +25,7 @@ export async function descargarDocumento(supabase: any, storagePath: string, buc
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 60)
   if (error || !data?.signedUrl) {
     ventana?.close()
-    alert(`No se pudo abrir el documento${error ? `: ${error.message}` : ''}. Puede que el archivo ya no exista en el almacenamiento — probá subiéndolo de nuevo.`)
+    showToast(`No se pudo abrir el documento${error ? `: ${error.message}` : ''}. Puede que el archivo ya no exista en el almacenamiento — probá subiéndolo de nuevo.`, 'error')
     return
   }
   if (ventana) ventana.location.href = data.signedUrl

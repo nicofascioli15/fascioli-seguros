@@ -6,6 +6,7 @@ import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, B
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
+import { showToast } from '@/lib/toast'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
@@ -421,7 +422,7 @@ export default function PolizasPage() {
     if (upErr) {
       setUploadingDoc(false)
       setUploadFile(null)
-      alert(`No se pudo subir el documento: ${upErr.message}`)
+      showToast(`No se pudo subir el documento: ${upErr.message}`, 'error')
       return
     }
     const { data: docData } = await supabase.from('documentos').insert([{
@@ -508,7 +509,7 @@ export default function PolizasPage() {
     setEliminando(false)
     if (error) {
       console.error('Error eliminando póliza:', error)
-      alert(`No se pudo eliminar: ${error.message}`)
+      showToast(`No se pudo eliminar: ${error.message}`, 'error')
       return
     }
     setConfirmEliminar(null)
@@ -590,14 +591,14 @@ export default function PolizasPage() {
   async function guardarPoliza() {
     if (!clienteSeleccionado || !form.numero.trim()) return
     if (numeroExiste) return
-    if (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId) { alert('Seleccioná qué póliza estás renovando'); return }
+    if (form.tipoAlta === 'renovacion' && !form.renuevaPolizaId) { showToast('Seleccioná qué póliza estás renovando', 'error'); return }
     let nCuotas = 0
     if (!form.renovacionMensual) {
       nCuotas = parseInt(form.cuotas) || 0
-      if (nCuotas < 1) { alert('Ingresá al menos 1 cuota'); return }
-      if (!form.fechasCuotas[0]) { alert('Ingresá la fecha de la primera cuota'); return }
+      if (nCuotas < 1) { showToast('Ingresá al menos 1 cuota', 'error'); return }
+      if (!form.fechasCuotas[0]) { showToast('Ingresá la fecha de la primera cuota', 'error'); return }
     }
-    if (!form.vencimiento) { alert('Ingresá la fecha de vencimiento'); return }
+    if (!form.vencimiento) { showToast('Ingresá la fecha de vencimiento', 'error'); return }
     setSaving(true)
     const { data: polData } = await supabase.from('polizas').insert([{
       cliente_id:  clienteSeleccionado.id,
@@ -626,7 +627,7 @@ export default function PolizasPage() {
         const path = `${clienteSeleccionado.id}/${polizaId}/${Date.now()}_${sanitizeFileName(docNueva.file.name)}`
         const { error: upErr } = await supabase.storage.from('documentos').upload(path, docNueva.file)
         if (upErr) {
-          alert(`Póliza creada, pero el documento adjunto no se pudo subir: ${upErr.message}`)
+          showToast(`Póliza creada, pero el documento adjunto no se pudo subir: ${upErr.message}`, 'error')
         } else {
           await supabase.from('documentos').insert([{
             cliente_id: clienteSeleccionado.id, poliza_id: polizaId,

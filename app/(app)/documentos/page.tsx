@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Upload, Download, Trash2, Search, Loader2, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
+import { showToast } from '@/lib/toast'
 import { Pagination, paginate } from '@/components/Pagination'
 
 
@@ -119,7 +120,7 @@ export default function DocumentosPage() {
       .upload(path, fileSel, { upsert: false })
 
     if (storageErr) {
-      alert(`Error al subir: ${storageErr.message}`)
+      showToast(`Error al subir: ${storageErr.message}`, 'error')
       setUploading(false)
       return
     }
