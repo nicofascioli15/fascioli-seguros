@@ -462,12 +462,16 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       // Subir documento si se adjuntó
       if (docNueva) {
         const path = `${id}/${polizaId}/${Date.now()}_${sanitizeFileName(docNueva.file.name)}`
-        await supabase.storage.from('documentos').upload(path, docNueva.file)
-        await supabase.from('documentos').insert([{
-          cliente_id: id, poliza_id: polizaId,
-          nombre: docNueva.file.name, tipo: docNueva.tipo,
-          storage_path: path, tamanio_bytes: docNueva.file.size,
-        }])
+        const { error: upErr } = await supabase.storage.from('documentos').upload(path, docNueva.file)
+        if (upErr) {
+          showToast(`Póliza creada, pero el documento adjunto no se pudo subir: ${upErr.message}`)
+        } else {
+          await supabase.from('documentos').insert([{
+            cliente_id: id, poliza_id: polizaId,
+            nombre: docNueva.file.name, tipo: docNueva.tipo,
+            storage_path: path, tamanio_bytes: docNueva.file.size,
+          }])
+        }
         setDocNueva(null)
       }
       await registrarAudit({ accion: 'crear', tabla: 'polizas', registroId: polizaId, descripcion: `Póliza creada: ${polizaForm.ramo} ${polizaForm.numero} — ${nombre}`, datosDespues: polData })
@@ -563,7 +567,12 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     setUploadingDoc(uploadPolizaId)
     setShowUploadModal(false)
     const path = `${id}/${uploadPolizaId}/${Date.now()}_${sanitizeFileName(uploadFile.name)}`
-    await supabase.storage.from('documentos').upload(path, uploadFile)
+    const { error: upErr } = await supabase.storage.from('documentos').upload(path, uploadFile)
+    if (upErr) {
+      setUploadingDoc(null); setUploadPolizaId(null); setUploadFile(null)
+      showToast(`No se pudo subir el documento: ${upErr.message}`)
+      return
+    }
     const { data: docData } = await supabase.from('documentos').insert([{ cliente_id: id, poliza_id: uploadPolizaId, nombre: uploadFile.name, tipo: uploadTipoDoc, storage_path: path, tamanio_bytes: uploadFile.size }]).select().single()
     const pol = polizas.find(p => p.id === uploadPolizaId)
     await registrarAudit({

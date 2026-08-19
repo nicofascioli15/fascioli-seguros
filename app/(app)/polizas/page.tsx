@@ -417,7 +417,13 @@ export default function PolizasPage() {
     setUploadingDoc(true)
     setShowUploadModal(false)
     const path = `${detalle.cliente_id}/${detalle.id}/${Date.now()}_${sanitizeFileName(uploadFile.name)}`
-    await supabase.storage.from('documentos').upload(path, uploadFile)
+    const { error: upErr } = await supabase.storage.from('documentos').upload(path, uploadFile)
+    if (upErr) {
+      setUploadingDoc(false)
+      setUploadFile(null)
+      alert(`No se pudo subir el documento: ${upErr.message}`)
+      return
+    }
     const { data: docData } = await supabase.from('documentos').insert([{
       cliente_id: detalle.cliente_id, poliza_id: detalle.id,
       nombre: uploadFile.name, tipo: uploadTipoDoc,
@@ -618,12 +624,16 @@ export default function PolizasPage() {
       // Subir documento si se adjuntó
       if (docNueva) {
         const path = `${clienteSeleccionado.id}/${polizaId}/${Date.now()}_${sanitizeFileName(docNueva.file.name)}`
-        await supabase.storage.from('documentos').upload(path, docNueva.file)
-        await supabase.from('documentos').insert([{
-          cliente_id: clienteSeleccionado.id, poliza_id: polizaId,
-          nombre: docNueva.file.name, tipo: docNueva.tipo,
-          storage_path: path, tamanio_bytes: docNueva.file.size,
-        }])
+        const { error: upErr } = await supabase.storage.from('documentos').upload(path, docNueva.file)
+        if (upErr) {
+          alert(`Póliza creada, pero el documento adjunto no se pudo subir: ${upErr.message}`)
+        } else {
+          await supabase.from('documentos').insert([{
+            cliente_id: clienteSeleccionado.id, poliza_id: polizaId,
+            nombre: docNueva.file.name, tipo: docNueva.tipo,
+            storage_path: path, tamanio_bytes: docNueva.file.size,
+          }])
+        }
         setDocNueva(null)
       }
       await registrarAudit({
