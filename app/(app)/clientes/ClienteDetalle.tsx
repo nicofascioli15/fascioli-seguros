@@ -1,6 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
@@ -627,14 +627,24 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
         {loading ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando...</div>
         : polizas.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin pólizas — creá la primera arriba</div>
-        : polizas.map(pol => {
+        : (() => {
+          const polizasOrdenadas = [...polizas].sort((a, b) => Number(!!a.renovada) - Number(!!b.renovada))
+          const primerRenovadaIdx = polizasOrdenadas.findIndex(p => p.renovada)
+          return polizasOrdenadas.map((pol, idx) => {
           const isOpen = !!openCards[pol.id]
           const { label, cls } = estadoBadge(pol.vencimiento, pol.renovada, pol.renovacion_mensual)
           const pagosMap: Record<number, any> = {}
           ;(pol.pagos ? Object.entries(pol.pagos) : []).forEach(([k, v]) => { pagosMap[Number(k)] = v })
 
           return (
-            <div key={pol.id} className="poliza-card" style={{ transition: 'box-shadow .25s ease', boxShadow: isOpen ? '0 4px 20px rgba(15,30,53,.1)' : 'none' }}>
+            <Fragment key={pol.id}>
+            {idx === primerRenovadaIdx && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 8px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>Renovadas</div>
+                <div style={{ flex: 1, height: 1, background: 'var(--border-soft)' }} />
+              </div>
+            )}
+            <div className="poliza-card" style={{ transition: 'box-shadow .25s ease', boxShadow: isOpen ? '0 4px 20px rgba(15,30,53,.1)' : 'none' }}>
               <div className="poliza-card-header"
                 onClick={() => setOpenCards(prev => ({ ...prev, [pol.id]: !prev[pol.id] }))}
                 style={{ transition: 'background .15s' }}
@@ -811,8 +821,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 </div>
               </div>
             </div>
+            </Fragment>
           )
-        })}
+        })
+        })()}
       </div>
 
       {/* Hidden file input */}
