@@ -369,8 +369,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   async function checkNumeroExiste(numero: string) {
     if (!numero.trim()) { setNumeroExiste(false); return }
     setCheckingNumero(true)
-    const { data } = await supabase.from('polizas').select('id').eq('numero', numero.trim()).maybeSingle()
-    setNumeroExiste(!!data)
+    const { count } = await supabase.from('polizas').select('id', { count: 'exact', head: true }).eq('numero', numero.trim())
+    setNumeroExiste(!!count && count > 0)
     setCheckingNumero(false)
   }
 
@@ -905,8 +905,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               </div>
               <div className="fgroup">
                 <label>N° Póliza *</label>
-                <input value={polizaForm.numero} onChange={e => { setPolizaForm({ ...polizaForm, numero: e.target.value }); setErrores(p => ({...p, numero: false})) }} placeholder="Ej: 4309338" autoFocus style={{ borderColor: errores.numero ? 'var(--danger)' : undefined }} />
-                
+                <input value={polizaForm.numero} onChange={e => { setPolizaForm({ ...polizaForm, numero: e.target.value }); setErrores(p => ({...p, numero: false})); checkNumeroExiste(e.target.value) }} placeholder="Ej: 4309338" autoFocus style={{ borderColor: (errores.numero || numeroExiste) ? 'var(--danger)' : undefined }} />
+                {numeroExiste && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3, fontWeight: 600 }}>⚠ Esta póliza ya existe en el sistema</div>}
               </div>
               <div className="fgroup">
                 <label>Compañía *</label>

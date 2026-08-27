@@ -573,8 +573,8 @@ export default function PolizasPage() {
   async function checkNumeroExiste(numero: string) {
     if (!numero.trim()) { setNumeroExiste(false); return }
     setCheckingNumero(true)
-    const { data } = await supabase.from('polizas').select('id').eq('numero', numero.trim()).maybeSingle()
-    setNumeroExiste(!!data)
+    const { count } = await supabase.from('polizas').select('id', { count: 'exact', head: true }).eq('numero', numero.trim())
+    setNumeroExiste(!!count && count > 0)
     setCheckingNumero(false)
   }
 
