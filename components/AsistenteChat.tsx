@@ -65,9 +65,6 @@ export default function AsistenteChat() {
     }
   }
 
-  const panelWidth = expanded ? 560 : 360
-  const panelHeight = expanded ? 720 : 480
-
   return (
     <>
       {tooltipVisible && !open && (
@@ -90,6 +87,7 @@ export default function AsistenteChat() {
       <button
         onClick={toggleOpen}
         aria-label="Asistente virtual"
+        className={`asistente-fab${open ? ' is-open' : ''}`}
         style={{
           position: 'fixed', bottom: 24, right: 24, width: 54, height: 54, borderRadius: '50%',
           background: 'var(--navy)', color: 'var(--gold)', border: 'none', cursor: 'pointer',
@@ -101,20 +99,23 @@ export default function AsistenteChat() {
       </button>
 
       {open && (
-        <div style={{
-          position: 'fixed', bottom: 90, right: 24, width: panelWidth, maxWidth: 'calc(100vw - 32px)', height: panelHeight, maxHeight: 'calc(100vh - 130px)',
-          background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 14, boxShadow: '0 8px 32px rgba(15,30,53,.2)',
+        <div className={`asistente-panel${expanded ? ' expanded' : ''}`} style={{
+          background: 'var(--bg-card)', border: '1px solid var(--border-soft)', boxShadow: '0 8px 32px rgba(15,30,53,.2)',
           display: 'flex', flexDirection: 'column', zIndex: 1000, overflow: 'hidden',
-          transition: 'width .2s ease, height .2s ease',
         }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="asistente-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <Sparkles size={15} color="var(--gold)" />
               <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>Asistente Fascioli</span>
             </div>
-            <button onClick={() => setExpanded(e => !e)} aria-label={expanded ? 'Achicar' : 'Agrandar'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
-              {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => setExpanded(e => !e)} aria-label={expanded ? 'Achicar' : 'Agrandar'} className="asistente-expand-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
+                {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+              <button onClick={() => setOpen(false)} aria-label="Cerrar" className="asistente-close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'none' }}>
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -140,7 +141,7 @@ export default function AsistenteChat() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid var(--border-soft)' }}>
+          <div className="asistente-input-row" style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid var(--border-soft)' }}>
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -159,6 +160,43 @@ export default function AsistenteChat() {
         .spin { animation: asistente-spin 1s linear infinite; }
         @keyframes asistente-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes asistente-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        .asistente-panel {
+          position: fixed;
+          bottom: 90px;
+          right: 24px;
+          width: 360px;
+          height: 480px;
+          max-width: calc(100vw - 32px);
+          max-height: calc(100vh - 130px);
+          border-radius: 14px;
+          transition: width .2s ease, height .2s ease;
+        }
+        .asistente-panel.expanded {
+          width: 560px;
+          height: 720px;
+        }
+
+        /* En celular: el chat pasa a ocupar toda la pantalla, usando dvh
+           (altura "dinámica") en vez de vh fijo, así se re-acomoda solo
+           cuando aparece el teclado en vez de saltar hacia arriba. */
+        @media (max-width: 640px) {
+          .asistente-panel, .asistente-panel.expanded {
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100dvh;
+            max-width: 100%;
+            max-height: 100dvh;
+            border-radius: 0;
+          }
+          .asistente-fab.is-open { display: none; }
+          .asistente-close-btn { display: flex !important; }
+          .asistente-header { padding-top: calc(12px + env(safe-area-inset-top)) !important; }
+          .asistente-input-row { padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important; }
+        }
       `}</style>
     </>
   )
