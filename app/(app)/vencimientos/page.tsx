@@ -22,6 +22,20 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
+function fraseVencimiento(dias: number | null): string {
+  if (dias === null) return ''
+  if (dias === 0) return 'vence hoy'
+  if (dias === 1) return 'vence mañana'
+  if (dias > 1) return `vence en ${dias} días`
+  const venc = Math.abs(dias)
+  return venc === 1 ? 'venció ayer' : `venció hace ${venc} días`
+}
+
+function mensajeWhatsapp(v: Item): string {
+  const frase = fraseVencimiento(v.dias)
+  return `Hola ${v.cliente_nombre}! Te escribimos de Fascioli Seguros para avisarte que tu póliza de ${v.ramo} N° ${v.numero} ${frase} (${formatFecha(v.vencimiento)}). Cualquier consulta, quedamos a disposición.`
+}
+
 type Item = {
   id: string
   numero: string
@@ -139,7 +153,7 @@ export default function VencimientosPage() {
               <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                 {v.cliente_tel && <a href={`tel:${v.cliente_tel}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Phone size={12} /></a>}
                 {v.cliente_email && <a href={`mailto:${v.cliente_email}`} className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}><Mail size={12} /></a>}
-                {v.cliente_tel && <a href={`https://wa.me/${(() => { const n = v.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
+                {v.cliente_tel && <a href={`https://wa.me/${(() => { const n = v.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}?text=${encodeURIComponent(mensajeWhatsapp(v))}`} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}><MessageCircle size={12} /></a>}
               </div>
             </div>
           </div>
