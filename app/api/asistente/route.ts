@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     const anthropicMessages = messages.map((m: any) => ({ role: m.role, content: m.content }))
     const accionesEjecutadas: any[] = []
+    const documentosEncontrados: any[] = []
 
     let vueltas = 0
     while (vueltas < 6) {
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
       if (data.stop_reason !== 'tool_use') {
         const textoFinal = (data.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
-        return NextResponse.json({ respuesta: textoFinal, acciones: accionesEjecutadas })
+        return NextResponse.json({ respuesta: textoFinal, acciones: accionesEjecutadas, documentos: documentosEncontrados })
       }
 
       const toolResults = []
@@ -73,6 +74,11 @@ export async function POST(req: NextRequest) {
         if (block.type !== 'tool_use') continue
         const resultado = await ejecutarHerramienta(supabase, { id: user.id, email: user.email }, block.name, block.input)
         if (block.name === 'marcar_cuota_pagada' && resultado?.ok) accionesEjecutadas.push({ herramienta: block.name, input: block.input, resultado })
+        if (block.name === 'documentos_cliente' && resultado?.detalle) {
+          for (const grupo of resultado.detalle) {
+            if (grupo.documentos?.length > 0) documentosEncontrados.push(grupo)
+          }
+        }
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(resultado) })
       }
       anthropicMessages.push({ role: 'user', content: toolResults })

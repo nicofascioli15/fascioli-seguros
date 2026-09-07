@@ -66,6 +66,15 @@ export const ASISTENTE_TOOLS = [
     },
   },
   {
+    name: 'documentos_cliente',
+    description: 'Busca los documentos/adjuntos (PDFs, etc.) cargados de un cliente, para que el usuario los pueda abrir o descargar.',
+    input_schema: {
+      type: 'object',
+      properties: { nombre_cliente: { type: 'string' } },
+      required: ['nombre_cliente'],
+    },
+  },
+  {
     name: 'marcar_cuota_pagada',
     description: 'ACCIÓN: registra el pago de una cuota de una póliza. Requiere el id exacto de la póliza (obtenido antes con buscar_poliza) y el número de cuota. Si hay ambigüedad sobre qué póliza o cuota, primero preguntale al usuario en vez de adivinar.',
     input_schema: {
@@ -187,6 +196,18 @@ export async function ejecutarHerramienta(
       const conDocs = new Set((docs || []).map(d => d.cliente_id))
       const sinDocs = (clientes || []).filter(c => !conDocs.has(c.id)).map(c => c.nombre)
       return { total: sinDocs.length, clientes: sinDocs }
+    }
+
+    case 'documentos_cliente': {
+      const clientes = await buscarClientesPorNombre(supabase, input.nombre_cliente, 5)
+      if (clientes.length === 0) return { error: 'No se encontró ningún cliente con ese nombre' }
+
+      const resultado: any[] = []
+      for (const cli of clientes) {
+        const { data: docs } = await supabase.from('documentos').select('id, nombre, tipo, storage_path, created_at').eq('cliente_id', cli.id).order('created_at', { ascending: false })
+        resultado.push({ cliente: cli.nombre, cliente_id: cli.id, documentos: docs || [] })
+      }
+      return { total_clientes: resultado.length, detalle: resultado }
     }
 
     case 'resumen_general': {

@@ -1,9 +1,11 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles } from 'lucide-react'
+import { descargarDocumento } from '@/lib/files'
+import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles, FileText } from 'lucide-react'
 
-type Mensaje = { role: 'user' | 'assistant'; texto: string; accion?: boolean }
+type DocumentoGrupo = { cliente: string; cliente_id: string; documentos: { id: string; nombre: string; tipo: string | null; storage_path: string }[] }
+type Mensaje = { role: 'user' | 'assistant'; texto: string; documentos?: DocumentoGrupo[] }
 
 export default function AsistenteChat() {
   const [open, setOpen] = useState(false)
@@ -56,7 +58,7 @@ export default function AsistenteChat() {
       if (!res.ok) {
         setMensajes(m => [...m, { role: 'assistant', texto: data.error || 'Hubo un error, probá de nuevo.' }])
       } else {
-        setMensajes(m => [...m, { role: 'assistant', texto: data.respuesta || '(sin respuesta)' }])
+        setMensajes(m => [...m, { role: 'assistant', texto: data.respuesta || '(sin respuesta)', documentos: data.documentos?.length > 0 ? data.documentos : undefined }])
       }
     } catch {
       setMensajes(m => [...m, { role: 'assistant', texto: 'No se pudo conectar con el asistente.' }])
@@ -121,17 +123,36 @@ export default function AsistenteChat() {
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {mensajes.length === 0 && (
               <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                Preguntame cosas como "¿qué pólizas vencen este mes?", "buscame el cliente Marsala" o "cuotas pendientes de tal cliente".
+                Preguntame cosas como "¿qué pólizas vencen este mes?", "buscame el cliente Marsala", "cuotas pendientes de tal cliente" o "dame los documentos de tal cliente".
               </div>
             )}
             {mensajes.map((m, i) => (
-              <div key={i} style={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                background: m.role === 'user' ? 'var(--navy)' : 'var(--bg-card-alt)',
-                color: m.role === 'user' ? 'var(--white)' : 'var(--text-main)',
-                padding: '8px 12px', borderRadius: 10, maxWidth: '85%', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
-              }}>
-                {m.texto}
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', gap: 6 }}>
+                <div style={{
+                  background: m.role === 'user' ? 'var(--navy)' : 'var(--bg-card-alt)',
+                  color: m.role === 'user' ? 'var(--white)' : 'var(--text-main)',
+                  padding: '8px 12px', borderRadius: 10, maxWidth: '85%', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+                }}>
+                  {m.texto}
+                </div>
+                {m.documentos?.map(grupo => (
+                  <div key={grupo.cliente_id} style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: '90%' }}>
+                    {grupo.documentos.map(doc => (
+                      <button
+                        key={doc.id}
+                        onClick={() => descargarDocumento(supabase, doc.storage_path)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 7, textAlign: 'left',
+                          background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 8,
+                          padding: '7px 10px', fontSize: 12.5, color: 'var(--text-main)', cursor: 'pointer',
+                        }}
+                      >
+                        <FileText size={14} color="var(--gold)" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
             {loading && (
