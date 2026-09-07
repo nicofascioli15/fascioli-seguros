@@ -1,12 +1,14 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
+import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles } from 'lucide-react'
 
 type Mensaje = { role: 'user' | 'assistant'; texto: string; accion?: boolean }
 
 export default function AsistenteChat() {
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [tooltipVisible, setTooltipVisible] = useState(false)
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,6 +18,23 @@ export default function AsistenteChat() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [mensajes, open])
+
+  useEffect(() => {
+    if (sessionStorage.getItem('asistente_tooltip_visto')) return
+    const mostrar = setTimeout(() => setTooltipVisible(true), 1200)
+    const ocultar = setTimeout(() => cerrarTooltip(), 9000)
+    return () => { clearTimeout(mostrar); clearTimeout(ocultar) }
+  }, [])
+
+  function cerrarTooltip() {
+    setTooltipVisible(false)
+    sessionStorage.setItem('asistente_tooltip_visto', '1')
+  }
+
+  function toggleOpen() {
+    if (!open) cerrarTooltip()
+    setOpen(o => !o)
+  }
 
   async function enviar() {
     const texto = input.trim()
@@ -46,10 +65,30 @@ export default function AsistenteChat() {
     }
   }
 
+  const panelWidth = expanded ? 560 : 360
+  const panelHeight = expanded ? 720 : 480
+
   return (
     <>
+      {tooltipVisible && !open && (
+        <div style={{
+          position: 'fixed', bottom: 32, right: 88, maxWidth: 230,
+          background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 12,
+          padding: '10px 12px', boxShadow: '0 4px 16px rgba(15,30,53,.18)', zIndex: 1000,
+          display: 'flex', gap: 8, alignItems: 'flex-start', animation: 'asistente-fade-in .25s ease',
+        }}>
+          <Sparkles size={16} color="var(--gold)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ flex: 1, lineHeight: 1.4, fontSize: 12.5, color: 'var(--text-main)' }}>
+            Preguntame por vencimientos, clientes, cuotas o siniestros
+          </span>
+          <button onClick={cerrarTooltip} aria-label="Cerrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, flexShrink: 0 }}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={toggleOpen}
         aria-label="Asistente virtual"
         style={{
           position: 'fixed', bottom: 24, right: 24, width: 54, height: 54, borderRadius: '50%',
@@ -63,12 +102,19 @@ export default function AsistenteChat() {
 
       {open && (
         <div style={{
-          position: 'fixed', bottom: 90, right: 24, width: 360, maxWidth: 'calc(100vw - 32px)', height: 480, maxHeight: 'calc(100vh - 130px)',
+          position: 'fixed', bottom: 90, right: 24, width: panelWidth, maxWidth: 'calc(100vw - 32px)', height: panelHeight, maxHeight: 'calc(100vh - 130px)',
           background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 14, boxShadow: '0 8px 32px rgba(15,30,53,.2)',
           display: 'flex', flexDirection: 'column', zIndex: 1000, overflow: 'hidden',
+          transition: 'width .2s ease, height .2s ease',
         }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>
-            Asistente Fascioli
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Sparkles size={15} color="var(--gold)" />
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>Asistente Fascioli</span>
+            </div>
+            <button onClick={() => setExpanded(e => !e)} aria-label={expanded ? 'Achicar' : 'Agrandar'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
+              {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
           </div>
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -112,6 +158,7 @@ export default function AsistenteChat() {
       <style jsx global>{`
         .spin { animation: asistente-spin 1s linear infinite; }
         @keyframes asistente-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes asistente-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </>
   )
