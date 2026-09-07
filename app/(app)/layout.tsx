@@ -1,6 +1,7 @@
 import Sidebar from '@/components/Sidebar'
 import GlobalSearch from '@/components/GlobalSearch'
 import ModalScrollLock from '@/components/ModalScrollLock'
+import AsistenteChat from '@/components/AsistenteChat'
 import { AuthProvider } from '@/lib/AuthProvider'
 import { ThemeProvider } from '@/lib/ThemeProvider'
 
@@ -20,6 +21,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {children}
           </main>
         </div>
+        <AsistenteChat />
       </AuthProvider>
     </ThemeProvider>
   )
