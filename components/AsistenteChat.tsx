@@ -2,10 +2,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { descargarDocumento } from '@/lib/files'
-import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles, FileText } from 'lucide-react'
+import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles, FileText, Trash2 } from 'lucide-react'
 
 type DocumentoGrupo = { cliente: string; cliente_id: string; documentos: { id: string; nombre: string; tipo: string | null; storage_path: string }[] }
 type Mensaje = { role: 'user' | 'assistant'; texto: string; documentos?: DocumentoGrupo[] }
+
+const MAX_CONTEXTO = 12 // cuántos mensajes recientes se le mandan al modelo como contexto (no todo el historial guardado, para no gastar de más)
 
 export default function AsistenteChat() {
   const [open, setOpen] = useState(false)
@@ -14,6 +16,7 @@ export default function AsistenteChat() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [historialCargado, setHistorialCargado] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
@@ -28,6 +31,18 @@ export default function AsistenteChat() {
     return () => { clearTimeout(mostrar); clearTimeout(ocultar) }
   }, [])
 
+  // Carga el historial guardado la primera vez que se abre el chat.
+  useEffect(() => {
+    if (!open || historialCargado) return
+    setHistorialCargado(true)
+    ;(async () => {
+      const { data } = await supabase.from('asistente_mensajes').select('role, texto, documentos').order('created_at', { ascending: true }).limit(60)
+      if (data && data.length > 0) {
+        setMensajes(data.map((m: any) => ({ role: m.role, texto: m.texto, documentos: m.documentos || undefined })))
+      }
+    })()
+  }, [open, historialCargado, supabase])
+
   function cerrarTooltip() {
     setTooltipVisible(false)
     sessionStorage.setItem('asistente_tooltip_visto', '1')
@@ -38,30 +53,47 @@ export default function AsistenteChat() {
     setOpen(o => !o)
   }
 
+  function guardarMensaje(m: Mensaje) {
+    supabase.from('asistente_mensajes').insert([{ role: m.role, texto: m.texto, documentos: m.documentos || null }]).then(({ error }) => {
+      if (error) console.warn('No se pudo guardar el mensaje del asistente:', error.message)
+    })
+  }
+
+  async function vaciarHistorial() {
+    if (!window.confirm('¿Vaciar todo el historial de conversación con el asistente?')) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) await supabase.from('asistente_mensajes').delete().eq('usuario_id', user.id)
+    setMensajes([])
+  }
+
   async function enviar() {
     const texto = input.trim()
     if (!texto || loading) return
     setInput('')
-    const nuevos: Mensaje[] = [...mensajes, { role: 'user', texto }]
+    const mensajeUsuario: Mensaje = { role: 'user', texto }
+    const nuevos: Mensaje[] = [...mensajes, mensajeUsuario]
     setMensajes(nuevos)
+    guardarMensaje(mensajeUsuario)
     setLoading(true)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const historial = nuevos.map(m => ({ role: m.role, content: m.texto }))
+      const historial = nuevos.slice(-MAX_CONTEXTO).map(m => ({ role: m.role, content: m.texto }))
       const res = await fetch('/api/asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ messages: historial }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        setMensajes(m => [...m, { role: 'assistant', texto: data.error || 'Hubo un error, probá de nuevo.' }])
-      } else {
-        setMensajes(m => [...m, { role: 'assistant', texto: data.respuesta || '(sin respuesta)', documentos: data.documentos?.length > 0 ? data.documentos : undefined }])
-      }
+      const mensajeAsistente: Mensaje = !res.ok
+        ? { role: 'assistant', texto: data.error || 'Hubo un error, probá de nuevo.' }
+        : { role: 'assistant', texto: data.respuesta || '(sin respuesta)', documentos: data.documentos?.length > 0 ? data.documentos : undefined }
+      setMensajes(m => [...m, mensajeAsistente])
+      guardarMensaje(mensajeAsistente)
     } catch {
-      setMensajes(m => [...m, { role: 'assistant', texto: 'No se pudo conectar con el asistente.' }])
+      const mensajeError: Mensaje = { role: 'assistant', texto: 'No se pudo conectar con el asistente.' }
+      setMensajes(m => [...m, mensajeError])
+      guardarMensaje(mensajeError)
     } finally {
       setLoading(false)
     }
@@ -111,6 +143,9 @@ export default function AsistenteChat() {
               <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>Asistente Fascioli</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={vaciarHistorial} aria-label="Vaciar historial" className="asistente-clear-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
+                <Trash2 size={15} />
+              </button>
               <button onClick={() => setExpanded(e => !e)} aria-label={expanded ? 'Achicar' : 'Agrandar'} className="asistente-expand-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
                 {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
