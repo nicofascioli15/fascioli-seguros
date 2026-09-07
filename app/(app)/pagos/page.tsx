@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Search, Download, CheckCircle, Loader2, X } from 'lucide-react'
+import { Search, Download, CheckCircle, Loader2, X, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
@@ -32,6 +32,10 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
+function mensajeWhatsappCuota(c: Cuota): string {
+  return `Hola ${c.cliente_nombre}! Te escribimos de Fascioli Seguros para recordarte que la cuota ${c.cuota_num} de tu póliza de ${c.ramo} N° ${c.numero_poliza} (${c.compania}) vence el ${formatFecha(c.vencimiento)}. Cualquier consulta, quedamos a disposición.`
+}
+
 type Cuota = {
   poliza_id: string
   cuota_num: number
@@ -39,6 +43,7 @@ type Cuota = {
   ramo: string
   compania: string
   cliente_nombre: string
+  cliente_tel: string
   vencimiento: string | null
   cuota_mes?: string | null
   moneda: string
@@ -99,7 +104,7 @@ export default function PagosPage() {
     // Traer todas las polizas con sus clientes
     const { data: polizas } = await supabase
       .from('polizas')
-      .select('id, numero, ramo, compania, vencimiento, moneda, cuotas, cuota_mes, cliente_id, clientes(nombre)')
+      .select('id, numero, ramo, compania, vencimiento, moneda, cuotas, cuota_mes, cliente_id, clientes(nombre, tel)')
       .order('created_at', { ascending: false })
 
     if (!polizas) { setLoading(false); return }
@@ -126,6 +131,7 @@ export default function PagosPage() {
           ramo:            pol.ramo,
           compania:        pol.compania,
           cliente_nombre:  (pol.clientes as any)?.nombre || '—',
+          cliente_tel:     (pol.clientes as any)?.tel || '',
           vencimiento:     fechaCuota,
           moneda:          pol.moneda,
           pago_id:         pago?.id || null,
@@ -270,7 +276,7 @@ export default function PagosPage() {
           <colgroup>
             <col style={{ width: 180 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} />
             <col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} />
-            <col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} />
+            <col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 44 }} /><col style={{ width: 100 }} />
           </colgroup>
           <thead>
             <tr>
@@ -281,17 +287,17 @@ export default function PagosPage() {
               <SortHeader label="Cuota" col="cuota_num" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Cobrado" col="pago_fecha" sort={sortState} onSort={toggleSort} />
-              <th>Estado</th><th></th>
+              <th>Estado</th><th></th><th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <tr><td colSpan={10} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <Loader2 size={24} style={{ margin: '0 auto 8px', display: 'block', animation: 'spin 1s linear infinite' }} />
                 Cargando pagos...
               </td></tr>
             ) : filtradas.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <tr><td colSpan={10} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>No hay cuotas registradas</div>
                 <div style={{ fontSize: 12 }}>Las cuotas aparecen automáticamente cuando cargás pólizas con cuotas en Clientes</div>
@@ -310,6 +316,15 @@ export default function PagosPage() {
                   <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatFecha(c.vencimiento)}</td>
                   <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
+                  <td onClick={e => e.stopPropagation()}>
+                    {c.cliente_tel && (
+                      <a href={`https://wa.me/${(() => { const n = c.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}?text=${encodeURIComponent(mensajeWhatsappCuota(c))}`}
+                        target="_blank" rel="noreferrer" className="btn-outline btn-sm"
+                        style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}>
+                        <MessageCircle size={12} />
+                      </a>
+                    )}
+                  </td>
                   <td onClick={e => e.stopPropagation()}>
                     {(estado !== 'Cobrado' && estado !== 'Controlado')
                       ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
@@ -343,11 +358,20 @@ export default function PagosPage() {
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {c.pago_fecha ? `${getEstado(c) === 'Controlado' ? 'Controlado' : 'Cobrado'} ${formatFecha(c.pago_fecha)} · ${c.pago_metodo}` : `Vence ${formatFecha(c.vencimiento)}`}
                   </div>
-                  {(estado !== 'Cobrado' && estado !== 'Controlado') && (
-                    <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
-                      Cobrar
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {c.cliente_tel && (
+                      <a href={`https://wa.me/${(() => { const n = c.cliente_tel.replace(/\D/g,''); return n.startsWith('598') ? n : `598${n.replace(/^0+/,'')}` })()}?text=${encodeURIComponent(mensajeWhatsappCuota(c))}`}
+                        target="_blank" rel="noreferrer" className="btn-outline btn-sm"
+                        style={{ textDecoration: 'none', fontSize: 11, color: '#25D366', borderColor: '#25D366' }}>
+                        <MessageCircle size={12} />
+                      </a>
+                    )}
+                    {(estado !== 'Cobrado' && estado !== 'Controlado') && (
+                      <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                        Cobrar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )
