@@ -95,6 +95,24 @@ function parseFechasCuotaMes(cuotaMes: string): string[] {
   })
 }
 
+// Quita espacios, tildes y mayúsculas para poder comparar "Sea Park" con
+// "Seapark", "SEA PARK", "séa park", etc. como si fueran lo mismo.
+function normalizar(s: string): string {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+}
+
+// Busca clientes por nombre: primero intenta la comparación directa en la
+// base (rápida), y si no encuentra nada, trae todos los clientes y compara
+// versiones normalizadas (sin espacios/tildes/mayúsculas) en memoria.
+async function buscarClientesPorNombre(supabase: SupabaseClient, texto: string, limite = 15): Promise<{ id: string; nombre: string }[]> {
+  const { data: directos } = await supabase.from('clientes').select('id, nombre').ilike('nombre', `%${texto}%`).limit(limite)
+  if (directos && directos.length > 0) return directos
+
+  const { data: todos } = await supabase.from('clientes').select('id, nombre')
+  const q = normalizar(texto)
+  return (todos || []).filter(c => normalizar(c.nombre).includes(q)).slice(0, limite)
+}
+
 // ── Ejecutor ──────────────────────────────────────────────────────────────
 export async function ejecutarHerramienta(
   supabase: SupabaseClient,
@@ -118,18 +136,19 @@ export async function ejecutarHerramienta(
     }
 
     case 'buscar_cliente': {
+      const candidatos = await buscarClientesPorNombre(supabase, input.nombre, 15)
+      if (candidatos.length === 0) return { total: 0, clientes: [] }
       const { data, error } = await supabase
         .from('clientes')
         .select('id, nombre, direccion, tel, email, polizas(id, numero, ramo, compania, vencimiento)')
-        .ilike('nombre', `%${input.nombre}%`)
-        .limit(15)
+        .in('id', candidatos.map(c => c.id))
       if (error) return { error: error.message }
       return { total: data?.length || 0, clientes: data }
     }
 
     case 'cuotas_pendientes_cliente': {
-      const { data: clientes } = await supabase.from('clientes').select('id, nombre').ilike('nombre', `%${input.nombre_cliente}%`).limit(5)
-      if (!clientes || clientes.length === 0) return { error: 'No se encontró ningún cliente con ese nombre' }
+      const clientes = await buscarClientesPorNombre(supabase, input.nombre_cliente, 5)
+      if (clientes.length === 0) return { error: 'No se encontró ningún cliente con ese nombre' }
 
       const resultado: any[] = []
       for (const cli of clientes) {
@@ -152,8 +171,8 @@ export async function ejecutarHerramienta(
       let q = supabase.from('siniestros').select('id, tipo, descripcion, fecha_ocurrencia, estado, cliente:clientes(nombre)').order('fecha_ocurrencia', { ascending: false }).limit(30)
       if (input.estado) q = q.eq('estado', input.estado)
       if (input.nombre_cliente) {
-        const { data: clientes } = await supabase.from('clientes').select('id').ilike('nombre', `%${input.nombre_cliente}%`)
-        const ids = (clientes || []).map(c => c.id)
+        const clientes = await buscarClientesPorNombre(supabase, input.nombre_cliente)
+        const ids = clientes.map(c => c.id)
         if (ids.length === 0) return { total: 0, siniestros: [] }
         q = q.in('cliente_id', ids)
       }
@@ -188,7 +207,7 @@ export async function ejecutarHerramienta(
       if (input.numero) q = q.eq('numero', input.numero)
       if (input.ramo) q = q.eq('ramo', input.ramo)
       if (input.nombre_cliente) {
-        const { data: clientes } = await supabase.from('clientes').select('id').ilike('nombre', `%${input.nombre_cliente}%`)
+        const clientes = await buscarClientesPorNombre(supabase, input.nombre_cliente)
         const ids = (clientes || []).map(c => c.id)
         if (ids.length === 0) return { total: 0, polizas: [] }
         q = q.in('cliente_id', ids)
