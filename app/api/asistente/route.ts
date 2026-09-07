@@ -9,7 +9,8 @@ Reglas:
 - Si una pregunta es ambigua (por ejemplo, hay varios clientes con nombres parecidos), preguntá antes de asumir.
 - Antes de ejecutar marcar_cuota_pagada, asegurate de tener el poliza_id correcto (buscalo con buscar_poliza si no lo tenés) y confirmá con el usuario los datos si hubo alguna ambigüedad.
 - Las fechas en la base están en formato YYYY-MM-DD. Hoy es ${new Date().toISOString().slice(0, 10)}.
-- Respuestas cortas, en formato de lista cuando haya varios resultados. No repitas toda la data cruda, resumila.`
+- Respuestas cortas, en formato de lista cuando haya varios resultados. No repitas toda la data cruda, resumila.
+- Cuando uses documentos_cliente, no menciones ni repitas el storage_path (la ruta interna del archivo) en tu respuesta: la interfaz ya le muestra al usuario un botón para abrir cada documento directamente. Solo nombrá los documentos encontrados, sin decirle que los busque en ningún lado.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -73,13 +74,25 @@ export async function POST(req: NextRequest) {
       for (const block of data.content) {
         if (block.type !== 'tool_use') continue
         const resultado = await ejecutarHerramienta(supabase, { id: user.id, email: user.email }, block.name, block.input)
-        if (block.name === 'marcar_cuota_pagada' && resultado?.ok) accionesEjecutadas.push({ herramienta: block.name, input: block.input, resultado })
+
+        let resultadoParaModelo = resultado
         if (block.name === 'documentos_cliente' && resultado?.detalle) {
           for (const grupo of resultado.detalle) {
             if (grupo.documentos?.length > 0) documentosEncontrados.push(grupo)
           }
+          // Al modelo le mandamos los documentos sin el storage_path (la ruta
+          // interna del archivo): no la necesita para responder, y si la ve
+          // tiende a mencionársela al usuario como si tuviera que ir a
+          // buscarla — cuando en realidad la interfaz ya le muestra un botón
+          // para abrir cada documento directamente.
+          resultadoParaModelo = {
+            ...resultado,
+            detalle: resultado.detalle.map((g: any) => ({ ...g, documentos: (g.documentos || []).map((d: any) => ({ id: d.id, nombre: d.nombre, tipo: d.tipo, created_at: d.created_at })) })),
+          }
         }
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(resultado) })
+        if (block.name === 'marcar_cuota_pagada' && resultado?.ok) accionesEjecutadas.push({ herramienta: block.name, input: block.input, resultado })
+
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(resultadoParaModelo) })
       }
       anthropicMessages.push({ role: 'user', content: toolResults })
     }
