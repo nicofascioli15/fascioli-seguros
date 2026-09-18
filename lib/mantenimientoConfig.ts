@@ -56,7 +56,7 @@ export const TIPOS_TRAMITE_BOMBEROS: { value: string; label: string }[] = [
   { value: 'PP',    label: 'PP — Particulares' },
 ]
 
-export const DECRETOS_BOMBEROS = ['372/023', '260/013', '150/016', '184/018', 'Otro / sin datos'] as const
+export const DECRETOS_BOMBEROS = ['372/023', '260/013', '150/016', '184/018', '333/2000', 'Otro / sin datos'] as const
 
 export const ESTADOS_BOMBEROS = ['Sin gestión', 'En trámite', 'Habilitado vigente', 'Plan gradual en curso', 'Vencido', 'Revocado'] as const
 
