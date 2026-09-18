@@ -69,7 +69,7 @@ export const ESTADOS_BOMBEROS = ['Sin gestión', 'En trámite', 'Habilitado vige
 
 export const ETAPAS_PLAN_GRADUAL = ['C1', 'C2', 'C3', 'Completado'] as const
 
-export const DOCS_TIPOS_BOMBEROS = ['Proyecto técnico', 'Declaración jurada', 'Certificado DNB', 'Presupuesto', 'Factura o recibo', 'Otro']
+export const DOCS_TIPOS_BOMBEROS = ['Proyecto técnico', 'Planos', 'Declaración jurada', 'Certificado DNB', 'Presupuesto', 'Factura o recibo', 'Otro']
 
 export function estadoBomberosBadgeClass(estado: string): string {
   if (estado === 'Habilitado vigente') return 'badge-success'
