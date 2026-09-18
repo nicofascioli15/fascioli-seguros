@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, History } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, MessageSquareText, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -12,6 +12,7 @@ import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import MantComentarios from '@/components/MantComentarios'
 import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
 import { ACCION, ACCION_TITULO, ESTADOS_GESTION, estadoBadgeClass, sumarAnios, VENCIMIENTO_ANIOS, VENCIMIENTO_ENSAYO_ANIOS, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, detalleGestionTexto, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
@@ -104,6 +105,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
 
   const [docsFor, setDocsFor] = useState<Item | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Item | null>(null)
+  const [comentariosFor, setComentariosFor] = useState<Item | null>(null)
   const [historialFor, setHistorialFor] = useState<Item | null>(null)
   const [exportScope, setExportScope] = useState<'vigentes' | 'completados' | 'historial'>('vigentes')
 
@@ -437,6 +439,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                         <ActionsMenu actions={[
                           { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                           { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                          { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosFor(it) },
                           { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
                           { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                           { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
@@ -462,6 +465,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
                       <ActionsMenu actions={[
                         { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                        { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosFor(it) },
                         { label: `Nueva ${ACCION[tabla]}`, icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                         { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
@@ -628,6 +632,16 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
         />
       )}
 
+      {/* Modal comentarios */}
+      {comentariosFor && (
+        <MantComentarios
+          tabla={tabla}
+          registroId={comentariosFor.id}
+          clienteNombre={comentariosFor.cliente_nombre}
+          onClose={() => setComentariosFor(null)}
+        />
+      )}
+
       {/* Modal historial */}
       {historialFor && historialFor.cliente_id && (
         <MantHistorial
@@ -755,7 +769,7 @@ export function ItemForm({ form, setForm, clientes, clienteLocked, tabla, empres
         <textarea value={form.comentarios} onChange={e => setForm((p: any) => ({ ...p, comentarios: e.target.value }))} rows={2}
           style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', resize: 'vertical' }} /></div>
       <div style={{ gridColumn: 'span 2', fontSize: 11.5, color: 'var(--text-muted)' }}>
-        Los reclamos ahora se cargan aparte, con fecha, desde el menú "···" de cada registro.
+        Los reclamos y comentarios se cargan aparte, con fecha, desde el menú "···" de cada registro.
       </div>
     </div>
   )

@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, History } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Trash2, AlertTriangle, RotateCw, Paperclip, MessageSquareWarning, MessageSquareText, History } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
@@ -12,6 +12,7 @@ import { SortHeader } from '@/components/SortHeader'
 import DatePicker from '@/components/DatePicker'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import MantComentarios from '@/components/MantComentarios'
 import MantHistorial from '@/components/MantHistorial'
 import ActionsMenu from '@/components/ActionsMenu'
 import {
@@ -23,7 +24,6 @@ type Item = {
   id: string
   cliente_id: string | null
   cliente_nombre: string
-  fecha_certificacion: string | null
   vencimiento: string | null
   tipo_tramite: string
   decreto: string
@@ -56,16 +56,18 @@ function formatFecha(iso: string | null) {
   return `${d}/${m}/${y}`
 }
 
+// El trámite de renovación hay que arrancarlo con 6 meses (180 días) de anticipación,
+// así que la ventana de "aviso" es mucho más ancha que en extintores/tanques.
 function vencBadge(dias: number | null): { label: string; cls: string } {
   if (dias === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
   if (dias < 0) return { label: `Vencido (${Math.abs(dias)}d)`, cls: 'badge-danger' }
   if (dias <= 30) return { label: `${dias}d`, cls: 'badge-danger' }
-  if (dias <= 90) return { label: `${dias}d`, cls: 'badge-warning' }
+  if (dias <= 180) return { label: `${dias}d`, cls: 'badge-warning' }
   return { label: `${dias}d`, cls: 'badge-success' }
 }
 
 export const emptyForm = {
-  cliente_id: '', fecha_certificacion: '', vencimiento: '',
+  cliente_id: '', vencimiento: '',
   tipo_tramite: '', decreto: '372/023', tecnico_registrado: '', empresa: '', costo: 0,
   estado: 'Sin gestión', etapa_actual: '', fecha_c1: '', fecha_c2: '', fecha_c3: '', comentarios: '',
 }
@@ -100,6 +102,7 @@ export default function MantBomberosPage() {
 
   const [docsFor, setDocsFor] = useState<Item | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Item | null>(null)
+  const [comentariosFor, setComentariosFor] = useState<Item | null>(null)
   const [historialFor, setHistorialFor] = useState<Item | null>(null)
   const [exportScope, setExportScope] = useState<'vigentes' | 'historial'>('vigentes')
 
@@ -117,7 +120,7 @@ export default function MantBomberosPage() {
 
   async function fetchAll() {
     setLoading(true)
-    const cols = 'id, cliente_id, fecha_certificacion, vencimiento, tipo_tramite, decreto, tecnico_registrado, empresa, costo, estado, etapa_actual, fecha_c1, fecha_c2, fecha_c3, comentarios, created_at'
+    const cols = 'id, cliente_id, vencimiento, tipo_tramite, decreto, tecnico_registrado, empresa, costo, estado, etapa_actual, fecha_c1, fecha_c2, fecha_c3, comentarios, created_at'
     const [{ data: itemsData }, { data: clientesData }, { data: empresasData }] = await Promise.all([
       supabase.from('mant_bomberos').select(`${cols}, mant_clientes(nombre)`).order('vencimiento', { ascending: true, nullsFirst: false }),
       supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre'),
@@ -129,7 +132,6 @@ export default function MantBomberosPage() {
         id: r.id,
         cliente_id: r.cliente_id,
         cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar',
-        fecha_certificacion: r.fecha_certificacion,
         vencimiento: r.vencimiento,
         tipo_tramite: r.tipo_tramite || '',
         decreto: r.decreto || '',
@@ -147,11 +149,11 @@ export default function MantBomberosPage() {
         vigente: false,
         docsCount: 0,
       }))
-      // Vigente = gestión más reciente por edificio (certificación, si no hay, fecha de alta)
+      // Vigente = gestión más reciente por edificio (fecha de alta del registro)
       const porCliente: Record<string, Item[]> = {}
       mapped.forEach(it => { if (it.cliente_id) (porCliente[it.cliente_id] ||= []).push(it) })
       Object.values(porCliente).forEach(arr => {
-        const masReciente = [...arr].sort((a, b) => (b.fecha_certificacion || b.created_at || '').localeCompare(a.fecha_certificacion || a.created_at || ''))[0]
+        const masReciente = [...arr].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
         if (masReciente) masReciente.vigente = true
       })
 
@@ -174,7 +176,6 @@ export default function MantBomberosPage() {
     const esPlanGradual = f.tipo_tramite === 'PG'
     return {
       cliente_id: f.cliente_id,
-      fecha_certificacion: f.fecha_certificacion || null,
       vencimiento: f.vencimiento || null,
       tipo_tramite: f.tipo_tramite || null,
       decreto: f.decreto || null,
@@ -208,7 +209,6 @@ export default function MantBomberosPage() {
     setEditando(it)
     setEditForm({
       cliente_id: it.cliente_id || '',
-      fecha_certificacion: it.fecha_certificacion || '',
       vencimiento: it.vencimiento || '',
       tipo_tramite: it.tipo_tramite,
       decreto: it.decreto,
@@ -281,7 +281,7 @@ export default function MantBomberosPage() {
     return [...base].sort((a, b) => {
       const byCliente = a.cliente_nombre.localeCompare(b.cliente_nombre)
       if (byCliente !== 0) return byCliente
-      return (b.fecha_certificacion || b.created_at || '').localeCompare(a.fecha_certificacion || a.created_at || '')
+      return (b.created_at || '').localeCompare(a.created_at || '')
     })
   })()
 
@@ -307,7 +307,6 @@ export default function MantBomberosPage() {
               ...(exportScope === 'historial' ? [{ header: 'Vigente', key: 'vigente', width: 40 }] : []),
               { header: 'Tipo trámite', key: 'tipo_tramite', width: 55 },
               { header: 'Decreto', key: 'decreto', width: 55 },
-              { header: 'Certificación', key: 'fecha_certificacion', width: 62 },
               { header: 'Vencimiento', key: 'vencimiento', width: 62 },
               { header: 'Estado', key: 'estado', width: 85 },
               { header: 'Empresa', key: 'empresa', width: 80 },
@@ -319,7 +318,6 @@ export default function MantBomberosPage() {
               vigente: it.vigente ? 'Sí' : '—',
               tipo_tramite: it.tipo_tramite || '—',
               decreto: it.decreto || '—',
-              fecha_certificacion: formatFecha(it.fecha_certificacion),
               vencimiento: formatFecha(it.vencimiento),
               estado: it.estado || '—',
               empresa: it.empresa || '—',
@@ -401,6 +399,7 @@ export default function MantBomberosPage() {
                         <ActionsMenu actions={[
                           { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                           { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                          { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosFor(it) },
                           { label: 'Nuevo trámite', icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
                           { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                           { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
@@ -426,6 +425,7 @@ export default function MantBomberosPage() {
                       <ActionsMenu actions={[
                         { label: 'Ver historial', icon: <History size={14} />, onClick: () => setHistorialFor(it) },
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor(it) },
+                        { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosFor(it) },
                         { label: 'Nuevo trámite', icon: <RotateCw size={14} />, onClick: () => abrirNuevaGestion(it) },
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditar(it) },
                         { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminar(it), danger: true },
@@ -581,6 +581,15 @@ export default function MantBomberosPage() {
         />
       )}
 
+      {comentariosFor && (
+        <MantComentarios
+          tabla="mant_bomberos"
+          registroId={comentariosFor.id}
+          clienteNombre={comentariosFor.cliente_nombre}
+          onClose={() => setComentariosFor(null)}
+        />
+      )}
+
       {historialFor && historialFor.cliente_id && (
         <MantHistorial
           tabla="mant_bomberos"
@@ -672,15 +681,9 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
         </div>
       )}
 
-      <div className="fgroup"><label>Fecha de certificación</label>
-        <DatePicker value={form.fecha_certificacion} onChange={v => setForm((p: any) => ({
-          ...p,
-          fecha_certificacion: v,
-          vencimiento: v ? sumarAnios(v, 4) : p.vencimiento,
-        }))} placeholder="¿Cuándo se certificó?" /></div>
-      <div className="fgroup"><label>Vencimiento de la habilitación</label>
-        <DatePicker value={form.vencimiento} onChange={v => setForm((p: any) => ({ ...p, vencimiento: v }))} placeholder="Próxima fecha" />
-        {form.fecha_certificacion && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Se calcula solo (+4 años, el máximo) — se puede ajustar si la DNB otorgó menos</div>}
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Vencimiento de la habilitación</label>
+        <DatePicker value={form.vencimiento} onChange={v => setForm((p: any) => ({ ...p, vencimiento: v }))} placeholder="¿Cuándo vence?" />
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Acordate: el trámite de renovación hay que arrancarlo con 6 meses de anticipación.</div>
       </div>
 
       {esPlanGradual && (
@@ -729,7 +732,7 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
         <textarea value={form.comentarios} onChange={e => setForm((p: any) => ({ ...p, comentarios: e.target.value }))} rows={2}
           style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', outline: 'none', background: 'var(--bg-card)', resize: 'vertical' }} /></div>
       <div style={{ gridColumn: 'span 2', fontSize: 11.5, color: 'var(--text-muted)' }}>
-        Los reclamos se cargan aparte, con fecha, desde el menú "···" de cada registro.
+        Los reclamos y comentarios se cargan aparte, con fecha, desde el menú "···" de cada registro.
       </div>
     </div>
   )

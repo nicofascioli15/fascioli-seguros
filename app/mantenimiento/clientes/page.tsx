@@ -1,13 +1,14 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip, MessageSquareWarning, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { Search, Plus, X, Loader2, Pencil, Building2, ArrowLeft, Flame, Droplets, Phone, Mail, Paperclip, MessageSquareWarning, MessageSquareText, Trash2, AlertTriangle, Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import { useSortFilter } from '@/hooks/useSortFilter'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { eliminarEdificioCompleto } from '@/lib/edificios'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import MantComentarios from '@/components/MantComentarios'
 import ActionsMenu from '@/components/ActionsMenu'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { ItemForm, emptyForm as emptyMantForm } from '@/components/MantItemsPage'
@@ -367,7 +368,7 @@ type RegItem = {
 }
 
 type BomberoItem = {
-  id: string; fecha_certificacion: string | null; vencimiento: string | null
+  id: string; vencimiento: string | null
   tipo_tramite: string; decreto: string; tecnico_registrado: string; empresa: string; costo: number | null
   estado: string; etapa_actual: string; fecha_c1: string | null; fecha_c2: string | null; fecha_c3: string | null
   comentarios: string; created_at: string; dias: number | null; vigente: boolean; docsCount: number
@@ -389,6 +390,14 @@ function vencBadge(dias: number | null): { label: string; cls: string } {
   if (dias < 0) return { label: `Vencido (${Math.abs(dias)}d)`, cls: 'badge-danger' }
   if (dias <= 7) return { label: `${dias}d`, cls: 'badge-danger' }
   if (dias <= 30) return { label: `${dias}d`, cls: 'badge-warning' }
+  return { label: `${dias}d`, cls: 'badge-success' }
+}
+// Bomberos se avisa con 6 meses (180 días) de anticipación — el trámite de renovación lleva tiempo.
+function vencBadgeBomberos(dias: number | null): { label: string; cls: string } {
+  if (dias === null) return { label: 'Sin fecha', cls: 'badge-neutral' }
+  if (dias < 0) return { label: `Vencido (${Math.abs(dias)}d)`, cls: 'badge-danger' }
+  if (dias <= 30) return { label: `${dias}d`, cls: 'badge-danger' }
+  if (dias <= 180) return { label: `${dias}d`, cls: 'badge-warning' }
   return { label: `${dias}d`, cls: 'badge-success' }
 }
 
@@ -425,6 +434,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [saving, setSaving]         = useState(false)
   const [docsFor, setDocsFor]       = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
   const [reclamosFor, setReclamosFor] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
+  const [comentariosFor, setComentariosFor] = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
 
   const [editItem, setEditItem]         = useState<{ tipo: 'mant_extintores' | 'mant_tanques'; item: RegItem } | null>(null)
   const [editItemForm, setEditItemForm] = useState(emptyMantForm)
@@ -447,6 +457,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [eliminandoBombero, setEliminandoBombero] = useState(false)
   const [docsForBombero, setDocsForBombero] = useState<BomberoItem | null>(null)
   const [reclamosForBombero, setReclamosForBombero] = useState<BomberoItem | null>(null)
+  const [comentariosForBombero, setComentariosForBombero] = useState<BomberoItem | null>(null)
 
   useEffect(() => { fetchRegistros(); fetchBomberos() }, [cliente.id])
   useEffect(() => {
@@ -459,14 +470,14 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   }, [])
 
   async function fetchBomberos() {
-    const cols = 'id, fecha_certificacion, vencimiento, tipo_tramite, decreto, tecnico_registrado, empresa, costo, estado, etapa_actual, fecha_c1, fecha_c2, fecha_c3, comentarios, created_at'
+    const cols = 'id, vencimiento, tipo_tramite, decreto, tecnico_registrado, empresa, costo, estado, etapa_actual, fecha_c1, fecha_c2, fecha_c3, comentarios, created_at'
     const { data } = await supabase.from('mant_bomberos').select(cols).eq('cliente_id', cliente.id).order('created_at', { ascending: false })
     const mapped: BomberoItem[] = (data || []).map((r: any) => ({
       ...r, empresa: r.empresa || '', estado: r.estado || '', tipo_tramite: r.tipo_tramite || '', decreto: r.decreto || '',
       tecnico_registrado: r.tecnico_registrado || '', etapa_actual: r.etapa_actual || '', comentarios: r.comentarios || '',
       dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0,
     }))
-    const masReciente = [...mapped].sort((a, b) => (b.fecha_certificacion || b.created_at || '').localeCompare(a.fecha_certificacion || a.created_at || ''))[0]
+    const masReciente = [...mapped].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
     if (masReciente) masReciente.vigente = true
     const ids = mapped.map(i => i.id)
     if (ids.length > 0) {
@@ -482,7 +493,6 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
     const esPG = f.tipo_tramite === 'PG'
     return {
       cliente_id: cliente.id,
-      fecha_certificacion: f.fecha_certificacion || null,
       vencimiento: f.vencimiento || null,
       tipo_tramite: f.tipo_tramite || null,
       decreto: f.decreto || null,
@@ -513,7 +523,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   function abrirEditarBombero(it: BomberoItem) {
     setEditBombero(it)
     setEditBomberoForm({
-      cliente_id: cliente.id, fecha_certificacion: it.fecha_certificacion || '', vencimiento: it.vencimiento || '',
+      cliente_id: cliente.id, vencimiento: it.vencimiento || '',
       tipo_tramite: it.tipo_tramite, decreto: it.decreto, tecnico_registrado: it.tecnico_registrado, empresa: it.empresa,
       costo: it.costo || 0, estado: it.estado, etapa_actual: it.etapa_actual,
       fecha_c1: it.fecha_c1 || '', fecha_c2: it.fecha_c2 || '', fecha_c3: it.fecha_c3 || '', comentarios: it.comentarios,
@@ -688,6 +698,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                   <DocsClip count={it.docsCount} onClick={() => setDocsFor({ tipo, item: it })} />
                   <ActionsMenu actions={[
                     { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosFor({ tipo, item: it }) },
+                    { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosFor({ tipo, item: it }) },
                     { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditarItem(tipo, it) },
                     { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminarItem({ tipo, item: it }), danger: true },
                   ]} />
@@ -735,7 +746,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
               <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros para este edificio</div>
             ) : (
               bomberos.map(it => {
-                const b = vencBadge(it.dias)
+                const b = vencBadgeBomberos(it.dias)
                 return (
                   <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #F1F5FB', opacity: it.vigente ? 1 : 0.7 }}>
                     <div style={{ fontSize: 13.5 }}>
@@ -758,6 +769,7 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
                       <DocsClip count={it.docsCount} onClick={() => setDocsForBombero(it)} />
                       <ActionsMenu actions={[
                         { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosForBombero(it) },
+                        { label: 'Comentarios', icon: <MessageSquareText size={14} />, onClick: () => setComentariosForBombero(it) },
                         { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditarBombero(it) },
                         { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminarBombero(it), danger: true },
                       ]} />
@@ -804,6 +816,15 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
           registroId={reclamosFor.item.id}
           clienteNombre={cliente.nombre}
           onClose={() => setReclamosFor(null)}
+        />
+      )}
+
+      {comentariosFor && (
+        <MantComentarios
+          tabla={comentariosFor.tipo}
+          registroId={comentariosFor.item.id}
+          clienteNombre={cliente.nombre}
+          onClose={() => setComentariosFor(null)}
         />
       )}
 
@@ -939,6 +960,15 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
           registroId={reclamosForBombero.id}
           clienteNombre={cliente.nombre}
           onClose={() => setReclamosForBombero(null)}
+        />
+      )}
+
+      {comentariosForBombero && (
+        <MantComentarios
+          tabla="mant_bomberos"
+          registroId={comentariosForBombero.id}
+          clienteNombre={cliente.nombre}
+          onClose={() => setComentariosForBombero(null)}
         />
       )}
 

@@ -1,16 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { X, Loader2, Trash2, Paperclip, MessageSquareWarning } from 'lucide-react'
+import { X, Loader2, Trash2, Paperclip, MessageSquareWarning, MessageSquareText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, DOCS_TIPOS, estadoBomberosBadgeClass, DOCS_TIPOS_BOMBEROS } from '@/lib/mantenimientoConfig'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
+import MantComentarios from '@/components/MantComentarios'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Registro = {
   id: string
   fecha_servicio: string | null
+  created_at: string
   vencimiento: string | null
   empresa: string
   estado: string
@@ -59,25 +61,24 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
   const [docsCounts, setDocsCounts] = useState<Record<string, number>>({})
   const [docsFor, setDocsFor] = useState<Registro | null>(null)
   const [reclamosFor, setReclamosFor] = useState<Registro | null>(null)
+  const [comentariosFor, setComentariosFor] = useState<Registro | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState<Registro | null>(null)
 
   useEffect(() => { fetchHistorial() }, [tabla, clienteId])
 
   async function fetchHistorial() {
     setLoading(true)
-    const baseCols = 'id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
+    const baseCols = tabla === 'mant_bomberos' ? 'id, vencimiento, empresa, estado, comentarios, created_at' : 'id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
     const extraCols = tabla === 'mant_extintores'
       ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras'
       : tabla === 'mant_bomberos'
       ? ', tipo_tramite, decreto, tecnico_registrado, etapa_actual, fecha_c1, fecha_c2, fecha_c3'
       : ''
-    const fechaCol = tabla === 'mant_bomberos' ? 'fecha_certificacion' : 'fecha_servicio'
     const { data } = await supabase.from(tabla)
-      .select(`id, ${fechaCol}, vencimiento, empresa, estado, comentarios, created_at${extraCols}`)
+      .select(`${baseCols}${extraCols}`)
       .eq('cliente_id', clienteId)
       .order('created_at', { ascending: false })
-    const norm = ((data as any[]) || []).map((r: any) => tabla === 'mant_bomberos' ? { ...r, fecha_servicio: r.fecha_certificacion } : r)
-    const sorted = norm.sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
+    const sorted = ((data as any[]) || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
     setRegistros(sorted as Registro[])
 
     const fkCol = fkColDe(tabla)
@@ -126,7 +127,7 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                   <div style={{ fontSize: 13, fontWeight: 700 }}>
                     {i === 0 && <span className="badge badge-gold" style={{ marginRight: 6 }}>Vigente</span>}
                     {tabla === 'mant_bomberos'
-                      ? (r.fecha_servicio ? `Certificación ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de certificación')
+                      ? `Registrado ${formatFecha(r.created_at)}`
                       : (r.fecha_servicio ? `Servicio ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de servicio')}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -146,6 +147,12 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                       onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--navy)')}
                       onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
                       <MessageSquareWarning size={13} />
+                    </button>
+                    <button title="Comentarios de esta gestión" onClick={() => setComentariosFor(r)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--navy)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--slate)')}>
+                      <MessageSquareText size={13} />
                     </button>
                     <button title="Eliminar esta gestión" onClick={() => setConfirmEliminar(r)} disabled={eliminandoId === r.id}
                       style={{ background: 'none', border: 'none', cursor: eliminandoId === r.id ? 'default' : 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center' }}
@@ -234,6 +241,14 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
           registroId={reclamosFor.id}
           clienteNombre={clienteNombre}
           onClose={() => setReclamosFor(null)}
+        />
+      )}
+      {comentariosFor && (
+        <MantComentarios
+          tabla={tabla}
+          registroId={comentariosFor.id}
+          clienteNombre={clienteNombre}
+          onClose={() => setComentariosFor(null)}
         />
       )}
 

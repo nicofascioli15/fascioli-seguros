@@ -39,7 +39,7 @@ const tablaLabel: Record<string, string> = {
   clientes: 'Cliente', polizas: 'Póliza', pagos: 'Pago', siniestros: 'Siniestro', documentos: 'Documento',
   poliza_controles_mensuales: 'Control mensual',
   mant_clientes: 'Edificio (Mant.)', mant_extintores: 'Extintor', mant_tanques: 'Tanque', mant_bomberos: 'Habilitación de bomberos',
-  mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_empresas: 'Empresa (Mant.)',
+  mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_comentarios: 'Comentario (Mant.)', mant_empresas: 'Empresa (Mant.)',
 }
 
 function formatFecha(iso: string) {

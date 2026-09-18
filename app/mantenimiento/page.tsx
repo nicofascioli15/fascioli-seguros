@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
-import { Flame, Droplets, Loader2, AlertTriangle, Bell, Calendar } from 'lucide-react'
+import { Flame, Droplets, Siren, Loader2, AlertTriangle, Bell, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 function diasHasta(iso: string | null) {
@@ -12,7 +12,7 @@ function diasHasta(iso: string | null) {
 }
 type Alerta = {
   id: string
-  tipo: 'Extintor' | 'Tanque' | 'Ensayo hidrostático'
+  tipo: 'Extintor' | 'Tanque' | 'Ensayo hidrostático' | 'Bombero'
   cliente_nombre: string
   cliente_tel: string
   vencimiento: string | null
@@ -29,22 +29,35 @@ function soloVigentes(rows: RegRaw[]): RegRaw[] {
   )
 }
 
+type BomberoRaw = { id: string; cliente_id: string | null; vencimiento: string | null; created_at: string; mant_clientes: { nombre: string; tel: string } | null }
+
+function soloVigentesBomberos(rows: BomberoRaw[]): BomberoRaw[] {
+  const porCliente: Record<string, BomberoRaw[]> = {}
+  rows.forEach(r => { if (r.cliente_id) (porCliente[r.cliente_id] ||= []).push(r) })
+  return Object.values(porCliente).map(arr =>
+    [...arr].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
+  )
+}
+
 export default function MantenimientoDashboard() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [alertas, setAlertas] = useState<Alerta[]>([])
+  const [alertasBomberos, setAlertasBomberos] = useState<Alerta[]>([])
 
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
     setLoading(true)
-    const [{ data: extRaw }, { data: tanRaw }] = await Promise.all([
+    const [{ data: extRaw }, { data: tanRaw }, { data: bomRaw }] = await Promise.all([
       supabase.from('mant_extintores').select('id, cliente_id, fecha_servicio, vencimiento, vencimiento_ensayo, created_at, mant_clientes(nombre, tel)'),
       supabase.from('mant_tanques').select('id, cliente_id, fecha_servicio, vencimiento, created_at, mant_clientes(nombre, tel)'),
+      supabase.from('mant_bomberos').select('id, cliente_id, vencimiento, created_at, mant_clientes(nombre, tel)'),
     ])
 
     const extVigentes = soloVigentes((extRaw || []) as any)
     const tanVigentes = soloVigentes((tanRaw || []) as any)
+    const bomVigentes = soloVigentesBomberos((bomRaw || []) as any)
 
     const extAlertas: Alerta[] = extVigentes.map((r: any) => ({
       id: r.id, tipo: 'Extintor', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
@@ -58,8 +71,13 @@ export default function MantenimientoDashboard() {
       id: r.id, tipo: 'Tanque', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
       vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
     }))
+    const bomAlertas: Alerta[] = bomVigentes.map((r: any) => ({
+      id: r.id, tipo: 'Bombero', cliente_nombre: r.mant_clientes?.nombre || 'Sin asignar', cliente_tel: r.mant_clientes?.tel || '',
+      vencimiento: r.vencimiento, dias: diasHasta(r.vencimiento),
+    }))
 
     setAlertas([...extAlertas, ...ensayoAlertas, ...tanAlertas].sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
+    setAlertasBomberos(bomAlertas.sort((a, b) => (a.dias ?? 9999) - (b.dias ?? 9999)))
     setLoading(false)
   }
 
@@ -77,6 +95,10 @@ export default function MantenimientoDashboard() {
   const urgentesTan = alertasTan.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 7)
   const proximosTan = alertasTan.filter(a => a.dias !== null && a.dias > 7 && a.dias <= 30)
 
+  // Bomberos avisa con 6 meses (180 días) de anticipación — el trámite de renovación lleva tiempo.
+  const vencidosBom = alertasBomberos.filter(a => a.dias !== null && a.dias < 0)
+  const proximosBom = alertasBomberos.filter(a => a.dias !== null && a.dias >= 0 && a.dias <= 180)
+
   type StatCard = { label: string; value: any; sub: string; icon: any; bg: string; iconColor: string; href: string }
   const extCards: StatCard[] = [
     { label: 'Vencidos',    value: loading ? '—' : vencidosExt.length, sub: 'Necesitan atención ya', icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/extintores?dias=0' },
@@ -88,12 +110,16 @@ export default function MantenimientoDashboard() {
     { label: 'Urgentes',    value: loading ? '—' : urgentesTan.length, sub: '7 días o menos',        icon: Bell,          bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/tanques?dias=7' },
     { label: 'Próximos',    value: loading ? '—' : proximosTan.length, sub: 'Entre 8 y 30 días',      icon: Calendar,      bg: '#FEF3C7', iconColor: '#D97706', href: '/mantenimiento/tanques?dias=30' },
   ]
+  const bomCards: StatCard[] = [
+    { label: 'Vencidos',    value: loading ? '—' : vencidosBom.length, sub: 'Necesitan atención ya',      icon: AlertTriangle, bg: '#FEE2E2', iconColor: '#D94F4F', href: '/mantenimiento/bomberos?dias=0' },
+    { label: 'Por vencer',  value: loading ? '—' : proximosBom.length, sub: 'Dentro de 6 meses — hay que arrancar el trámite', icon: Bell, bg: '#FEF3C7', iconColor: '#D97706', href: '/mantenimiento/bomberos?dias=180' },
+  ]
 
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Mantenimiento</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Control de extintores, tanques de agua y ensayos</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Control de extintores, tanques de agua, ensayos y habilitación de bomberos</p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -138,10 +164,31 @@ export default function MantenimientoDashboard() {
         ))}
       </div>
 
-      {!loading && alertas.length === 0 && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Siren size={15} color="#B91C1C" />
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>Habilitación de Bomberos</span>
+      </div>
+      <div className="dashboard-stats" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: 22 }}>
+        {bomCards.map(s => (
+          <a key={s.label} href={s.href} className="stat-card" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <div className="stat-card-inner">
+              <div className="stat-card-text">
+                <div className="label">{s.label}</div>
+                <div className="value">{s.value}</div>
+                <div className="sub">{s.sub}</div>
+              </div>
+              <div className="stat-card-icon" style={{ background: s.bg }}>
+                <s.icon size={20} color={s.iconColor} />
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      {!loading && alertas.length === 0 && alertasBomberos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Todavía no hay registros</div>
-          <div style={{ fontSize: 12 }}>Empezá cargando edificios en Clientes y sus extintores/tanques</div>
+          <div style={{ fontSize: 12 }}>Empezá cargando edificios en Clientes y sus extintores/tanques/bomberos</div>
         </div>
       )}
 
