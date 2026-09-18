@@ -38,6 +38,8 @@ const accionColor2: Record<string, string> = {
 const tablaLabel: Record<string, string> = {
   clientes: 'Cliente', polizas: 'Póliza', pagos: 'Pago', siniestros: 'Siniestro', documentos: 'Documento',
   poliza_controles_mensuales: 'Control mensual',
+  mant_clientes: 'Edificio (Mant.)', mant_extintores: 'Extintor', mant_tanques: 'Tanque',
+  mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_empresas: 'Empresa (Mant.)',
 }
 
 function formatFecha(iso: string) {
@@ -49,7 +51,7 @@ function formatFecha(iso: string) {
 // Campos técnicos que no le sirven a nadie ver (ids, relaciones, metadata) — se ocultan siempre.
 const CAMPOS_OCULTOS = new Set([
   'id', 'created_at', 'updated_at', 'cliente_id', 'poliza_id', 'campo_id',
-  'clientes', 'polizas', 'doc_count',
+  'clientes', 'polizas', 'doc_count', 'extintor_id', 'tanque_id',
 ])
 
 // Nombres de campo -> etiqueta en criollo. Cubre clientes, pólizas, pagos,
@@ -65,6 +67,7 @@ const CAMPO_LABEL: Record<string, string> = {
   tamanio_bytes: 'Tamaño', storage_path: 'Archivo',
   descripcion: 'Descripción', fecha_ocurrencia: 'Fecha de ocurrencia', estado: 'Estado',
   periodo: 'Período', fecha_control: 'Fecha de control', fecha_pago: 'Fecha de pago',
+  empresa: 'Empresa', comentarios: 'Comentarios', texto: 'Texto', fecha_servicio: 'Fecha de servicio',
 }
 
 function humanizar(key: string): string {

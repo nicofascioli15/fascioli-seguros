@@ -4,6 +4,7 @@ import { X, Upload, Download, Trash2, Loader2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { showToast } from '@/lib/toast'
+import { registrarAudit } from '@/lib/audit'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
@@ -56,7 +57,12 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
       const path = `mantenimiento/${tabla}/${registroId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`
       const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false })
       if (!error) {
-        await supabase.from('mant_documentos').insert([{ [fkCol]: registroId, nombre: file.name, tipo, storage_path: path, tamanio_bytes: file.size }])
+        const { data } = await supabase.from('mant_documentos').insert([{ [fkCol]: registroId, nombre: file.name, tipo, storage_path: path, tamanio_bytes: file.size }]).select().single()
+        await registrarAudit({
+          accion: 'crear', tabla: 'mant_documentos', registroId: data?.id,
+          descripcion: `Documento subido: ${file.name} — ${clienteNombre}`,
+          datosDespues: data,
+        })
       } else {
         errores.push(`${file.name}: ${error.message}`)
       }
@@ -75,6 +81,11 @@ export default function MantDocumentos({ tabla, registroId, clienteNombre, tipos
     setEliminando(true)
     await supabase.storage.from('documentos').remove([confirmEliminar.storage_path])
     await supabase.from('mant_documentos').delete().eq('id', confirmEliminar.id)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'mant_documentos', registroId: confirmEliminar.id,
+      descripcion: `Documento eliminado: ${confirmEliminar.nombre} — ${clienteNombre}`,
+      datosAntes: confirmEliminar,
+    })
     setEliminando(false)
     setConfirmEliminar(null)
     await fetchDocs()

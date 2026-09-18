@@ -79,7 +79,7 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
     if (!editando || !editForm.nombre.trim()) return
     setSavingEdit(true)
     await supabase.from('mant_clientes').update(editForm).eq('id', editando.id)
-    await registrarAudit({ accion: 'editar', tabla: 'mant_clientes', registroId: editando.id, descripcion: `Edificio editado: ${editForm.nombre}`, datosDespues: editForm })
+    await registrarAudit({ accion: 'editar', tabla: 'mant_clientes', registroId: editando.id, descripcion: `Edificio editado: ${editForm.nombre}`, datosAntes: editando, datosDespues: editForm })
     setEditando(null)
     setSavingEdit(false)
     await fetchClientes()
@@ -129,8 +129,20 @@ function ClientesList({ onSelect }: { onSelect: (c: Cliente) => void }) {
     setImporting(true)
     const { data, error } = await supabase.from('mant_clientes').insert(csvPreview.rows).select()
     let ok = 0, skip = 0
-    if (error) { for (const row of csvPreview.rows) { const { error: e } = await supabase.from('mant_clientes').insert([row]); if (e) skip++; else ok++ } }
-    else { ok = data?.length || csvPreview.rows.length }
+    let creados: any[] = []
+    if (error) {
+      for (const row of csvPreview.rows) {
+        const { error: e, data: rowData } = await supabase.from('mant_clientes').insert([row]).select().single()
+        if (e) skip++; else { ok++; if (rowData) creados.push(rowData) }
+      }
+    } else { ok = data?.length || csvPreview.rows.length; creados = data || [] }
+    if (ok > 0) {
+      await registrarAudit({
+        accion: 'crear', tabla: 'mant_clientes',
+        descripcion: `Importación CSV: ${ok} edificio${ok === 1 ? '' : 's'} creado${ok === 1 ? '' : 's'}${skip > 0 ? ` (${skip} omitido${skip === 1 ? '' : 's'})` : ''}`,
+        datosDespues: creados,
+      })
+    }
     setImporting(false); setImportDone({ ok, skip }); await fetchClientes()
   }
 
@@ -520,7 +532,14 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
       payload.vencimiento_ensayo = addForm.vencimiento_ensayo || null
       payload.extras = addForm.extras || {}
     }
-    await supabase.from(addTipo).insert([payload])
+    const { error, data } = await supabase.from(addTipo).insert([payload]).select().single()
+    if (!error && data) {
+      await registrarAudit({
+        accion: 'crear', tabla: addTipo, registroId: data.id,
+        descripcion: `${ACCION[addTipo]} — nueva gestión (desde ficha de ${cliente.nombre})`,
+        datosDespues: data,
+      })
+    }
     setSaving(false)
     setAddTipo(null)
     setAddForm(emptyMantForm)

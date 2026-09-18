@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Item = { id: string; nombre: string }
@@ -40,9 +41,16 @@ function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[
     const nombre = nuevo.trim()
     if (!nombre) return
     setSaving(true)
-    const { error } = await supabase.from(tabla).insert([{ nombre, ...(scope ? { tabla: scope } : {}) }])
+    const { error, data } = await supabase.from(tabla).insert([{ nombre, ...(scope ? { tabla: scope } : {}) }]).select().single()
     if (error) showToast(`❌ ${error.message.includes('unique') ? 'Ya existe ese nombre' : error.message}`)
-    else { setNuevo(''); showToast(`✓ "${nombre}" agregado`); await fetch() }
+    else {
+      await registrarAudit({
+        accion: 'crear', tabla: 'mant_empresas', registroId: data?.id,
+        descripcion: `Empresa agregada (${scope === 'mant_extintores' ? 'Extintores' : 'Tanques'}): ${nombre}`,
+        datosDespues: data,
+      })
+      setNuevo(''); showToast(`✓ "${nombre}" agregado`); await fetch()
+    }
     setSaving(false)
   }
 
@@ -52,7 +60,14 @@ function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[
     const { error } = await supabase.from(tabla).delete().eq('id', confirmEliminar.id)
     setEliminando(false)
     if (error) showToast('❌ No se pudo eliminar — puede estar en uso')
-    else { showToast(`"${confirmEliminar.nombre}" eliminado`); await fetch() }
+    else {
+      await registrarAudit({
+        accion: 'eliminar', tabla: 'mant_empresas', registroId: confirmEliminar.id,
+        descripcion: `Empresa eliminada (${scope === 'mant_extintores' ? 'Extintores' : 'Tanques'}): ${confirmEliminar.nombre}`,
+        datosAntes: confirmEliminar,
+      })
+      showToast(`"${confirmEliminar.nombre}" eliminado`); await fetch()
+    }
     setConfirmEliminar(null)
   }
 

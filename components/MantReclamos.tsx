@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
 import DatePicker from '@/components/DatePicker'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
@@ -47,7 +48,12 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
   async function agregar() {
     if (!texto.trim()) return
     setSaving(true)
-    await supabase.from('mant_reclamos').insert([{ [fkCol]: registroId, fecha: fecha || hoyStr(), texto: texto.trim() }])
+    const { data } = await supabase.from('mant_reclamos').insert([{ [fkCol]: registroId, fecha: fecha || hoyStr(), texto: texto.trim() }]).select().single()
+    await registrarAudit({
+      accion: 'crear', tabla: 'mant_reclamos', registroId: data?.id,
+      descripcion: `Reclamo registrado — ${clienteNombre}: ${texto.trim().slice(0, 80)}`,
+      datosDespues: data,
+    })
     setTexto('')
     setFecha(hoyStr())
     setSaving(false)
@@ -58,6 +64,11 @@ export default function MantReclamos({ tabla, registroId, clienteNombre, onClose
     if (!confirmEliminar) return
     setEliminando(true)
     await supabase.from('mant_reclamos').delete().eq('id', confirmEliminar.id)
+    await registrarAudit({
+      accion: 'eliminar', tabla: 'mant_reclamos', registroId: confirmEliminar.id,
+      descripcion: `Reclamo eliminado — ${clienteNombre}: ${confirmEliminar.texto.slice(0, 80)}`,
+      datosAntes: confirmEliminar,
+    })
     setEliminando(false)
     setConfirmEliminar(null)
     await fetchReclamos()
