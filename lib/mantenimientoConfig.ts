@@ -46,14 +46,21 @@ export const EXTRAS_EXTINTORES: { key: string; label: string }[] = [
 // Es una entidad distinta a extintores/tanques (fechas y campos propios de un trámite),
 // por eso tiene sus propias constantes en vez de sumarse a MantTabla.
 
-export const TIPOS_TRAMITE_BOMBEROS: { value: string; label: string }[] = [
-  { value: 'PTC',   label: 'PTC — Proyecto Técnico-Certificación' },
-  { value: 'PT',    label: 'PT — Proyecto Técnico' },
-  { value: 'PG',    label: 'PG — Plan Gradual' },
-  { value: 'POT',   label: 'POT — Ocupación Temporal' },
-  { value: 'POTEP', label: 'POTEP — Ocupación Temporal en Edif. Permanentes' },
-  { value: 'PTT',   label: 'PTT — Temporal-Turístico' },
-  { value: 'PP',    label: 'PP — Particulares' },
+export const TIPOS_TRAMITE_BOMBEROS: { value: string; label: string; descripcion: string }[] = [
+  { value: 'PTC',   label: 'PTC — Proyecto Técnico-Certificación',
+    descripcion: 'Para viviendas colectivas de hasta 1 nivel sobre planta baja, o locales chicos (hasta 750 m² y 12 m de altura). Es el trámite más simple.' },
+  { value: 'PT',    label: 'PT — Proyecto Técnico',
+    descripcion: 'Para viviendas colectivas de más de 1 nivel sobre planta baja, o locales más grandes que los del PTC. El más común en edificios de varios pisos.' },
+  { value: 'PG',    label: 'PG — Plan Gradual',
+    descripcion: 'Para edificios existentes desde antes del Decreto 184/018 que se regularizan de forma progresiva, en 3 etapas (C1, C2, C3).' },
+  { value: 'POT',   label: 'POT — Ocupación Temporal',
+    descripcion: 'Para uso u ocupación temporal de un espacio (eventos, ferias). No aplica a la operación normal de un edificio de vivienda.' },
+  { value: 'POTEP', label: 'POTEP — Ocupación Temporal en Edif. Permanentes',
+    descripcion: 'Ocupación temporal dentro de una edificación permanente (ej. un salón de eventos dentro de un edificio ya habilitado). Poco frecuente en propiedad horizontal.' },
+  { value: 'PTT',   label: 'PTT — Temporal-Turístico',
+    descripcion: 'Para establecimientos de uso turístico temporal. No aplica a edificios de vivienda habitual.' },
+  { value: 'PP',    label: 'PP — Particulares',
+    descripcion: 'Trámites de situaciones particulares que no encuadran en las categorías anteriores. Poco frecuente — si dudás, consultá con el técnico o la empresa.' },
 ]
 
 export const DECRETOS_BOMBEROS = ['372/023', '260/013', '150/016', '184/018', '333/2000', 'Otro / sin datos'] as const

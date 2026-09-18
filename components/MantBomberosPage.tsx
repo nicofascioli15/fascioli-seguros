@@ -637,13 +637,18 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
         )}
       </div>
 
-      <div className="fgroup"><label>Tipo de trámite</label>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Tipo de trámite</label>
         <select value={form.tipo_tramite} onChange={e => setForm((p: any) => ({ ...p, tipo_tramite: e.target.value }))}>
           <option value="">— Seleccionar —</option>
           {TIPOS_TRAMITE_BOMBEROS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
+        {form.tipo_tramite && (
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.4, background: 'var(--bg-card-alt)', borderRadius: 7, padding: '7px 10px' }}>
+            {TIPOS_TRAMITE_BOMBEROS.find(t => t.value === form.tipo_tramite)?.descripcion}
+          </div>
+        )}
       </div>
-      <div className="fgroup"><label>Decreto</label>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Decreto</label>
         <select value={form.decreto} onChange={e => setForm((p: any) => ({ ...p, decreto: e.target.value }))}>
           {DECRETOS_BOMBEROS.map(d => <option key={d} value={d}>{d === 'Otro / sin datos' ? d : `Decreto ${d}`}</option>)}
         </select>
