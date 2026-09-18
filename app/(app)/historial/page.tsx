@@ -38,7 +38,7 @@ const accionColor2: Record<string, string> = {
 const tablaLabel: Record<string, string> = {
   clientes: 'Cliente', polizas: 'Póliza', pagos: 'Pago', siniestros: 'Siniestro', documentos: 'Documento',
   poliza_controles_mensuales: 'Control mensual',
-  mant_clientes: 'Edificio (Mant.)', mant_extintores: 'Extintor', mant_tanques: 'Tanque',
+  mant_clientes: 'Edificio (Mant.)', mant_extintores: 'Extintor', mant_tanques: 'Tanque', mant_bomberos: 'Habilitación de bomberos',
   mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_empresas: 'Empresa (Mant.)',
 }
 
@@ -51,7 +51,7 @@ function formatFecha(iso: string) {
 // Campos técnicos que no le sirven a nadie ver (ids, relaciones, metadata) — se ocultan siempre.
 const CAMPOS_OCULTOS = new Set([
   'id', 'created_at', 'updated_at', 'cliente_id', 'poliza_id', 'campo_id',
-  'clientes', 'polizas', 'doc_count', 'extintor_id', 'tanque_id',
+  'clientes', 'polizas', 'doc_count', 'extintor_id', 'tanque_id', 'bombero_id',
 ])
 
 // Nombres de campo -> etiqueta en criollo. Cubre clientes, pólizas, pagos,
@@ -68,6 +68,9 @@ const CAMPO_LABEL: Record<string, string> = {
   descripcion: 'Descripción', fecha_ocurrencia: 'Fecha de ocurrencia', estado: 'Estado',
   periodo: 'Período', fecha_control: 'Fecha de control', fecha_pago: 'Fecha de pago',
   empresa: 'Empresa', comentarios: 'Comentarios', texto: 'Texto', fecha_servicio: 'Fecha de servicio',
+  tipo_tramite: 'Tipo de trámite', decreto: 'Decreto', fecha_certificacion: 'Fecha de certificación',
+  tecnico_registrado: 'Técnico registrado', costo: 'Costo', etapa_actual: 'Etapa del Plan Gradual',
+  fecha_c1: 'Fecha etapa C1', fecha_c2: 'Fecha etapa C2', fecha_c3: 'Fecha etapa C3',
 }
 
 function humanizar(key: string): string {

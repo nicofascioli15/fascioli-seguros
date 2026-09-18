@@ -11,8 +11,10 @@ import MantReclamos from '@/components/MantReclamos'
 import ActionsMenu from '@/components/ActionsMenu'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { ItemForm, emptyForm as emptyMantForm } from '@/components/MantItemsPage'
-import { ACCION, estadoBadgeClass, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
+import { BomberosForm, emptyForm as emptyBomberosForm } from '@/components/MantBomberosPage'
+import { ACCION, estadoBadgeClass, estadoBomberosBadgeClass, DOCS_TIPOS, DOCS_TIPOS_BOMBEROS } from '@/lib/mantenimientoConfig'
 import { Pagination, paginate } from '@/components/Pagination'
+import { Siren } from 'lucide-react'
 
 type Cliente = { id: string; nombre: string; direccion: string; contacto: string; tel: string; email: string }
 const emptyCliente = { nombre: '', direccion: '', contacto: '', tel: '', email: '' }
@@ -364,6 +366,13 @@ type RegItem = {
   cant_ensayo_hidrostatico: number; vencimiento_ensayo: string | null; extras: Record<string, number>; dias_ensayo: number | null
 }
 
+type BomberoItem = {
+  id: string; fecha_certificacion: string | null; vencimiento: string | null
+  tipo_tramite: string; decreto: string; tecnico_registrado: string; empresa: string; costo: number | null
+  estado: string; etapa_actual: string; fecha_c1: string | null; fecha_c2: string | null; fecha_c3: string | null
+  comentarios: string; created_at: string; dias: number | null; vigente: boolean; docsCount: number
+}
+
 function diasHasta(iso: string | null) {
   if (!iso) return null
   const d = new Date(iso), hoy = new Date()
@@ -425,12 +434,111 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
   const [eliminandoItem, setEliminandoItem] = useState(false)
   const [empresas, setEmpresas] = useState<string[]>([])
 
-  useEffect(() => { fetchRegistros() }, [cliente.id])
+  // Habilitación de Bomberos — entidad propia (fechas y campos distintos de extintores/tanques)
+  const [bomberos, setBomberos]         = useState<BomberoItem[]>([])
+  const [empresasBomberos, setEmpresasBomberos] = useState<string[]>([])
+  const [addBombero, setAddBombero]     = useState(false)
+  const [bomberoForm, setBomberoForm]   = useState(emptyBomberosForm)
+  const [savingBombero, setSavingBombero] = useState(false)
+  const [editBombero, setEditBombero]     = useState<BomberoItem | null>(null)
+  const [editBomberoForm, setEditBomberoForm] = useState(emptyBomberosForm)
+  const [savingEditBombero, setSavingEditBombero] = useState(false)
+  const [confirmEliminarBombero, setConfirmEliminarBombero] = useState<BomberoItem | null>(null)
+  const [eliminandoBombero, setEliminandoBombero] = useState(false)
+  const [docsForBombero, setDocsForBombero] = useState<BomberoItem | null>(null)
+  const [reclamosForBombero, setReclamosForBombero] = useState<BomberoItem | null>(null)
+
+  useEffect(() => { fetchRegistros(); fetchBomberos() }, [cliente.id])
   useEffect(() => {
     supabase.from('mant_empresas').select('nombre').order('nombre').then(({ data }) => {
       if (data) setEmpresas(data.map((e: any) => e.nombre))
     })
+    supabase.from('mant_empresas').select('nombre').eq('tabla', 'mant_bomberos').order('nombre').then(({ data }) => {
+      if (data) setEmpresasBomberos(data.map((e: any) => e.nombre))
+    })
   }, [])
+
+  async function fetchBomberos() {
+    const cols = 'id, fecha_certificacion, vencimiento, tipo_tramite, decreto, tecnico_registrado, empresa, costo, estado, etapa_actual, fecha_c1, fecha_c2, fecha_c3, comentarios, created_at'
+    const { data } = await supabase.from('mant_bomberos').select(cols).eq('cliente_id', cliente.id).order('created_at', { ascending: false })
+    const mapped: BomberoItem[] = (data || []).map((r: any) => ({
+      ...r, empresa: r.empresa || '', estado: r.estado || '', tipo_tramite: r.tipo_tramite || '', decreto: r.decreto || '',
+      tecnico_registrado: r.tecnico_registrado || '', etapa_actual: r.etapa_actual || '', comentarios: r.comentarios || '',
+      dias: diasHasta(r.vencimiento), vigente: false, docsCount: 0,
+    }))
+    const masReciente = [...mapped].sort((a, b) => (b.fecha_certificacion || b.created_at || '').localeCompare(a.fecha_certificacion || a.created_at || ''))[0]
+    if (masReciente) masReciente.vigente = true
+    const ids = mapped.map(i => i.id)
+    if (ids.length > 0) {
+      const { data: docsData } = await supabase.from('mant_documentos').select('bombero_id').in('bombero_id', ids)
+      const counts: Record<string, number> = {}
+      ;(docsData || []).forEach((d: any) => { const k = d.bombero_id; if (k) counts[k] = (counts[k] || 0) + 1 })
+      mapped.forEach(it => { it.docsCount = counts[it.id] || 0 })
+    }
+    setBomberos(mapped)
+  }
+
+  function payloadBombero(f: typeof emptyBomberosForm) {
+    const esPG = f.tipo_tramite === 'PG'
+    return {
+      cliente_id: cliente.id,
+      fecha_certificacion: f.fecha_certificacion || null,
+      vencimiento: f.vencimiento || null,
+      tipo_tramite: f.tipo_tramite || null,
+      decreto: f.decreto || null,
+      tecnico_registrado: f.tecnico_registrado || null,
+      empresa: f.empresa || null,
+      costo: f.costo || null,
+      estado: f.estado || null,
+      etapa_actual: esPG ? (f.etapa_actual || null) : null,
+      fecha_c1: esPG ? (f.fecha_c1 || null) : null,
+      fecha_c2: esPG ? (f.fecha_c2 || null) : null,
+      fecha_c3: esPG ? (f.fecha_c3 || null) : null,
+      comentarios: f.comentarios || null,
+    }
+  }
+
+  async function guardarNuevoBombero() {
+    setSavingBombero(true)
+    const { error, data } = await supabase.from('mant_bomberos').insert([payloadBombero(bomberoForm)]).select().single()
+    if (!error && data) {
+      await registrarAudit({ accion: 'crear', tabla: 'mant_bomberos', registroId: data.id, descripcion: `Habilitación de bomberos — nuevo trámite (desde ficha de ${cliente.nombre})`, datosDespues: data })
+    }
+    setSavingBombero(false)
+    setAddBombero(false)
+    setBomberoForm(emptyBomberosForm)
+    await fetchBomberos()
+  }
+
+  function abrirEditarBombero(it: BomberoItem) {
+    setEditBombero(it)
+    setEditBomberoForm({
+      cliente_id: cliente.id, fecha_certificacion: it.fecha_certificacion || '', vencimiento: it.vencimiento || '',
+      tipo_tramite: it.tipo_tramite, decreto: it.decreto, tecnico_registrado: it.tecnico_registrado, empresa: it.empresa,
+      costo: it.costo || 0, estado: it.estado, etapa_actual: it.etapa_actual,
+      fecha_c1: it.fecha_c1 || '', fecha_c2: it.fecha_c2 || '', fecha_c3: it.fecha_c3 || '', comentarios: it.comentarios,
+    })
+  }
+
+  async function guardarEdicionBombero() {
+    if (!editBombero) return
+    setSavingEditBombero(true)
+    await supabase.from('mant_bomberos').update(payloadBombero(editBomberoForm)).eq('id', editBombero.id)
+    await registrarAudit({ accion: 'editar', tabla: 'mant_bomberos', registroId: editBombero.id, descripcion: 'Habilitación de bomberos editada', datosAntes: editBombero, datosDespues: editBomberoForm })
+    setEditBombero(null)
+    setSavingEditBombero(false)
+    await fetchBomberos()
+  }
+
+  async function confirmarEliminarBombero() {
+    if (!confirmEliminarBombero) return
+    setEliminandoBombero(true)
+    await supabase.from('mant_bomberos').delete().eq('id', confirmEliminarBombero.id)
+    await registrarAudit({ accion: 'eliminar', tabla: 'mant_bomberos', registroId: confirmEliminarBombero.id, descripcion: 'Habilitación de bomberos eliminada', datosAntes: confirmEliminarBombero })
+    setEliminandoBombero(false)
+    setConfirmEliminarBombero(null)
+    await fetchBomberos()
+  }
 
   function abrirEditarItem(tipo: 'mant_extintores' | 'mant_tanques', item: RegItem) {
     setEditItem({ tipo, item })
@@ -615,6 +723,50 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
         <>
           <Seccion tipo="mant_extintores" titulo="Extintores" icon={<Flame size={16} color="#D97706" />} items={extintores} />
           <Seccion tipo="mant_tanques" titulo="Tanques de agua" icon={<Droplets size={16} color="#2E9668" />} items={tanques} />
+
+          <div className="table-card" style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid var(--border-soft)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>
+                <Siren size={16} color="#B91C1C" /> Habilitación de Bomberos <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({bomberos.length})</span>
+              </div>
+              <button className="btn-outline btn-sm" onClick={() => { setAddBombero(true); setBomberoForm(emptyBomberosForm) }}><Plus size={13} /> Nuevo trámite</button>
+            </div>
+            {bomberos.length === 0 ? (
+              <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Sin registros para este edificio</div>
+            ) : (
+              bomberos.map(it => {
+                const b = vencBadge(it.dias)
+                return (
+                  <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #F1F5FB', opacity: it.vigente ? 1 : 0.7 }}>
+                    <div style={{ fontSize: 13.5 }}>
+                      {it.vigente && <span className="badge badge-gold" style={{ marginRight: 8 }}>Vigente</span>}
+                      {it.tipo_tramite && <span style={{ color: 'var(--text-muted)' }}>{it.tipo_tramite}{it.decreto && ` · Decreto ${it.decreto}`} · </span>}
+                      <span style={{ fontWeight: 600 }}>Vence {formatFecha(it.vencimiento)}</span>
+                      {it.empresa && <span style={{ color: 'var(--text-muted)' }}> · {it.empresa}</span>}
+                      {it.estado && <span className={`badge ${estadoBomberosBadgeClass(it.estado)}`} style={{ marginLeft: 8 }}>{it.estado}</span>}
+                      {it.etapa_actual && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                          Plan Gradual — etapa {it.etapa_actual}
+                          {[it.fecha_c1 && `C1 ${formatFecha(it.fecha_c1)}`, it.fecha_c2 && `C2 ${formatFecha(it.fecha_c2)}`, it.fecha_c3 && `C3 ${formatFecha(it.fecha_c3)}`].filter(Boolean).length > 0 &&
+                            ` (${[it.fecha_c1 && `C1 ${formatFecha(it.fecha_c1)}`, it.fecha_c2 && `C2 ${formatFecha(it.fecha_c2)}`, it.fecha_c3 && `C3 ${formatFecha(it.fecha_c3)}`].filter(Boolean).join(' · ')})`}
+                        </div>
+                      )}
+                      {it.tecnico_registrado && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Técnico: {it.tecnico_registrado}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className={`badge ${b.cls}`} style={{ marginRight: 6 }}>{b.label}</span>
+                      <DocsClip count={it.docsCount} onClick={() => setDocsForBombero(it)} />
+                      <ActionsMenu actions={[
+                        { label: 'Reclamos', icon: <MessageSquareWarning size={14} />, onClick: () => setReclamosForBombero(it) },
+                        { label: 'Editar', icon: <Pencil size={14} />, onClick: () => abrirEditarBombero(it) },
+                        { label: 'Eliminar', icon: <Trash2 size={14} />, onClick: () => setConfirmEliminarBombero(it), danger: true },
+                      ]} />
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
         </>
       )}
 
@@ -702,6 +854,92 @@ function ClienteDetalle({ cliente, onBack }: { cliente: Cliente; onBack: () => v
             </div>
           </div>
         </div>
+      )}
+
+      {addBombero && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setAddBombero(false) }}>
+          <div className="pago-modal" style={{ width: 520, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Nuevo trámite de habilitación</h3>
+              <button onClick={() => setAddBombero(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <BomberosForm form={bomberoForm} setForm={setBomberoForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} empresas={empresasBomberos} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setAddBombero(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={guardarNuevoBombero} disabled={savingBombero}>
+                {savingBombero ? <><Loader2 size={14} /> Guardando...</> : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editBombero && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditBombero(null) }}>
+          <div className="pago-modal" style={{ width: 520, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Editar trámite</h3>
+              <button onClick={() => setEditBombero(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <BomberosForm form={editBomberoForm} setForm={setEditBomberoForm} clientes={[]} clienteLocked={{ id: cliente.id, nombre: cliente.nombre }} empresas={empresasBomberos} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', color: 'var(--danger)', border: '1.5px solid var(--danger)', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => { setConfirmEliminarBombero(editBombero); setEditBombero(null) }}>
+                <Trash2 size={14} /> Eliminar
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-outline" onClick={() => setEditBombero(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={guardarEdicionBombero} disabled={savingEditBombero}>
+                  {savingEditBombero ? <><Loader2 size={14} /> Guardando...</> : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmEliminarBombero && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !eliminandoBombero) setConfirmEliminarBombero(null) }}>
+          <div className="pago-modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <AlertTriangle size={26} color="var(--danger)" />
+              </div>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>¿Eliminar este trámite?</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
+                Se va a eliminar este trámite y sus documentos adjuntos. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmEliminarBombero(null)} disabled={eliminandoBombero}>Cancelar</button>
+              <button
+                style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 9, padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={confirmarEliminarBombero} disabled={eliminandoBombero}>
+                {eliminandoBombero ? 'Eliminando...' : <><Trash2 size={14} /> Eliminar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {docsForBombero && (
+        <MantDocumentos
+          tabla="mant_bomberos"
+          registroId={docsForBombero.id}
+          clienteNombre={cliente.nombre}
+          tiposSugeridos={DOCS_TIPOS_BOMBEROS}
+          onClose={() => setDocsForBombero(null)}
+        />
+      )}
+
+      {reclamosForBombero && (
+        <MantReclamos
+          tabla="mant_bomberos"
+          registroId={reclamosForBombero.id}
+          clienteNombre={cliente.nombre}
+          onClose={() => setReclamosForBombero(null)}
+        />
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

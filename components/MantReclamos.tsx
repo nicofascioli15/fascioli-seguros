@@ -9,10 +9,16 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 type Reclamo = { id: string; fecha: string; texto: string }
 
 type Props = {
-  tabla: 'mant_extintores' | 'mant_tanques'
+  tabla: 'mant_extintores' | 'mant_tanques' | 'mant_bomberos'
   registroId: string
   clienteNombre: string
   onClose: () => void
+}
+
+function fkColDe(tabla: Props['tabla']) {
+  if (tabla === 'mant_extintores') return 'extintor_id'
+  if (tabla === 'mant_tanques') return 'tanque_id'
+  return 'bombero_id'
 }
 
 function formatFecha(iso: string) {
@@ -26,7 +32,7 @@ function hoyStr() {
 
 export default function MantReclamos({ tabla, registroId, clienteNombre, onClose }: Props) {
   const supabase = createClient()
-  const fkCol = tabla === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+  const fkCol = fkColDe(tabla)
 
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [loading, setLoading]   = useState(true)

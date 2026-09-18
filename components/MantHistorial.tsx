@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2, Trash2, Paperclip, MessageSquareWarning } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
-import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, DOCS_TIPOS } from '@/lib/mantenimientoConfig'
+import { estadoBadgeClass, TIPOS_EXTINTOR, EXTRAS_EXTINTORES, DOCS_TIPOS, estadoBomberosBadgeClass, DOCS_TIPOS_BOMBEROS } from '@/lib/mantenimientoConfig'
 import MantDocumentos from '@/components/MantDocumentos'
 import MantReclamos from '@/components/MantReclamos'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -22,14 +22,27 @@ type Registro = {
   cant_ensayo_hidrostatico?: number
   vencimiento_ensayo?: string | null
   extras?: Record<string, number>
+  tipo_tramite?: string | null
+  decreto?: string | null
+  tecnico_registrado?: string | null
+  etapa_actual?: string | null
+  fecha_c1?: string | null
+  fecha_c2?: string | null
+  fecha_c3?: string | null
 }
 
 type Props = {
-  tabla: 'mant_extintores' | 'mant_tanques'
+  tabla: 'mant_extintores' | 'mant_tanques' | 'mant_bomberos'
   clienteId: string
   clienteNombre: string
   onClose: () => void
   onChanged?: () => void
+}
+
+function fkColDe(tabla: Props['tabla']) {
+  if (tabla === 'mant_extintores') return 'extintor_id'
+  if (tabla === 'mant_tanques') return 'tanque_id'
+  return 'bombero_id'
 }
 
 function formatFecha(iso: string | null) {
@@ -53,15 +66,21 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
   async function fetchHistorial() {
     setLoading(true)
     const baseCols = 'id, fecha_servicio, vencimiento, empresa, estado, comentarios, created_at'
-    const extraCols = tabla === 'mant_extintores' ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras' : ''
+    const extraCols = tabla === 'mant_extintores'
+      ? ', cant_co2, cant_8kg, cant_4kg, cant_espuma, cant_ensayo_hidrostatico, vencimiento_ensayo, extras'
+      : tabla === 'mant_bomberos'
+      ? ', tipo_tramite, decreto, tecnico_registrado, etapa_actual, fecha_c1, fecha_c2, fecha_c3'
+      : ''
+    const fechaCol = tabla === 'mant_bomberos' ? 'fecha_certificacion' : 'fecha_servicio'
     const { data } = await supabase.from(tabla)
-      .select(`${baseCols}${extraCols}`)
+      .select(`id, ${fechaCol}, vencimiento, empresa, estado, comentarios, created_at${extraCols}`)
       .eq('cliente_id', clienteId)
       .order('created_at', { ascending: false })
-    const sorted = ((data as any[]) || []).sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
+    const norm = ((data as any[]) || []).map((r: any) => tabla === 'mant_bomberos' ? { ...r, fecha_servicio: r.fecha_certificacion } : r)
+    const sorted = norm.sort((a: any, b: any) => (b.fecha_servicio || b.created_at || '').localeCompare(a.fecha_servicio || a.created_at || ''))
     setRegistros(sorted as Registro[])
 
-    const fkCol = tabla === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+    const fkCol = fkColDe(tabla)
     const ids = sorted.map((r: any) => r.id)
     if (ids.length > 0) {
       const { data: docsData } = await supabase.from('mant_documentos').select(fkCol).in(fkCol, ids)
@@ -106,10 +125,12 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>
                     {i === 0 && <span className="badge badge-gold" style={{ marginRight: 6 }}>Vigente</span>}
-                    {r.fecha_servicio ? `Servicio ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de servicio'}
+                    {tabla === 'mant_bomberos'
+                      ? (r.fecha_servicio ? `Certificación ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de certificación')
+                      : (r.fecha_servicio ? `Servicio ${formatFecha(r.fecha_servicio)}` : 'Sin fecha de servicio')}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    {r.estado && <span className={`badge ${estadoBadgeClass(r.estado)}`}>{r.estado}</span>}
+                    {r.estado && <span className={`badge ${tabla === 'mant_bomberos' ? estadoBomberosBadgeClass(r.estado) : estadoBadgeClass(r.estado)}`}>{r.estado}</span>}
                     <button title={docsCounts[r.id] ? `${docsCounts[r.id]} documento(s) — click para ver` : 'Adjuntar documento'}
                       onClick={() => setDocsFor(r)}
                       style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: docsCounts[r.id] ? 'var(--gold)' : 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center', opacity: docsCounts[r.id] ? 1 : 0.55 }}>
@@ -171,6 +192,25 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
                   )
                 })()}
 
+                {tabla === 'mant_bomberos' && (r.tipo_tramite || r.decreto || r.tecnico_registrado || r.etapa_actual) && (
+                  <div style={{ fontSize: 12, color: 'var(--text-main)', marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border-soft)' }}>
+                    {(r.tipo_tramite || r.decreto) && (
+                      <div style={{ marginBottom: 3 }}>
+                        {r.tipo_tramite && <span style={{ fontWeight: 700 }}>{r.tipo_tramite}</span>}
+                        {r.tipo_tramite && r.decreto && ' · '}
+                        {r.decreto && <span>Decreto {r.decreto}</span>}
+                      </div>
+                    )}
+                    {r.tecnico_registrado && <div style={{ marginBottom: 3 }}>Técnico registrado: {r.tecnico_registrado}</div>}
+                    {r.etapa_actual && (
+                      <div>
+                        <span style={{ fontWeight: 700 }}>Plan Gradual — etapa {r.etapa_actual}:</span>{' '}
+                        {[r.fecha_c1 && `C1 ${formatFecha(r.fecha_c1)}`, r.fecha_c2 && `C2 ${formatFecha(r.fecha_c2)}`, r.fecha_c3 && `C3 ${formatFecha(r.fecha_c3)}`].filter(Boolean).join(' · ') || '—'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {r.comentarios && <div style={{ fontSize: 12.5, marginTop: 4 }}>{r.comentarios}</div>}
               </div>
             ))}
@@ -184,7 +224,7 @@ export default function MantHistorial({ tabla, clienteId, clienteNombre, onClose
           tabla={tabla}
           registroId={docsFor.id}
           clienteNombre={clienteNombre}
-          tiposSugeridos={DOCS_TIPOS[tabla]}
+          tiposSugeridos={tabla === 'mant_bomberos' ? DOCS_TIPOS_BOMBEROS : DOCS_TIPOS[tabla]}
           onClose={() => { setDocsFor(null); fetchHistorial() }}
         />
       )}

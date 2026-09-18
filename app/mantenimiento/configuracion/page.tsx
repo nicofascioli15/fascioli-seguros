@@ -8,12 +8,15 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 
 type Item = { id: string; nombre: string }
 type Tabla = 'mant_empresas'
-type Scope = 'mant_extintores' | 'mant_tanques' | null
+type Scope = 'mant_extintores' | 'mant_tanques' | 'mant_bomberos' | null
 
 const SECCIONES: { tabla: Tabla; scope: Scope; titulo: string; abrev: string; placeholder: string }[] = [
   { tabla: 'mant_empresas', scope: 'mant_extintores', titulo: 'Empresas — Extintores', abrev: 'EXT', placeholder: 'Ej: Grolero...' },
   { tabla: 'mant_empresas', scope: 'mant_tanques', titulo: 'Empresas — Tanques de agua', abrev: 'TAN', placeholder: 'Ej: Simmar...' },
+  { tabla: 'mant_empresas', scope: 'mant_bomberos', titulo: 'Empresas — Bomberos', abrev: 'BOM', placeholder: 'Ej: Grolero...' },
 ]
+
+const SCOPE_LABEL: Record<string, string> = { mant_extintores: 'Extintores', mant_tanques: 'Tanques', mant_bomberos: 'Bomberos' }
 
 function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[0]) {
   const supabase = createClient()
@@ -46,7 +49,7 @@ function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[
     else {
       await registrarAudit({
         accion: 'crear', tabla: 'mant_empresas', registroId: data?.id,
-        descripcion: `Empresa agregada (${scope === 'mant_extintores' ? 'Extintores' : 'Tanques'}): ${nombre}`,
+        descripcion: `Empresa agregada (${SCOPE_LABEL[scope || ''] || scope}): ${nombre}`,
         datosDespues: data,
       })
       setNuevo(''); showToast(`✓ "${nombre}" agregado`); await fetch()
@@ -63,7 +66,7 @@ function Seccion({ tabla, scope, titulo, abrev, placeholder }: typeof SECCIONES[
     else {
       await registrarAudit({
         accion: 'eliminar', tabla: 'mant_empresas', registroId: confirmEliminar.id,
-        descripcion: `Empresa eliminada (${scope === 'mant_extintores' ? 'Extintores' : 'Tanques'}): ${confirmEliminar.nombre}`,
+        descripcion: `Empresa eliminada (${SCOPE_LABEL[scope || ''] || scope}): ${confirmEliminar.nombre}`,
         datosAntes: confirmEliminar,
       })
       showToast(`"${confirmEliminar.nombre}" eliminado`); await fetch()

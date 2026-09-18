@@ -42,6 +42,35 @@ export const EXTRAS_EXTINTORES: { key: string; label: string }[] = [
   { key: 'colocacion', label: 'Colocación' },
 ]
 
+// ===== Bomberos (habilitación / Decreto 372/023 y anteriores) =====
+// Es una entidad distinta a extintores/tanques (fechas y campos propios de un trámite),
+// por eso tiene sus propias constantes en vez de sumarse a MantTabla.
+
+export const TIPOS_TRAMITE_BOMBEROS: { value: string; label: string }[] = [
+  { value: 'PTC',   label: 'PTC — Proyecto Técnico-Certificación' },
+  { value: 'PT',    label: 'PT — Proyecto Técnico' },
+  { value: 'PG',    label: 'PG — Plan Gradual' },
+  { value: 'POT',   label: 'POT — Ocupación Temporal' },
+  { value: 'POTEP', label: 'POTEP — Ocupación Temporal en Edif. Permanentes' },
+  { value: 'PTT',   label: 'PTT — Temporal-Turístico' },
+  { value: 'PP',    label: 'PP — Particulares' },
+]
+
+export const DECRETOS_BOMBEROS = ['372/023', '260/013', '150/016', '184/018', 'Otro / sin datos'] as const
+
+export const ESTADOS_BOMBEROS = ['Sin gestión', 'En trámite', 'Habilitado vigente', 'Plan gradual en curso', 'Vencido', 'Revocado'] as const
+
+export const ETAPAS_PLAN_GRADUAL = ['C1', 'C2', 'C3', 'Completado'] as const
+
+export const DOCS_TIPOS_BOMBEROS = ['Proyecto técnico', 'Declaración jurada', 'Certificado DNB', 'Presupuesto', 'Factura o recibo', 'Otro']
+
+export function estadoBomberosBadgeClass(estado: string): string {
+  if (estado === 'Habilitado vigente') return 'badge-success'
+  if (estado === 'En trámite' || estado === 'Plan gradual en curso') return 'badge-warning'
+  if (estado === 'Vencido' || estado === 'Revocado') return 'badge-danger'
+  return 'badge-neutral'
+}
+
 export function estadoBadgeClass(estado: string): string {
   if (estado === 'Completado') return 'badge-success'
   if (estado === 'En proceso') return 'badge-warning'

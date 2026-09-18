@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeProvider'
 import {
-  LayoutDashboard, Users, Flame, Droplets, Settings, LogOut, Sun, Moon, LayoutGrid, X
+  LayoutDashboard, Users, Flame, Droplets, Siren, Settings, LogOut, Sun, Moon, LayoutGrid, X
 } from 'lucide-react'
 
 type NavItem = { href: string; icon: any; label: string }
@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { href: '/mantenimiento/clientes',   icon: Users,           label: 'Clientes' },
   { href: '/mantenimiento/extintores', icon: Flame,           label: 'Extintores' },
   { href: '/mantenimiento/tanques',    icon: Droplets,        label: 'Tanques de agua' },
+  { href: '/mantenimiento/bomberos',   icon: Siren,           label: 'Bomberos' },
 ]
 
 const bottomNavItems: NavItem[] = [

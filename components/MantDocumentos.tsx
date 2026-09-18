@@ -10,11 +10,17 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
 
 type Props = {
-  tabla: 'mant_extintores' | 'mant_tanques'
+  tabla: 'mant_extintores' | 'mant_tanques' | 'mant_bomberos'
   registroId: string
   clienteNombre: string
   tiposSugeridos: string[]
   onClose: () => void
+}
+
+function fkColDe(tabla: Props['tabla']) {
+  if (tabla === 'mant_extintores') return 'extintor_id'
+  if (tabla === 'mant_tanques') return 'tanque_id'
+  return 'bombero_id'
 }
 
 function formatBytes(b: number) {
@@ -27,7 +33,7 @@ function formatBytes(b: number) {
 export default function MantDocumentos({ tabla, registroId, clienteNombre, tiposSugeridos, onClose }: Props) {
   const supabase = createClient()
   const inputRef = useRef<HTMLInputElement>(null)
-  const fkCol = tabla === 'mant_extintores' ? 'extintor_id' : 'tanque_id'
+  const fkCol = fkColDe(tabla)
 
   const [docs, setDocs]         = useState<Doc[]>([])
   const [loading, setLoading]   = useState(true)
