@@ -638,8 +638,13 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
       </div>
 
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Tipo de trámite</label>
-        <select value={form.tipo_tramite} onChange={e => setForm((p: any) => ({ ...p, tipo_tramite: e.target.value }))}>
-          <option value="">— Seleccionar —</option>
+        <select value={form.tipo_tramite} onChange={e => {
+          const v = e.target.value
+          // La clasificación PTC/PT/PG/etc. es propia del Decreto 372/023 (Art. 11) — los decretos
+          // anteriores no la usaban. Si se elige un tipo de trámite, el decreto queda fijo en 372/023.
+          setForm((p: any) => ({ ...p, tipo_tramite: v, decreto: v ? '372/023' : p.decreto }))
+        }}>
+          <option value="">— Sin clasificar (habilitación bajo normativa anterior) —</option>
           {TIPOS_TRAMITE_BOMBEROS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         {form.tipo_tramite && (
@@ -649,9 +654,20 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
         )}
       </div>
       <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Decreto</label>
-        <select value={form.decreto} onChange={e => setForm((p: any) => ({ ...p, decreto: e.target.value }))}>
+        <select value={form.decreto} disabled={!!form.tipo_tramite}
+          onChange={e => setForm((p: any) => ({ ...p, decreto: e.target.value }))}
+          style={form.tipo_tramite ? { background: 'var(--bg-card-alt)', color: 'var(--text-muted)', cursor: 'not-allowed' } : undefined}>
           {DECRETOS_BOMBEROS.map(d => <option key={d} value={d}>{d === 'Otro / sin datos' ? d : `Decreto ${d}`}</option>)}
         </select>
+        {form.tipo_tramite ? (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            Fijo en 372/023: esa clasificación de trámite no existía en los decretos anteriores.
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            Elegí un decreto anterior solo si es una habilitación vieja todavía vigente y sin reclasificar.
+          </div>
+        )}
       </div>
 
       <div className="fgroup"><label>Fecha de certificación</label>
@@ -667,7 +683,7 @@ export function BomberosForm({ form, setForm, clientes, clienteLocked, empresas 
 
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input type="checkbox" checked={esPlanGradual} onChange={e => setForm((p: any) => ({ ...p, tipo_tramite: e.target.checked ? 'PG' : '' }))} style={{ width: 'auto' }} />
+          <input type="checkbox" checked={esPlanGradual} onChange={e => setForm((p: any) => ({ ...p, tipo_tramite: e.target.checked ? 'PG' : '', decreto: e.target.checked ? '372/023' : p.decreto }))} style={{ width: 'auto' }} />
           Está en Plan Gradual (edificios existentes, Art. 19 Decreto 372/023)
         </label>
       </div>
