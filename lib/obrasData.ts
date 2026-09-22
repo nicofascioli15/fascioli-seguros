@@ -1,5 +1,5 @@
 import type { Obra, PagoObra, LeyObra } from '@/lib/obrasConfig'
-import { resumenPagos, resumenLeyes, garantiaObra, cierreBps, situacionObra, hoyLocal } from '@/lib/obrasConfig'
+import { resumenPagos, resumenLeyes, garantiaObra, cierreBps, situacionObra, obraCerrada, hoyLocal } from '@/lib/obrasConfig'
 
 export type ObraCompleta = Obra & {
   edificio: string
@@ -10,6 +10,7 @@ export type ObraCompleta = Obra & {
   garantia: ReturnType<typeof garantiaObra>
   cierre: ReturnType<typeof cierreBps>
   situacion: ReturnType<typeof situacionObra>
+  cerrada: boolean
 }
 
 // Columnas reales de la tabla "obras". Se usa para guardar en el historial solo lo que existe
@@ -62,7 +63,8 @@ export async function fetchObrasCompletas(supabase: any, opts: { clienteId?: str
       rl: resumenLeyes(obra.tope_leyes, ls),
       garantia: garantiaObra(obra, hoy),
       cierre: cierreBps(obra, hoy),
-      situacion: situacionObra(obra, hoy),
+      situacion: situacionObra(obra, ps, hoy),
+      cerrada: obraCerrada(obra, ps),
     }
   })
 }

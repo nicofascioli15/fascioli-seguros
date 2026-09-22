@@ -16,7 +16,7 @@ import ObraDocumentos from '@/components/obras/ObraDocumentos'
 import ObraComentarios from '@/components/obras/ObraComentarios'
 import { Barra, Kpi, colorLeyes } from '@/components/obras/ui'
 import { fetchObrasCompletas, soloColumnasObra, type ObraCompleta } from '@/lib/obrasData'
-import { formatMonto, formatFecha, TIPOS_OBRA, textoGarantia } from '@/lib/obrasConfig'
+import { formatMonto, formatFecha, TIPOS_OBRA, textoGarantia, cuotasPagas, tieneF9 } from '@/lib/obrasConfig'
 
 type Tab = 'pagos' | 'leyes' | 'cierre' | 'documentos' | 'comentarios' | 'datos'
 
@@ -110,7 +110,7 @@ export default function ObraFichaPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {obra.estado !== 'Cancelada' && obra.estado !== 'Presupuestada' && (
+          {!obra.cerrada && (
             <button className="btn-outline btn-sm" style={{ background: 'rgba(226,196,122,.15)', color: '#E2C47A', borderColor: 'rgba(226,196,122,.4)' }} onClick={() => setTab('cierre')}>
               <FileCheck2 size={13} /> {obra.fecha_fin_real ? 'Cierre BPS (F9)' : 'Fin de obra y F9'}
             </button>
@@ -127,9 +127,20 @@ export default function ObraFichaPage() {
         { hecho: tiposDocs.includes('Contrato'), texto: 'Subir el contrato firmado', onClick: () => irA('documentos', 'Contrato') },
         ...(obra.tipo_obra !== 'menor_cuantia' ? [{ hecho: obra.tope_leyes != null, texto: 'Tope de leyes sociales', onClick: () => irA('leyes') }] : []),
         { hecho: !!obra.nro_obra_bps, texto: 'N° de obra BPS', onClick: () => setEditando(true) },
-        ...(obra.estado === 'En ejecución' || obra.fecha_fin_real ? [{ hecho: !!obra.fecha_fin_real, texto: 'Marcar fin de obra', onClick: () => irA('cierre') }] : []),
-        ...(obra.fecha_fin_real && obra.cierre_bps_estado !== 'No aplica' ? [{ hecho: obra.cierre_bps_estado === 'Presentado' || obra.cierre_bps_estado === 'Aprobado', texto: 'Cierre de obra en BPS (F9)', onClick: () => irA('cierre') }] : []),
+        { hecho: !!obra.fecha_fin_real, texto: 'Marcar fin de obra', onClick: () => irA('cierre') },
       ]} />
+
+      {/* Cierre de la obra: se cierra sola cuando están las cuotas pagas y el F9 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: obra.cerrada ? '#E6F5EF' : 'var(--bg-card)', border: `1px solid ${obra.cerrada ? '#BBF7D0' : 'var(--border-soft)'}`, borderRadius: 12, padding: '12px 16px', marginBottom: 14 }}>
+        <div style={{ fontWeight: 800, fontSize: 13.5, color: obra.cerrada ? '#1A7A4E' : 'var(--text-main)' }}>{obra.cerrada ? 'Obra cerrada' : 'Para cerrar la obra'}</div>
+        <button onClick={() => irA('pagos')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: 'var(--text-main)', padding: 0 }}>
+          {cuotasPagas(obra.pagos) ? <CheckCircle2 size={16} color="#2E9668" /> : <Circle size={16} color="var(--gold)" />} Cuotas pagas {obra.pagos.length > 0 && <span style={{ color: 'var(--text-muted)' }}>({obra.pagos.filter(p => p.pagado).length}/{obra.pagos.length})</span>}
+        </button>
+        <button onClick={() => irA('cierre')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: 'var(--text-main)', padding: 0 }}>
+          {tieneF9(obra.cierre_bps_estado) ? <CheckCircle2 size={16} color="#2E9668" /> : <Circle size={16} color="var(--gold)" />} F9 (cierre BPS)
+        </button>
+        {!obra.cerrada && <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginLeft: 'auto' }}>Se cierra sola cuando se cumplen las dos</span>}
+      </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
@@ -232,7 +243,7 @@ function DatosObra({ obra, onEditar }: { obra: ObraCompleta; onEditar: () => voi
     ['Inicio', formatFecha(obra.fecha_inicio)],
     ['Fin previsto', formatFecha(obra.fecha_fin_prevista)],
     ['Fin real', formatFecha(obra.fecha_fin_real)],
-    ['Estado', obra.estado],
+    ['Situación', obra.cerrada ? 'Cerrada' : 'Abierta'],
     ['Tope leyes sociales', formatMonto(obra.tope_leyes)],
     ['Garantía', `${textoGarantia(obra.garantia_meses, obra.garantia_unidad)}${obra.garantia.hasta ? ` · vence ${formatFecha(obra.garantia.hasta)}` : ''}`],
     ['Cierre BPS', `${obra.cierre_bps_estado}${obra.cierre_bps_fecha ? ` (${formatFecha(obra.cierre_bps_fecha)})` : ''}`],

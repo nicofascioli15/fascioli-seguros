@@ -23,14 +23,14 @@ export default function ObrasDashboard() {
 
   const hoy = hoyLocal()
   const en30 = addDias(hoy, 30)
-  const vivas = obras.filter(o => o.estado !== 'Cancelada')
+  const vivas = obras
   const activas = vivas.filter(o => obraActiva(o))
 
   const pagosAtrasados: PagoConObra[] = vivas.flatMap(o => o.rp.vencidos.map(p => ({ ...p, obra: o }))).sort((a, b) => (a.fecha_prevista! < b.fecha_prevista! ? -1 : 1))
   const pagosProximos: PagoConObra[] = vivas.flatMap(o => o.pagos.filter(p => !p.pagado && p.fecha_prevista && p.fecha_prevista >= hoy && p.fecha_prevista <= en30).map(p => ({ ...p, obra: o })))
     .sort((a, b) => (a.fecha_prevista! < b.fecha_prevista! ? -1 : 1))
   const leyesAlerta = vivas.filter(o => o.rl.alerta === 'cerca' || o.rl.alerta === 'excedido').sort((a, b) => (b.rl.pctTope || 0) - (a.rl.pctTope || 0))
-  const cierresPendientes = vivas.filter(o => o.cierre.pendiente).sort((a, b) => (a.cierre.dias ?? 0) - (b.cierre.dias ?? 0))
+  const cierresPendientes = vivas.filter(o => !o.cerrada && o.cierre.pendiente).sort((a, b) => (a.cierre.dias ?? 0) - (b.cierre.dias ?? 0))
   const garantiasPorVencer = vivas.filter(o => o.garantia.porVencer).sort((a, b) => (a.garantia.dias ?? 0) - (b.garantia.dias ?? 0))
 
   // Compromisos a pagar a empresas en los próximos 30 días, separados por moneda
@@ -38,10 +38,10 @@ export default function ObrasDashboard() {
   const saldoPendiente = (m: 'UYU' | 'USD') => activas.filter(o => o.moneda === m).reduce((s, o) => s + Math.max(0, o.rp.saldo), 0)
 
   const cards = [
-    { label: 'Obras en curso', value: activas.length, sub: `${vivas.filter(o => o.estado === 'Presupuestada').length} presupuestadas`, icon: HardHat, bg: '#FDF2E6', color: '#D9954F', href: '/obras/lista?filtro=activas' },
+    { label: 'Obras abiertas', value: activas.length, sub: `${vivas.filter(o => o.cerrada).length} cerradas`, icon: HardHat, bg: '#FDF2E6', color: '#D9954F', href: '/obras/lista?filtro=activas' },
     { label: 'Pagos atrasados', value: pagosAtrasados.length, sub: pagosAtrasados.length ? 'Revisar con la empresa' : 'Todo al día', icon: Wallet, bg: pagosAtrasados.length ? '#FEE2E2' : '#E6F5EF', color: pagosAtrasados.length ? '#D94F4F' : '#2E9668', href: '/obras/lista?filtro=pagos_vencidos' },
     { label: 'Leyes cerca del tope', value: leyesAlerta.length, sub: `${leyesAlerta.filter(o => o.rl.alerta === 'excedido').length} ya excedidas`, icon: Scale, bg: leyesAlerta.length ? '#FEF3C7' : '#E6F5EF', color: leyesAlerta.length ? '#D97706' : '#2E9668', href: '/obras/lista?filtro=leyes' },
-    { label: 'Falta cierre BPS', value: cierresPendientes.length, sub: `${cierresPendientes.filter(o => o.cierre.vencido).length} con plazo vencido`, icon: FileCheck2, bg: cierresPendientes.length ? '#FEE2E2' : '#E6F5EF', color: cierresPendientes.length ? '#D94F4F' : '#2E9668', href: '/obras/lista?filtro=cierre' },
+    { label: 'Falta F9', value: cierresPendientes.length, sub: `${cierresPendientes.filter(o => o.cierre.vencido).length} con plazo vencido`, icon: FileCheck2, bg: cierresPendientes.length ? '#FEE2E2' : '#E6F5EF', color: cierresPendientes.length ? '#D94F4F' : '#2E9668', href: '/obras/lista?filtro=cierre' },
   ]
 
   return (
@@ -85,7 +85,7 @@ export default function ObrasDashboard() {
           {/* Compromisos */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 20 }}>
             <Resumen titulo="A pagar próximos 30 días" lineas={[formatMonto(totalProx('UYU')), totalProx('USD') > 0 ? formatMonto(totalProx('USD'), 'USD') : null]} sub={`${pagosProximos.length} pago${pagosProximos.length === 1 ? '' : 's'} con fecha`} />
-            <Resumen titulo="Saldo de obras en curso" lineas={[formatMonto(saldoPendiente('UYU')), saldoPendiente('USD') > 0 ? formatMonto(saldoPendiente('USD'), 'USD') : null]} sub="Lo que falta pagar a las empresas" />
+            <Resumen titulo="Saldo de obras abiertas" lineas={[formatMonto(saldoPendiente('UYU')), saldoPendiente('USD') > 0 ? formatMonto(saldoPendiente('USD'), 'USD') : null]} sub="Lo que falta pagar a las empresas" />
             <Resumen titulo="Garantías por vencer" lineas={[String(garantiasPorVencer.length)]} sub="En los próximos 60 días" />
           </div>
 
@@ -126,14 +126,14 @@ export default function ObrasDashboard() {
               ))}
             </Panel>
 
-            <Panel titulo="Obras en curso" icon={<HardHat size={16} color="#D9954F" />} vacio="No hay obras en curso." accion={<Link href="/obras/lista?filtro=activas" style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 700, textDecoration: 'none' }}>Ver todas</Link>}>
+            <Panel titulo="Obras abiertas" icon={<HardHat size={16} color="#D9954F" />} vacio="No hay obras abiertas." accion={<Link href="/obras/lista?filtro=activas" style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 700, textDecoration: 'none' }}>Ver todas</Link>}>
               {activas.slice(0, 8).map(o => (
                 <Fila key={o.id} onClick={() => router.push(`/obras/${o.id}`)} titulo={`${o.edificio} · ${o.titulo}`}
                   detalle={<div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
                     <div style={{ flex: 1 }}><Barra pct={o.rp.pctPagado} color="#D9954F" /></div>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>pagado {Math.round(o.rp.pctPagado * 100)}%</span>
                   </div>}
-                  derecha={<span className={`badge ${o.situacion.cls}`}>{o.estado}</span>} />
+                  derecha={<span className={`badge ${o.situacion.cls}`}>{o.situacion.label}</span>} />
               ))}
             </Panel>
           </div>

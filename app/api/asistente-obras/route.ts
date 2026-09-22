@@ -11,6 +11,7 @@ Qué sabés del negocio:
 - Leyes sociales (aportes BPS de la construcción, Ley 14.411): siempre en pesos. Muchos contratos fijan un TOPE máximo que asume el edificio; lo que se facture por encima lo absorbe la empresa (hay que descontárselo de los pagos o reclamárselo).
 - Tipos de obra ante BPS: por contrato (empresa), por administración (el edificio contrata al personal) y de menor cuantía (hasta 85 jornales, sin permiso, a nombre del contratista).
 - Al terminar la obra hay 30 días corridos para comunicar el cierre de obra en BPS (antes formulario F9; hoy en línea, el F9 queda para obras de más de 5 años). Si la obra está a nombre de la empresa, el cierre lo hace la empresa. Una obra sin cerrar puede trabar certificados en futuras ventas de unidades.
+- Una obra está ABIERTA desde que se crea y se CIERRA sola cuando tiene todas las cuotas pagas y el F9 (cierre BPS). No hay otros estados.
 - La garantía corre desde la firma del contrato por el plazo pactado (en meses o años).
 
 Reglas:

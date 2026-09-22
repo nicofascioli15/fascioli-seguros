@@ -13,17 +13,15 @@ import { Barra, colorLeyes } from '@/components/obras/ui'
 import { fetchObrasCompletas, type ObraCompleta } from '@/lib/obrasData'
 import { formatMonto, formatFecha, TIPOS_OBRA, obraActiva } from '@/lib/obrasConfig'
 
-type Filtro = 'todas' | 'activas' | 'pagos_vencidos' | 'leyes' | 'cierre' | 'garantia' | 'presupuestadas' | 'terminadas'
+type Filtro = 'todas' | 'activas' | 'cerradas' | 'pagos_vencidos' | 'leyes' | 'cierre'
 
 const FILTROS: { id: Filtro; label: string; match: (o: ObraCompleta) => boolean }[] = [
-  { id: 'todas', label: 'Todas', match: o => o.estado !== 'Cancelada' },
-  { id: 'activas', label: 'En curso', match: o => obraActiva(o) },
+  { id: 'todas', label: 'Todas', match: () => true },
+  { id: 'activas', label: 'Abiertas', match: o => !o.cerrada },
+  { id: 'cerradas', label: 'Cerradas', match: o => o.cerrada },
   { id: 'pagos_vencidos', label: 'Pagos atrasados', match: o => o.rp.vencidos.length > 0 },
   { id: 'leyes', label: 'Leyes cerca del tope', match: o => o.rl.alerta === 'cerca' || o.rl.alerta === 'excedido' },
-  { id: 'cierre', label: 'Falta cierre BPS', match: o => o.cierre.pendiente },
-  { id: 'garantia', label: 'En garantía', match: o => o.garantia.estado === 'en_garantia' },
-  { id: 'presupuestadas', label: 'Presupuestadas', match: o => o.estado === 'Presupuestada' },
-  { id: 'terminadas', label: 'Terminadas', match: o => o.estado === 'Finalizada' },
+  { id: 'cierre', label: 'Falta F9', match: o => !o.cerrada && o.cierre_bps_estado === 'Pendiente' },
 ]
 
 type Fila = ObraCompleta & { edificioOrden: string; finOrden: string; saldoOrden: number }
@@ -78,7 +76,7 @@ export default function ObrasListaPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Obras</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{obras.filter(o => obraActiva(o)).length} en curso · {obras.length} en total</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{obras.filter(o => obraActiva(o)).length} abiertas · {obras.filter(o => o.cerrada).length} cerradas</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <ExportButton

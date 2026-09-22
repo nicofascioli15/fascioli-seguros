@@ -6,12 +6,12 @@ import { hoyLocal, addDias, TIPOS_OBRA, formatMonto, formatPeriodo, redondear } 
 export const ASISTENTE_OBRAS_TOOLS = [
   {
     name: 'buscar_obras',
-    description: 'Busca obras por texto libre (nombre de la obra, edificio o empresa) y/o estado. Devuelve un resumen de cada una: pagos, saldo, próximo pago, leyes sociales vs tope, garantía y cierre BPS. Usala primero para identificar la obra (y su id) antes de pedir detalle.',
+    description: 'Busca obras por texto libre (nombre de la obra, edificio o empresa), opcionalmente solo abiertas o cerradas. Devuelve un resumen de cada una: pagos, saldo, próximo pago, leyes sociales vs tope, garantía y cierre BPS. Usala primero para identificar la obra (y su id) antes de pedir detalle.',
     input_schema: {
       type: 'object',
       properties: {
         texto: { type: 'string', description: 'Parte del nombre del edificio, de la obra o de la empresa. Vacío = todas.' },
-        estado: { type: 'string', description: 'Opcional: "Presupuestada", "Contratada", "En ejecución", "Finalizada", "Cancelada", o "en_curso" para Contratada + En ejecución.' },
+        estado: { type: 'string', description: 'Opcional: "abiertas" o "cerradas". Una obra se cierra sola cuando tiene todas las cuotas pagas y el F9 (cierre BPS).' },
       },
     },
   },
@@ -101,7 +101,7 @@ function resumenCorto(o: ObraCompleta) {
     edificio: o.edificio,
     obra: o.titulo,
     empresa: o.empresa,
-    estado: o.estado,
+    estado: o.cerrada ? 'cerrada' : 'abierta',
     situacion: o.situacion.label,
     tipo_obra: TIPOS_OBRA.find(t => t.value === o.tipo_obra)?.label,
     moneda: o.moneda,
@@ -130,8 +130,9 @@ export async function ejecutarHerramientaObras(supabase: SupabaseClient, usuario
   switch (nombre) {
     case 'buscar_obras': {
       let obras = await fetchObrasCompletas(supabase)
-      if (input.estado === 'en_curso') obras = obras.filter(o => o.estado === 'Contratada' || o.estado === 'En ejecución')
-      else if (input.estado) obras = obras.filter(o => o.estado.toLowerCase() === String(input.estado).toLowerCase())
+      const est = String(input.estado || '').toLowerCase()
+      if (est.startsWith('abiert')) obras = obras.filter(o => !o.cerrada)
+      else if (est.startsWith('cerrad')) obras = obras.filter(o => o.cerrada)
       if (input.texto) {
         const q = normalizar(input.texto)
         obras = obras.filter(o => normalizar(`${o.edificio} ${o.titulo} ${o.empresa || ''}`).includes(q) || normalizar(o.edificio).includes(q) || normalizar(o.titulo).includes(q) || normalizar(o.empresa || '').includes(q))
@@ -161,7 +162,7 @@ export async function ejecutarHerramientaObras(supabase: SupabaseClient, usuario
     }
 
     case 'pagos_obras': {
-      const obras = (await fetchObrasCompletas(supabase)).filter(o => o.estado !== 'Cancelada')
+      const obras = (await fetchObrasCompletas(supabase))
       const incluirAtrasados = input.incluir_atrasados !== false
       const filas: any[] = []
       for (const o of obras) {
@@ -190,7 +191,7 @@ export async function ejecutarHerramientaObras(supabase: SupabaseClient, usuario
           meses: o.rl.detalle.map(l => ({ periodo: formatPeriodo(l.periodo), facturado: l.monto, acumulado: l.acumulado, excedente: l.excedente, pagado: l.pagado })),
         }
       }
-      let obras = (await fetchObrasCompletas(supabase)).filter(o => o.estado !== 'Cancelada' && (o.rl.tope != null || o.rl.totalFacturado > 0))
+      let obras = (await fetchObrasCompletas(supabase)).filter(o => (o.rl.tope != null || o.rl.totalFacturado > 0))
       if (input.solo_alertas) obras = obras.filter(o => o.rl.alerta === 'cerca' || o.rl.alerta === 'excedido')
       return {
         total: obras.length,
@@ -199,14 +200,14 @@ export async function ejecutarHerramientaObras(supabase: SupabaseClient, usuario
     }
 
     case 'garantias': {
-      let obras = (await fetchObrasCompletas(supabase)).filter(o => o.estado !== 'Cancelada' && o.garantia.estado !== 'sin_fin')
+      let obras = (await fetchObrasCompletas(supabase)).filter(o => o.garantia.estado !== 'sin_fin')
       if (input.dias) obras = obras.filter(o => o.garantia.estado === 'en_garantia' && (o.garantia.dias ?? 0) <= input.dias)
       obras.sort((a, b) => (a.garantia.hasta! < b.garantia.hasta! ? -1 : 1))
       return { total: obras.length, obras: obras.map(o => ({ obra_id: o.id, edificio: o.edificio, obra: o.titulo, empresa: o.empresa, fin_real: o.fecha_fin_real, garantia_meses: o.garantia_meses, garantia_hasta: o.garantia.hasta, dias_restantes: o.garantia.dias, estado: o.garantia.estado })) }
     }
 
     case 'cierres_bps_pendientes': {
-      const obras = (await fetchObrasCompletas(supabase)).filter(o => o.estado !== 'Cancelada' && o.cierre.pendiente)
+      const obras = (await fetchObrasCompletas(supabase)).filter(o => !o.cerrada && o.cierre.pendiente)
       return {
         total: obras.length,
         nota: 'El cierre (comunicar el fin de obra) se hace en línea en BPS dentro de los 30 días corridos del fin de los trabajos; el formulario F9 quedó solo para obras de más de 5 años.',
@@ -215,18 +216,18 @@ export async function ejecutarHerramientaObras(supabase: SupabaseClient, usuario
     }
 
     case 'resumen_obras': {
-      const obras = (await fetchObrasCompletas(supabase)).filter(o => o.estado !== 'Cancelada')
-      const enCurso = obras.filter(o => o.estado === 'Contratada' || o.estado === 'En ejecución')
+      const obras = (await fetchObrasCompletas(supabase))
+      const enCurso = obras.filter(o => !o.cerrada)
       const en30 = addDias(hoy, 30)
       const prox = obras.flatMap(o => o.pagos.filter(p => !p.pagado && p.fecha_prevista && p.fecha_prevista >= hoy && p.fecha_prevista <= en30).map(p => ({ ...p, moneda: o.moneda })))
       const saldo = (m: string) => redondear(enCurso.filter(o => o.moneda === m).reduce((s, o) => s + Math.max(0, o.rp.saldo), 0))
       return {
         total_obras: obras.length,
-        en_curso: enCurso.length,
-        presupuestadas: obras.filter(o => o.estado === 'Presupuestada').length,
+        abiertas: enCurso.length,
+        cerradas: obras.filter(o => o.cerrada).length,
         pagos_atrasados: obras.reduce((s, o) => s + o.rp.vencidos.length, 0),
         pagos_proximos_30_dias: { cantidad: prox.length, pesos: redondear(prox.filter(p => p.moneda === 'UYU').reduce((s, p) => s + p.monto, 0)), dolares: redondear(prox.filter(p => p.moneda === 'USD').reduce((s, p) => s + p.monto, 0)) },
-        saldo_obras_en_curso: { pesos: saldo('UYU'), dolares: saldo('USD') },
+        saldo_obras_abiertas: { pesos: saldo('UYU'), dolares: saldo('USD') },
         leyes_cerca_o_pasadas_del_tope: obras.filter(o => o.rl.alerta === 'cerca' || o.rl.alerta === 'excedido').length,
         cierres_bps_pendientes: obras.filter(o => o.cierre.pendiente).length,
         garantias_por_vencer_60_dias: obras.filter(o => o.garantia.porVencer).length,

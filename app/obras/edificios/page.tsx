@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Loader2, Search, X, Building2, HardHat, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { fetchObrasCompletas } from '@/lib/obrasData'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import { eliminarEdificioCompleto } from '@/lib/edificios'
@@ -35,13 +36,13 @@ export default function ObrasEdificiosPage() {
     setLoading(true)
     const [{ data: eds }, { data: obras }] = await Promise.all([
       supabase.from('mant_clientes').select('id, nombre, direccion, contacto, tel, email').order('nombre'),
-      supabase.from('obras').select('cliente_id, estado'),
+      fetchObrasCompletas(supabase).then(data => ({ data })),
     ])
     const c: Record<string, { total: number; activas: number }> = {}
     ;(obras || []).forEach((o: any) => {
       c[o.cliente_id] ||= { total: 0, activas: 0 }
       c[o.cliente_id].total++
-      if (o.estado === 'Contratada' || o.estado === 'En ejecución') c[o.cliente_id].activas++
+      if (!o.cerrada) c[o.cliente_id].activas++
     })
     setConteo(c)
     setEdificios(eds || [])
@@ -116,7 +117,7 @@ export default function ObrasEdificiosPage() {
                     <td>
                       {c.total > 0 ? (
                         <button onClick={() => router.push(`/obras/lista?edificio=${e.id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'inherit', fontSize: 13, padding: 0 }}>
-                          <HardHat size={13} color="var(--gold)" /> <strong>{c.activas}</strong> en curso · {c.total} total <ChevronRight size={13} />
+                          <HardHat size={13} color="var(--gold)" /> <strong>{c.activas}</strong> abiertas · {c.total} total <ChevronRight size={13} />
                         </button>
                       ) : <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>Sin obras</span>}
                     </td>
@@ -137,7 +138,7 @@ export default function ObrasEdificiosPage() {
                 <div key={e.id} style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5FB', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }} onClick={() => c.total && router.push(`/obras/lista?edificio=${e.id}`)}>
                     <div style={{ fontWeight: 700 }}>{e.nombre}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.total ? `${c.activas} en curso · ${c.total} obras` : 'Sin obras'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.total ? `${c.activas} abiertas · ${c.total} obras` : 'Sin obras'}</div>
                   </div>
                   <button className="btn-outline btn-sm" onClick={() => setNuevaObraPara(e)}><Plus size={12} /></button>
                   <button className="btn-outline btn-sm" onClick={() => { setForm({ nombre: e.nombre, direccion: e.direccion || '', contacto: e.contacto || '', tel: e.tel || '', email: e.email || '' }); setEditando(e) }}><Pencil size={12} /></button>

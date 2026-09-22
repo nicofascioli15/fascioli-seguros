@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Loader2, Search, X, Briefcase, Phone, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { fetchObrasCompletas } from '@/lib/obrasData'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -29,7 +30,7 @@ export default function ObrasEmpresasPage() {
     setLoading(true)
     const [{ data: emps }, { data: obras }] = await Promise.all([
       supabase.from('obras_empresas').select('*').order('nombre'),
-      supabase.from('obras').select('empresa, estado'),
+      fetchObrasCompletas(supabase).then(data => ({ data })),
     ])
     const c: Record<string, { total: number; activas: number }> = {}
     ;(obras || []).forEach((o: any) => {
@@ -37,7 +38,7 @@ export default function ObrasEmpresasPage() {
       if (!k) return
       c[k] ||= { total: 0, activas: 0 }
       c[k].total++
-      if (o.estado === 'Contratada' || o.estado === 'En ejecución') c[k].activas++
+      if (!o.cerrada) c[k].activas++
     })
     setConteo(c)
     setEmpresas(emps || [])
@@ -120,7 +121,7 @@ export default function ObrasEmpresasPage() {
                   </div>
                   <button onClick={() => router.push(`/obras/lista?q=${encodeURIComponent(e.nombre)}`)} disabled={c.total === 0}
                     style={{ marginTop: 'auto', textAlign: 'left', background: 'var(--bg-card-alt)', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, color: 'var(--text-main)', cursor: c.total ? 'pointer' : 'default', fontFamily: 'inherit' }}>
-                    <strong>{c.activas}</strong> en curso · {c.total} obra{c.total === 1 ? '' : 's'} en total
+                    <strong>{c.activas}</strong> abiertas · {c.total} obra{c.total === 1 ? '' : 's'} en total
                   </button>
                 </div>
               )

@@ -148,11 +148,11 @@ export default function HubPage() {
 
       // Load obras stats (si las tablas todavía no existen, devuelve vacío y el portal sigue andando)
       const obras = await fetchObrasCompletas(supabase)
-      const obrasVivas = obras.filter(o => o.estado !== 'Cancelada')
+      const obrasVivas = obras
       setObrasStats({
         enCurso: obrasVivas.filter(o => obraActiva(o)).length,
         atrasados: obrasVivas.reduce((s, o) => s + o.rp.vencidos.length, 0),
-        alertas: obrasVivas.filter(o => o.cierre.pendiente || o.rl.alerta === 'excedido').length,
+        alertas: obrasVivas.filter(o => !o.cerrada && (o.cierre.pendiente || o.rl.alerta === 'excedido')).length,
       })
 
       setLoading(false)
@@ -216,7 +216,7 @@ export default function HubPage() {
       accent: '#D9954F',
       icon: <IconHardHat />,
       stats: [
-        { label: 'En curso', value: obrasStats.enCurso },
+        { label: 'Abiertas', value: obrasStats.enCurso },
         { label: 'Pagos atrasados', value: obrasStats.atrasados },
         { label: 'Alertas', value: obrasStats.alertas },
       ],

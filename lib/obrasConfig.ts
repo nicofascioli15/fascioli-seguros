@@ -341,16 +341,25 @@ export function cierreBps(o: Pick<Obra, 'fecha_fin_real' | 'cierre_bps_estado' |
 
 // ── Situación general (para listas y badges) ───────────────────────────────
 
-export function situacionObra(o: Obra, hoy = hoyLocal()): { label: string; cls: string } {
-  if (o.estado === 'Cancelada') return { label: 'Cancelada', cls: 'badge-neutral' }
-  if (o.estado === 'Presupuestada') return { label: 'Presupuestada', cls: 'badge-neutral' }
-  if (o.estado === 'Contratada') return { label: 'Contratada', cls: 'badge-gold' }
-  if (o.estado === 'En ejecución' || !o.fecha_fin_real) return { label: 'En ejecución', cls: 'badge-warning' }
+// Una obra está ABIERTA desde que se crea y queda CERRADA sola cuando se cumplen las dos cosas:
+// todos los pagos del plan están pagos y tenemos el F9 (cierre BPS presentado/aprobado, o "No aplica").
+export function tieneF9(cierreEstado: CierreBps): boolean {
+  return cierreEstado === 'Presentado' || cierreEstado === 'Aprobado' || cierreEstado === 'No aplica'
+}
+export function cuotasPagas(pagos: PagoObra[]): boolean {
+  return pagos.length > 0 && pagos.every(p => p.pagado)
+}
+export function obraCerrada(o: Pick<Obra, 'cierre_bps_estado'>, pagos: PagoObra[]): boolean {
+  return cuotasPagas(pagos) && tieneF9(o.cierre_bps_estado)
+}
+
+export function situacionObra(o: Obra, pagos: PagoObra[], hoy = hoyLocal()): { label: string; cls: string } {
+  if (obraCerrada(o, pagos)) return { label: 'Cerrada', cls: 'badge-success' }
+  if (pagos.some(p => !p.pagado && p.fecha_prevista && p.fecha_prevista < hoy)) return { label: 'Abierta · pago atrasado', cls: 'badge-danger' }
   const c = cierreBps(o, hoy)
-  if (c.pendiente) return { label: c.vencido ? 'Cierre BPS vencido' : 'Falta cierre BPS', cls: 'badge-danger' }
-  const g = garantiaObra(o, hoy)
-  if (g.estado === 'en_garantia') return { label: g.porVencer ? 'Garantía por vencer' : 'En garantía', cls: g.porVencer ? 'badge-warning' : 'badge-success' }
-  return { label: 'Terminada', cls: 'badge-neutral' }
+  if (c.vencido) return { label: 'Abierta · F9 vencido', cls: 'badge-danger' }
+  if (cuotasPagas(pagos)) return { label: 'Abierta · falta F9', cls: 'badge-warning' }
+  return { label: 'Abierta', cls: 'badge-gold' }
 }
 
 export function textoGarantia(meses: number, unidad?: string | null): string {
@@ -360,6 +369,6 @@ export function textoGarantia(meses: number, unidad?: string | null): string {
   return `${meses} ${meses === 1 ? 'mes' : 'meses'}`
 }
 
-export function obraActiva(o: Pick<Obra, 'estado'>): boolean {
-  return o.estado === 'Contratada' || o.estado === 'En ejecución'
+export function obraActiva(o: { cerrada: boolean }): boolean {
+  return !o.cerrada
 }

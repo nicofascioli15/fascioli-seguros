@@ -1,6 +1,6 @@
 'use client'
 import DatePicker from '@/components/DatePicker'
-import { TIPOS_OBRA, ESTADOS_OBRA, CIERRES_BPS, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
+import { TIPOS_OBRA, CIERRES_BPS, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
 
 export type ObraFormState = {
   cliente_id: string
@@ -18,7 +18,6 @@ export type ObraFormState = {
   fecha_fin_prevista: string
   fecha_fin_real: string
   avance: number
-  estado: Obra['estado']
   tope_leyes: string
   garantia_cantidad: number
   garantia_unidad: 'meses' | 'anios'
@@ -31,7 +30,7 @@ export const emptyObraForm: ObraFormState = {
   cliente_id: '', titulo: '', descripcion: '', empresa: '',
   tipo_obra: 'contrato', titular_bps: 'edificio', nro_obra_bps: '', fecha_inscripcion_bps: '',
   moneda: 'UYU', precio_total: '', fecha_contrato: '', fecha_inicio: '', fecha_fin_prevista: '', fecha_fin_real: '',
-  avance: 0, estado: 'Presupuestada', tope_leyes: '', garantia_cantidad: 1, garantia_unidad: 'anios',
+  avance: 0, tope_leyes: '', garantia_cantidad: 1, garantia_unidad: 'anios',
   cierre_bps_estado: 'Pendiente', cierre_bps_fecha: '', nota: '',
 }
 
@@ -52,7 +51,7 @@ export function obraToForm(o: Obra): ObraFormState {
     tipo_obra: o.tipo_obra, titular_bps: o.titular_bps, nro_obra_bps: o.nro_obra_bps || '', fecha_inscripcion_bps: o.fecha_inscripcion_bps || '',
     moneda: o.moneda, precio_total: o.precio_total != null ? String(o.precio_total) : '',
     fecha_contrato: o.fecha_contrato || '', fecha_inicio: o.fecha_inicio || '', fecha_fin_prevista: o.fecha_fin_prevista || '', fecha_fin_real: o.fecha_fin_real || '',
-    avance: o.avance || 0, estado: o.estado, tope_leyes: o.tope_leyes != null ? String(o.tope_leyes) : '',
+    avance: o.avance || 0, tope_leyes: o.tope_leyes != null ? String(o.tope_leyes) : '',
     ...garantiaAForm(o), cierre_bps_estado: o.cierre_bps_estado, cierre_bps_fecha: o.cierre_bps_fecha || '', nota: o.nota || '',
   }
 }
@@ -91,9 +90,6 @@ export function formToPayload(f: ObraFormState) {
     fecha_inicio: f.fecha_inicio || null,
     fecha_fin_prevista: f.fecha_fin_prevista || null,
     fecha_fin_real: finReal,
-    // Si se carga la fecha de fin real, la obra pasa sola a "Finalizada" (salvo que esté cancelada);
-    // si se borra la fecha de una obra finalizada, vuelve a "En ejecución".
-    estado: finReal && f.estado !== 'Cancelada' ? 'Finalizada' : !finReal && f.estado === 'Finalizada' ? 'En ejecución' : f.estado,
     tope_leyes: (parseMonto(f.tope_leyes) ?? 0) > 0 ? parseMonto(f.tope_leyes) : null,   // 0 o vacío = sin tope
     garantia_meses: garantiaEnMeses(f),
     garantia_unidad: f.garantia_unidad,
@@ -196,12 +192,6 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
       <div className="fgroup">
         <label>Firma del contrato</label>
         <DatePicker value={form.fecha_contrato} onChange={v => set({ fecha_contrato: v })} placeholder="Fecha de firma" />
-      </div>
-      <div className="fgroup">
-        <label>Estado</label>
-        <select value={form.estado} onChange={e => set({ estado: e.target.value as ObraFormState['estado'] })}>
-          {ESTADOS_OBRA.filter(s => !esNueva || s !== 'Finalizada').map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
       </div>
       <div className="fgroup">
         <label>Inicio de obra</label>

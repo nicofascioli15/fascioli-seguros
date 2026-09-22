@@ -46,7 +46,6 @@ export default function ObraModal({ obra, edificioLocked, onClose, onSaved }: {
   async function guardar() {
     if (!form.cliente_id) { showToast('Elegí el edificio', 'error'); return }
     if (!form.titulo.trim()) { showToast('Poné un nombre para la obra', 'error'); return }
-    if (form.estado === 'Finalizada' && !form.fecha_fin_real) { showToast('Para marcarla Finalizada cargá la fecha de fin real (desde ahí corren la garantía y el cierre BPS)', 'error'); return }
     setSaving(true)
     const payload = formToPayload(form)
     const edificioNombre = elegido?.nombre || edificios.find(e => e.id === form.cliente_id)?.nombre || ''
