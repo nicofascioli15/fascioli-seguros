@@ -17,7 +17,7 @@ export type ObraCompleta = Obra & {
 const COLUMNAS_OBRA = [
   'id', 'cliente_id', 'titulo', 'descripcion', 'empresa', 'tipo_obra', 'titular_bps', 'nro_obra_bps', 'fecha_inscripcion_bps',
   'moneda', 'precio_total', 'fecha_contrato', 'fecha_inicio', 'fecha_fin_prevista', 'fecha_fin_real', 'avance', 'estado',
-  'tope_leyes', 'garantia_meses', 'cierre_bps_estado', 'cierre_bps_fecha', 'nota', 'created_at',
+  'tope_leyes', 'garantia_meses', 'garantia_unidad', 'cierre_bps_estado', 'cierre_bps_fecha', 'nota', 'created_at',
 ] as const
 export function soloColumnasObra(o: any): Record<string, any> {
   const r: Record<string, any> = {}

@@ -1,6 +1,6 @@
 'use client'
 import DatePicker from '@/components/DatePicker'
-import { TIPOS_OBRA, ESTADOS_OBRA, CIERRES_BPS, type Obra } from '@/lib/obrasConfig'
+import { TIPOS_OBRA, ESTADOS_OBRA, CIERRES_BPS, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
 
 export type ObraFormState = {
   cliente_id: string
@@ -20,7 +20,8 @@ export type ObraFormState = {
   avance: number
   estado: Obra['estado']
   tope_leyes: string
-  garantia_meses: number
+  garantia_cantidad: number
+  garantia_unidad: 'meses' | 'anios'
   cierre_bps_estado: Obra['cierre_bps_estado']
   cierre_bps_fecha: string
   nota: string
@@ -30,8 +31,19 @@ export const emptyObraForm: ObraFormState = {
   cliente_id: '', titulo: '', descripcion: '', empresa: '',
   tipo_obra: 'contrato', titular_bps: 'edificio', nro_obra_bps: '', fecha_inscripcion_bps: '',
   moneda: 'UYU', precio_total: '', fecha_contrato: '', fecha_inicio: '', fecha_fin_prevista: '', fecha_fin_real: '',
-  avance: 0, estado: 'Presupuestada', tope_leyes: '', garantia_meses: 12,
+  avance: 0, estado: 'Presupuestada', tope_leyes: '', garantia_cantidad: 1, garantia_unidad: 'anios',
   cierre_bps_estado: 'Pendiente', cierre_bps_fecha: '', nota: '',
+}
+
+function garantiaAForm(o: Obra): { garantia_cantidad: number; garantia_unidad: 'meses' | 'anios' } {
+  const meses = o.garantia_meses ?? 12
+  const unidad = o.garantia_unidad || (meses % 12 === 0 && meses > 0 ? 'anios' : 'meses')
+  return { garantia_unidad: unidad, garantia_cantidad: unidad === 'anios' ? meses / 12 : meses }
+}
+
+export function garantiaEnMeses(f: Pick<ObraFormState, 'garantia_cantidad' | 'garantia_unidad'>): number {
+  const n = Math.max(0, Number(f.garantia_cantidad) || 0)
+  return Math.round(f.garantia_unidad === 'anios' ? n * 12 : n)
 }
 
 export function obraToForm(o: Obra): ObraFormState {
@@ -41,7 +53,7 @@ export function obraToForm(o: Obra): ObraFormState {
     moneda: o.moneda, precio_total: o.precio_total != null ? String(o.precio_total) : '',
     fecha_contrato: o.fecha_contrato || '', fecha_inicio: o.fecha_inicio || '', fecha_fin_prevista: o.fecha_fin_prevista || '', fecha_fin_real: o.fecha_fin_real || '',
     avance: o.avance || 0, estado: o.estado, tope_leyes: o.tope_leyes != null ? String(o.tope_leyes) : '',
-    garantia_meses: o.garantia_meses ?? 12, cierre_bps_estado: o.cierre_bps_estado, cierre_bps_fecha: o.cierre_bps_fecha || '', nota: o.nota || '',
+    ...garantiaAForm(o), cierre_bps_estado: o.cierre_bps_estado, cierre_bps_fecha: o.cierre_bps_fecha || '', nota: o.nota || '',
   }
 }
 
@@ -84,7 +96,8 @@ export function formToPayload(f: ObraFormState) {
     // si se borra la fecha de una obra finalizada, vuelve a "En ejecución".
     estado: finReal && f.estado !== 'Cancelada' ? 'Finalizada' : !finReal && f.estado === 'Finalizada' ? 'En ejecución' : f.estado,
     tope_leyes: (parseMonto(f.tope_leyes) ?? 0) > 0 ? parseMonto(f.tope_leyes) : null,   // 0 o vacío = sin tope
-    garantia_meses: Math.max(0, Number(f.garantia_meses) || 0),
+    garantia_meses: garantiaEnMeses(f),
+    garantia_unidad: f.garantia_unidad,
     cierre_bps_estado: f.cierre_bps_estado,
     cierre_bps_fecha: f.cierre_bps_fecha || null,
     nota: f.nota.trim() || null,
@@ -94,7 +107,8 @@ export function formToPayload(f: ObraFormState) {
 const seccion: React.CSSProperties = { gridColumn: 'span 2', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--gold)', marginTop: 8, paddingTop: 10, borderTop: '1px solid var(--border-soft)' }
 const ayuda: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }
 
-export default function ObraForm({ form, setForm, edificios, edificioLocked, empresas }: {
+export default function ObraForm({ form, setForm, edificios, edificioLocked, empresas, modo = 'editar' }: {
+  modo?: 'nueva' | 'editar'   // en "nueva" solo se piden los datos del contrato; lo demás se carga después en la ficha
   form: ObraFormState
   setForm: (fn: (p: ObraFormState) => ObraFormState) => void
   edificios: { id: string; nombre: string }[]
@@ -104,6 +118,9 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
   const set = (patch: Partial<ObraFormState>) => setForm(p => ({ ...p, ...patch }))
   const tipoInfo = TIPOS_OBRA.find(t => t.value === form.tipo_obra)
   const esMenorCuantia = form.tipo_obra === 'menor_cuantia'
+  const esNueva = modo === 'nueva'
+  const mesesGarantia = garantiaEnMeses(form)
+  const garantiaHasta = form.fecha_contrato && mesesGarantia > 0 ? addMesesObra(form.fecha_contrato, mesesGarantia) : null
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
@@ -154,6 +171,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         </select>
         <div style={ayuda}>Define quién tiene que hacer el cierre de obra en BPS.</div>
       </div>
+      {!esNueva && <>
       <div className="fgroup">
         <label>N° de obra BPS</label>
         <input value={form.nro_obra_bps} onChange={e => set({ nro_obra_bps: e.target.value })} placeholder="Opcional" />
@@ -162,6 +180,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <label>Fecha de inscripción BPS</label>
         <DatePicker value={form.fecha_inscripcion_bps} onChange={v => set({ fecha_inscripcion_bps: v })} placeholder="Opcional" />
       </div>
+      </>}
 
       <div style={seccion}>Contrato</div>
       <div className="fgroup">
@@ -182,7 +201,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
       <div className="fgroup">
         <label>Estado</label>
         <select value={form.estado} onChange={e => set({ estado: e.target.value as ObraFormState['estado'] })}>
-          {ESTADOS_OBRA.map(s => <option key={s} value={s}>{s}</option>)}
+          {ESTADOS_OBRA.filter(s => !esNueva || s !== 'Finalizada').map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className="fgroup">
@@ -193,16 +212,19 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <label>Fin previsto</label>
         <DatePicker value={form.fecha_fin_prevista} onChange={v => set({ fecha_fin_prevista: v })} placeholder="Según contrato" />
       </div>
+      {!esNueva && <>
       <div className="fgroup">
-        <label>Avance (%)</label>
+        <label>Avance físico de la obra (%)</label>
         <input type="number" min={0} max={100} value={form.fecha_fin_real ? 100 : form.avance} disabled={!!form.fecha_fin_real}
           onChange={e => set({ avance: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })} />
+        <div style={ayuda}>Cuánto del trabajo está hecho (no es plata). Sirve para ver de un vistazo cómo viene la obra y para los pagos "por avance".</div>
       </div>
       <div className="fgroup">
-        <label>Fin real (recepción)</label>
+        <label>Fin real de la obra</label>
         <DatePicker value={form.fecha_fin_real} onChange={v => set({ fecha_fin_real: v })} placeholder="Cuando se termina" />
-        <div style={ayuda}>Desde acá corre la garantía y el plazo de 30 días para el cierre en BPS.</div>
+        <div style={ayuda}>Desde acá corren los 30 días para el cierre en BPS.</div>
       </div>
+      </>}
 
       <div style={seccion}>Leyes sociales y garantía</div>
       <div className="fgroup">
@@ -211,10 +233,21 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <div style={ayuda}>Siempre en pesos. Lo facturado por encima lo absorbe la empresa.</div>
       </div>
       <div className="fgroup">
-        <label>Garantía post-obra (meses)</label>
-        <input type="number" min={0} value={form.garantia_meses} onChange={e => set({ garantia_meses: Math.max(0, parseInt(e.target.value) || 0) })} />
+        <label>Garantía</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input type="number" min={0} value={form.garantia_cantidad} style={{ width: 80 }}
+            onChange={e => set({ garantia_cantidad: Math.max(0, parseInt(e.target.value) || 0) })} />
+          <select value={form.garantia_unidad} onChange={e => set({ garantia_unidad: e.target.value as ObraFormState['garantia_unidad'] })} style={{ flex: 1 }}>
+            <option value="anios">{form.garantia_cantidad === 1 ? 'año' : 'años'}</option>
+            <option value="meses">{form.garantia_cantidad === 1 ? 'mes' : 'meses'}</option>
+          </select>
+        </div>
+        <div style={ayuda}>
+          {garantiaHasta ? <>Vence el <strong style={{ color: 'var(--text-main)' }}>{formatFecha(garantiaHasta)}</strong> (desde la firma del contrato)</> : 'Se calcula desde la firma del contrato'}
+        </div>
       </div>
 
+      {!esNueva && <>
       <div style={seccion}>Cierre de obra BPS (ex F9)</div>
       <div className="fgroup">
         <label>Estado del cierre</label>
@@ -226,6 +259,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <label>Fecha de presentación</label>
         <DatePicker value={form.cierre_bps_fecha} onChange={v => set({ cierre_bps_fecha: v })} placeholder="Cuando se presentó" />
       </div>
+      </>}
 
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
         <label>Nota interna</label>

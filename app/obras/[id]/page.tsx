@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Pencil, Trash2, Building2, Briefcase, AlertTriangle, Wallet, Scale, ShieldCheck, FileText, MessageSquareText, ClipboardList, CalendarClock } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Trash2, Building2, Briefcase, AlertTriangle, Wallet, Scale, ShieldCheck, FileText, MessageSquareText, ClipboardList, CalendarClock, CheckCircle2, Circle, FileCheck2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -16,7 +16,7 @@ import ObraDocumentos from '@/components/obras/ObraDocumentos'
 import ObraComentarios from '@/components/obras/ObraComentarios'
 import { Barra, Kpi, colorLeyes } from '@/components/obras/ui'
 import { fetchObrasCompletas, soloColumnasObra, type ObraCompleta } from '@/lib/obrasData'
-import { formatMonto, formatFecha, TIPOS_OBRA } from '@/lib/obrasConfig'
+import { formatMonto, formatFecha, TIPOS_OBRA, textoGarantia } from '@/lib/obrasConfig'
 
 type Tab = 'pagos' | 'leyes' | 'cierre' | 'documentos' | 'comentarios' | 'datos'
 
@@ -30,12 +30,22 @@ export default function ObraFichaPage() {
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [eliminando, setEliminando] = useState(false)
   const [tipoDocInicial, setTipoDocInicial] = useState<string | undefined>(undefined)
+  const [tiposDocs, setTiposDocs] = useState<string[]>([])
 
   useEffect(() => { cargar() }, [id])
 
   async function cargar() {
-    const [o] = await fetchObrasCompletas(supabase, { obraId: id })
+    const [[o], { data: docs }] = await Promise.all([
+      fetchObrasCompletas(supabase, { obraId: id }),
+      supabase.from('obras_documentos').select('tipo').eq('obra_id', id),
+    ])
     setObra(o || null)
+    setTiposDocs((docs || []).map((d: any) => d.tipo || ''))
+  }
+
+  function irA(t: Tab, tipoDoc?: string) {
+    if (tipoDoc) setTipoDocInicial(tipoDoc)
+    setTab(t)
   }
 
   async function eliminar() {
@@ -105,11 +115,27 @@ export default function ObraFichaPage() {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {obra.estado !== 'Cancelada' && obra.estado !== 'Presupuestada' && (
+            <button className="btn-outline btn-sm" style={{ background: 'rgba(226,196,122,.15)', color: '#E2C47A', borderColor: 'rgba(226,196,122,.4)' }} onClick={() => setTab('cierre')}>
+              <FileCheck2 size={13} /> {obra.fecha_fin_real ? 'Cierre BPS (F9)' : 'Fin de obra y F9'}
+            </button>
+          )}
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditando(true)}><Pencil size={13} /> Editar</button>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: '#FCA5A5', borderColor: 'rgba(252,165,165,.35)' }} onClick={() => setConfirmEliminar(true)}><Trash2 size={13} /></button>
         </div>
       </div>
+
+      <ProximosPasos pasos={[
+        { hecho: obra.precio_total != null, texto: 'Precio del contrato', onClick: () => setEditando(true) },
+        { hecho: !!obra.fecha_contrato, texto: 'Fecha de firma (desde ahí corre la garantía)', onClick: () => setEditando(true) },
+        { hecho: obra.pagos.length > 0, texto: 'Plan de pagos', onClick: () => irA('pagos') },
+        { hecho: tiposDocs.includes('Contrato'), texto: 'Subir el contrato firmado', onClick: () => irA('documentos', 'Contrato') },
+        ...(obra.tipo_obra !== 'menor_cuantia' ? [{ hecho: obra.tope_leyes != null, texto: 'Tope de leyes sociales', onClick: () => irA('leyes') }] : []),
+        { hecho: !!obra.nro_obra_bps, texto: 'N° de obra BPS', onClick: () => setEditando(true) },
+        ...(obra.estado === 'En ejecución' || obra.fecha_fin_real ? [{ hecho: !!obra.fecha_fin_real, texto: 'Marcar fin de obra', onClick: () => irA('cierre') }] : []),
+        ...(obra.fecha_fin_real && obra.cierre_bps_estado !== 'No aplica' ? [{ hecho: obra.cierre_bps_estado === 'Presentado' || obra.cierre_bps_estado === 'Aprobado', texto: 'Cierre de obra en BPS (F9)', onClick: () => irA('cierre') }] : []),
+      ]} />
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
@@ -152,7 +178,7 @@ export default function ObraFichaPage() {
       {tab === 'pagos' && <ObraPagos obra={obra} onChange={cargar} />}
       {tab === 'leyes' && <ObraLeyes obra={obra} onChange={cargar} />}
       {tab === 'cierre' && <ObraCierre obra={obra} onChange={cargar} onPedirDocumento={() => { setTipoDocInicial('Cierre de obra BPS (F9)'); setTab('documentos') }} />}
-      {tab === 'documentos' && <ObraDocumentos obraId={obra.id} etiqueta={etiqueta} tipoInicial={tipoDocInicial} />}
+      {tab === 'documentos' && <ObraDocumentos obraId={obra.id} etiqueta={etiqueta} tipoInicial={tipoDocInicial} onCount={() => { supabase.from('obras_documentos').select('tipo').eq('obra_id', obra.id).then(({ data }) => setTiposDocs((data || []).map((d: any) => d.tipo || ''))) }} />}
       {tab === 'comentarios' && <ObraComentarios obraId={obra.id} etiqueta={etiqueta} />}
       {tab === 'datos' && <DatosObra obra={obra} onEditar={() => setEditando(true)} />}
 
@@ -166,6 +192,34 @@ export default function ObraFichaPage() {
         onConfirm={eliminar}
         onCancel={() => setConfirmEliminar(false)}
       />
+    </div>
+  )
+}
+
+// Lista de lo que falta completar en la ficha: la obra se crea con lo mínimo y se va cargando después.
+function ProximosPasos({ pasos }: { pasos: { hecho: boolean; texto: string; onClick: () => void }[] }) {
+  const faltan = pasos.filter(p => !p.hecho)
+  if (faltan.length === 0) return null
+  const hechos = pasos.length - faltan.length
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 12, padding: '12px 16px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10 }}>
+        <div style={{ fontWeight: 800, fontSize: 13.5 }}>Completar la ficha</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{hechos} de {pasos.length}</div>
+      </div>
+      <div style={{ marginBottom: 10 }}><Barra pct={hechos / pasos.length} color="#2E9668" /></div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {pasos.map(p => (
+          <button key={p.texto} onClick={p.onClick} disabled={p.hecho} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${p.hecho ? 'transparent' : 'var(--border)'}`, borderRadius: 20,
+            padding: '5px 11px', fontSize: 12, fontFamily: 'inherit', cursor: p.hecho ? 'default' : 'pointer',
+            background: p.hecho ? 'var(--bg-card-alt)' : 'var(--bg-card)', color: p.hecho ? 'var(--text-muted)' : 'var(--text-main)',
+            textDecoration: p.hecho ? 'line-through' : 'none', fontWeight: p.hecho ? 500 : 600,
+          }}>
+            {p.hecho ? <CheckCircle2 size={13} color="#2E9668" /> : <Circle size={13} color="var(--gold)" />} {p.texto}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -187,7 +241,7 @@ function DatosObra({ obra, onEditar }: { obra: ObraCompleta; onEditar: () => voi
     ['Estado', obra.estado],
     ['Avance', `${obra.avance}%`],
     ['Tope leyes sociales', formatMonto(obra.tope_leyes)],
-    ['Garantía', `${obra.garantia_meses} meses`],
+    ['Garantía', `${textoGarantia(obra.garantia_meses, obra.garantia_unidad)}${obra.garantia.hasta ? ` · vence ${formatFecha(obra.garantia.hasta)}` : ''}`],
     ['Cierre BPS', `${obra.cierre_bps_estado}${obra.cierre_bps_fecha ? ` (${formatFecha(obra.cierre_bps_fecha)})` : ''}`],
   ]
   return (

@@ -40,7 +40,7 @@ export const ASISTENTE_OBRAS_TOOLS = [
   },
   {
     name: 'garantias',
-    description: 'Lista obras terminadas y su garantía post-obra (hasta cuándo cubre). Con "dias" filtra las que vencen dentro de esa cantidad de días.',
+    description: 'Lista obras y su garantía (se cuenta desde la firma del contrato; hasta cuándo cubre). Con "dias" filtra las que vencen dentro de esa cantidad de días.',
     input_schema: { type: 'object', properties: { dias: { type: 'integer' } } },
   },
   {
@@ -116,7 +116,7 @@ function resumenCorto(o: ObraCompleta) {
     fecha_inicio: o.fecha_inicio,
     fin_previsto: o.fecha_fin_prevista,
     fin_real: o.fecha_fin_real,
-    garantia: o.garantia.estado === 'sin_fin' ? 'obra sin terminar' : { hasta: o.garantia.hasta, dias_restantes: o.garantia.dias, estado: o.garantia.estado },
+    garantia: o.garantia.estado === 'sin_fin' ? 'sin fecha de firma cargada' : { hasta: o.garantia.hasta, dias_restantes: o.garantia.dias, estado: o.garantia.estado },
     cierre_bps: { estado: o.cierre_bps_estado, plazo: o.cierre.limite, vencido: o.cierre.vencido, lo_hace: o.cierre.responsable },
   }
 }

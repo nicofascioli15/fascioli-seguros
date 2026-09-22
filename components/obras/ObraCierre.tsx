@@ -6,7 +6,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { formatFecha, hoyLocal, PLAZO_CIERRE_BPS_DIAS, TIPOS_OBRA, type CierreBps } from '@/lib/obrasConfig'
+import { formatFecha, hoyLocal, PLAZO_CIERRE_BPS_DIAS, TIPOS_OBRA, textoGarantia, type CierreBps } from '@/lib/obrasConfig'
 import type { ObraCompleta } from '@/lib/obrasData'
 
 // Garantía post-obra + cierre de obra ante BPS (lo que antes era el formulario F9).
@@ -86,12 +86,12 @@ export default function ObraCierre({ obra, onChange, onPedirDocumento }: { obra:
       <div style={{ background: 'var(--bg-card)', border: `1px solid ${garantia.porVencer ? '#FCD34D' : 'var(--border-soft)'}`, borderRadius: 12, padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <ShieldCheck size={18} color="#2E9668" />
-          <div style={{ fontWeight: 800, fontSize: 15 }}>Garantía post-obra</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>Garantía</div>
           <span className={`badge ${garantia.estado === 'en_garantia' ? (garantia.porVencer ? 'badge-warning' : 'badge-success') : 'badge-neutral'}`} style={{ marginLeft: 'auto' }}>
-            {garantia.estado === 'sin_fin' ? 'Obra sin terminar' : garantia.estado === 'vencida' ? 'Vencida' : garantia.porVencer ? 'Por vencer' : 'Vigente'}
+            {garantia.estado === 'sin_fin' ? 'Sin fecha' : garantia.estado === 'vencida' ? 'Vencida' : garantia.porVencer ? 'Por vencer' : 'Vigente'}
           </span>
         </div>
-        <Linea icon={<ShieldCheck size={14} color="var(--text-muted)" />} texto={`${obra.garantia_meses} meses desde la recepción de la obra`} />
+        <Linea icon={<ShieldCheck size={14} color="var(--text-muted)" />} texto={`${textoGarantia(obra.garantia_meses, obra.garantia_unidad)} desde ${obra.fecha_contrato ? `la firma del contrato (${formatFecha(obra.fecha_contrato)})` : 'el fin de la obra (falta cargar la fecha de firma)'}`} />
         {garantia.hasta && (
           <Linea icon={<Clock size={14} color={garantia.porVencer ? '#D97706' : 'var(--text-muted)'} />}
             texto={garantia.estado === 'vencida' ? `Venció el ${formatFecha(garantia.hasta)}` : `Cubre hasta el ${formatFecha(garantia.hasta)} (${garantia.dias} días)`}
@@ -122,7 +122,7 @@ export default function ObraCierre({ obra, onChange, onPedirDocumento }: { obra:
               <label style={{ fontSize: 11 }}>{accion === 'fin' ? 'Fecha de terminación / recepción' : accion === 'Aprobado' && obra.cierre_bps_fecha ? 'Fecha (se conserva la de presentación ya cargada)' : 'Fecha de presentación'}</label>
               <DatePicker value={fecha} onChange={setFecha} />
             </div>
-            {accion === 'fin' && <div style={{ fontSize: 12, marginTop: 8 }}>Desde esa fecha corre la garantía y el plazo de {PLAZO_CIERRE_BPS_DIAS} días para el cierre en BPS.</div>}
+            {accion === 'fin' && <div style={{ fontSize: 12, marginTop: 8 }}>Desde esa fecha corren los {PLAZO_CIERRE_BPS_DIAS} días para el cierre en BPS.</div>}
           </div>
         }
         onConfirm={aplicar}

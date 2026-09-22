@@ -29,6 +29,7 @@ export type Obra = {
   estado: EstadoObra
   tope_leyes: number | null
   garantia_meses: number
+  garantia_unidad?: 'meses' | 'anios' | null
   cierre_bps_estado: CierreBps
   cierre_bps_fecha: string | null
   nota: string | null
@@ -303,11 +304,14 @@ export function resumenLeyes(topeIn: number | null, leyes: LeyObra[]): ResumenLe
 
 // ── Garantía post-obra ─────────────────────────────────────────────────────
 
+// 'sin_fin' = todavía no hay fecha desde la cual contar la garantía.
 export type EstadoGarantia = { estado: 'sin_fin' | 'en_garantia' | 'vencida'; hasta: string | null; dias: number | null; porVencer: boolean }
 
-export function garantiaObra(o: Pick<Obra, 'fecha_fin_real' | 'garantia_meses'>, hoy = hoyLocal()): EstadoGarantia {
-  if (!o.fecha_fin_real) return { estado: 'sin_fin', hasta: null, dias: null, porVencer: false }
-  const hasta = addMesesObra(o.fecha_fin_real, o.garantia_meses || 0)
+// La garantía se cuenta desde la firma del contrato (si no está cargada, desde el fin de la obra).
+export function garantiaObra(o: Pick<Obra, 'fecha_contrato' | 'fecha_fin_real' | 'garantia_meses'>, hoy = hoyLocal()): EstadoGarantia {
+  const base = o.fecha_contrato || o.fecha_fin_real
+  if (!base || !o.garantia_meses) return { estado: 'sin_fin', hasta: null, dias: null, porVencer: false }
+  const hasta = addMesesObra(base, o.garantia_meses)
   const dias = diasEntre(hoy, hasta)
   if (dias < 0) return { estado: 'vencida', hasta, dias, porVencer: false }
   return { estado: 'en_garantia', hasta, dias, porVencer: dias <= ALERTA_GARANTIA_DIAS }
@@ -346,6 +350,13 @@ export function situacionObra(o: Obra, hoy = hoyLocal()): { label: string; cls: 
   const g = garantiaObra(o, hoy)
   if (g.estado === 'en_garantia') return { label: g.porVencer ? 'Garantía por vencer' : 'En garantía', cls: g.porVencer ? 'badge-warning' : 'badge-success' }
   return { label: 'Terminada', cls: 'badge-neutral' }
+}
+
+export function textoGarantia(meses: number, unidad?: string | null): string {
+  if (!meses) return 'Sin garantía'
+  const enAnios = unidad === 'anios' || (!unidad && meses % 12 === 0)
+  if (enAnios && meses % 12 === 0) { const a = meses / 12; return `${a} ${a === 1 ? 'año' : 'años'}` }
+  return `${meses} ${meses === 1 ? 'mes' : 'meses'}`
 }
 
 export function obraActiva(o: Pick<Obra, 'estado'>): boolean {

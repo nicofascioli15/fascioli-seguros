@@ -126,7 +126,8 @@ export default function ObraModal({ obra, edificioLocked, onClose, onSaved }: {
           </>
         ) : (
           <>
-            <ObraForm form={form} setForm={setForm} edificios={edificios} edificioLocked={obra ? null : elegido} empresas={empresas} />
+            {!obra && <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card-alt)', borderRadius: 8, padding: '8px 11px', marginBottom: 14, lineHeight: 1.45 }}>Acá van solo los datos del contrato. Pagos, leyes sociales, documentos, fin de obra y cierre BPS se completan después, desde la ficha de la obra.</div>}
+            <ObraForm modo={obra ? 'editar' : 'nueva'} form={form} setForm={setForm} edificios={edificios} edificioLocked={obra ? null : elegido} empresas={empresas} />
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
               {!obra ? <button className="btn-outline" onClick={() => setPaso('edificio')} disabled={saving}>← Cambiar edificio</button> : <span />}
               <div style={{ display: 'flex', gap: 8 }}>

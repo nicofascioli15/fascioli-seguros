@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import ObraModal from '@/components/obras/ObraModal'
 import { Barra, colorLeyes } from '@/components/obras/ui'
 import { fetchObrasCompletas, type ObraCompleta } from '@/lib/obrasData'
-import { formatMonto, formatFecha, obraActiva, hoyLocal, addDias, type PagoObra } from '@/lib/obrasConfig'
+import { formatMonto, formatFecha, obraActiva, hoyLocal, addDias, textoGarantia, type PagoObra } from '@/lib/obrasConfig'
 
 type PagoConObra = PagoObra & { obra: ObraCompleta }
 
@@ -121,7 +121,7 @@ export default function ObrasDashboard() {
             <Panel titulo="Garantías por vencer" icon={<ShieldCheck size={16} color="#2E9668" />} vacio="No hay garantías que venzan en los próximos 60 días.">
               {garantiasPorVencer.slice(0, 8).map(o => (
                 <Fila key={o.id} onClick={() => router.push(`/obras/${o.id}`)} titulo={`${o.edificio} · ${o.titulo}`}
-                  detalle={`${o.empresa || 'Sin empresa'} · ${o.garantia_meses} meses de garantía`}
+                  detalle={`${o.empresa || 'Sin empresa'} · garantía de ${textoGarantia(o.garantia_meses, o.garantia_unidad)}`}
                   derecha={<div style={{ fontSize: 12, fontWeight: 700, color: '#B45309', textAlign: 'right' }}>{formatFecha(o.garantia.hasta)}<div style={{ fontWeight: 500, color: 'var(--text-muted)' }}>{o.garantia.dias}d</div></div>} />
               ))}
             </Panel>
