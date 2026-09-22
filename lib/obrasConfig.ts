@@ -59,6 +59,7 @@ export type LeyObra = {
   monto: number
   pagado: boolean
   fecha_pago: string | null
+  metodo?: string | null
   comprobante: string | null
   nota: string | null
 }
