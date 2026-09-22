@@ -1,5 +1,10 @@
 'use client'
+import { useState } from 'react'
+import { Plus, Loader2, X } from 'lucide-react'
 import DatePicker from '@/components/DatePicker'
+import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
+import { showToast } from '@/lib/toast'
 import { TIPOS_OBRA, CIERRES_BPS, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
 
 export type ObraFormState = {
@@ -102,13 +107,14 @@ export function formToPayload(f: ObraFormState) {
 const seccion: React.CSSProperties = { gridColumn: 'span 2', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--gold)', marginTop: 8, paddingTop: 10, borderTop: '1px solid var(--border-soft)' }
 const ayuda: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }
 
-export default function ObraForm({ form, setForm, edificios, edificioLocked, empresas, modo = 'editar' }: {
+export default function ObraForm({ form, setForm, edificios, edificioLocked, empresas, onEmpresaCreada, modo = 'editar' }: {
   modo?: 'nueva' | 'editar'   // en "nueva" solo se piden los datos del contrato; lo demás se carga después en la ficha
   form: ObraFormState
   setForm: (fn: (p: ObraFormState) => ObraFormState) => void
   edificios: { id: string; nombre: string }[]
   edificioLocked?: { id: string; nombre: string } | null
   empresas: string[]
+  onEmpresaCreada?: (nombre: string) => void
 }) {
   const set = (patch: Partial<ObraFormState>) => setForm(p => ({ ...p, ...patch }))
   const tipoInfo = TIPOS_OBRA.find(t => t.value === form.tipo_obra)
@@ -130,6 +136,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
           </select>
         )}
       </div>
+      <EmpresaSelector valor={form.empresa} empresas={empresas} onChange={v => set({ empresa: v })} onCreada={onEmpresaCreada} />
       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
         <label>Obra / trabajo *</label>
         <input value={form.titulo} onChange={e => set({ titulo: e.target.value })} placeholder="Ej: Pintura total de fachada" />
@@ -138,12 +145,6 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <label>Descripción</label>
         <textarea value={form.descripcion} onChange={e => set({ descripcion: e.target.value })} rows={2} placeholder="Alcance del trabajo, materiales, observaciones del contrato..."
           style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', resize: 'vertical', boxSizing: 'border-box' }} />
-      </div>
-      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-        <label>Empresa</label>
-        <input list="obras-empresas-list" value={form.empresa} onChange={e => set({ empresa: e.target.value })} placeholder="Elegí de la lista o escribí el nombre" />
-        <datalist id="obras-empresas-list">{empresas.map(e => <option key={e} value={e} />)}</datalist>
-        <div style={ayuda}>El catálogo de empresas se administra desde "Empresas".</div>
       </div>
 
       <div style={seccion}>Régimen BPS</div>
@@ -249,6 +250,68 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <textarea value={form.nota} onChange={e => set({ nota: e.target.value })} rows={2}
           style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', resize: 'vertical', boxSizing: 'border-box' }} />
       </div>
+    </div>
+  )
+}
+
+// Empresa: se elige de la lista, y si no está se crea ahí mismo con "+ Nueva empresa",
+// sin tener que salir de la carga de la obra.
+function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: string; empresas: string[]; onChange: (v: string) => void; onCreada?: (nombre: string) => void }) {
+  const supabase = createClient()
+  const [creando, setCreando] = useState(false)
+  const [nueva, setNueva] = useState({ nombre: '', rut: '', contacto: '', tel: '' })
+  const [saving, setSaving] = useState(false)
+
+  async function crear() {
+    const nombre = nueva.nombre.trim()
+    if (!nombre) { showToast('Poné el nombre de la empresa', 'error'); return }
+    const existente = empresas.find(e => e.toLowerCase() === nombre.toLowerCase())
+    if (existente) { onChange(existente); setCreando(false); return }
+    setSaving(true)
+    const payload = { nombre, rut: nueva.rut.trim() || null, contacto: nueva.contacto.trim() || null, tel: nueva.tel.trim() || null }
+    const { data, error } = await supabase.from('obras_empresas').insert([payload]).select().single()
+    setSaving(false)
+    if (error) { showToast(error.message, 'error'); return }
+    await registrarAudit({ accion: 'crear', tabla: 'obras_empresas', registroId: data?.id, descripcion: `Empresa de obras agregada (desde nueva obra): ${nombre}`, datosDespues: data })
+    onCreada?.(nombre)
+    onChange(nombre)
+    setNueva({ nombre: '', rut: '', contacto: '', tel: '' })
+    setCreando(false)
+    showToast(`Empresa "${nombre}" creada`, 'success')
+  }
+
+  const inputSt: React.CSSProperties = { width: '100%', padding: '8px 11px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', boxSizing: 'border-box' }
+
+  return (
+    <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+      <label>Empresa que hace la obra</label>
+      {!creando ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={valor} onChange={e => onChange(e.target.value)} style={{ flex: 1, color: valor ? 'var(--navy)' : 'var(--slate)' }}>
+            <option value="">— Seleccionar empresa —</option>
+            {empresas.map(e => <option key={e} value={e}>{e}</option>)}
+            {valor && !empresas.includes(valor) && <option value={valor}>{valor}</option>}
+          </select>
+          <button type="button" className="btn-outline btn-sm" onClick={() => setCreando(true)} style={{ whiteSpace: 'nowrap' }}><Plus size={13} /> Nueva empresa</button>
+        </div>
+      ) : (
+        <div style={{ border: '1.5px solid var(--gold)', borderRadius: 10, padding: 12, background: 'var(--bg-card-alt)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 13 }}>Nueva empresa</strong>
+            <button type="button" onClick={() => setCreando(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={15} /></button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <input style={{ ...inputSt, gridColumn: 'span 2' }} value={nueva.nombre} onChange={e => setNueva(n => ({ ...n, nombre: e.target.value }))} placeholder="Nombre *" autoFocus />
+            <input style={inputSt} value={nueva.rut} onChange={e => setNueva(n => ({ ...n, rut: e.target.value }))} placeholder="RUT (opcional)" />
+            <input style={inputSt} value={nueva.tel} onChange={e => setNueva(n => ({ ...n, tel: e.target.value }))} placeholder="Teléfono (opcional)" />
+            <input style={{ ...inputSt, gridColumn: 'span 2' }} value={nueva.contacto} onChange={e => setNueva(n => ({ ...n, contacto: e.target.value }))} placeholder="Contacto (opcional)" />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+            <button type="button" className="btn-outline btn-sm" onClick={() => setCreando(false)}>Cancelar</button>
+            <button type="button" className="btn-primary btn-sm" onClick={crear} disabled={saving}>{saving ? <><Loader2 size={13} className="spin" /> Creando...</> : 'Crear y elegir'}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
