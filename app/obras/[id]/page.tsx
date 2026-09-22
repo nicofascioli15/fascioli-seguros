@@ -235,6 +235,7 @@ function DatosObra({ obra, onEditar }: { obra: ObraCompleta; onEditar: () => voi
     ['Empresa', obra.empresa || '—'],
     ['Tipo de obra', TIPOS_OBRA.find(t => t.value === obra.tipo_obra)?.label],
     ['Inscripta a nombre de', obra.tipo_obra === 'menor_cuantia' || obra.titular_bps === 'empresa' ? 'La empresa' : 'El edificio'],
+    ['El cierre (F9) lo hace', obra.cierre.responsable === 'empresa' ? 'La empresa' : 'La administración'],
     ['N° de obra BPS', obra.nro_obra_bps || '—'],
     ['Inscripción BPS', formatFecha(obra.fecha_inscripcion_bps)],
     ['Moneda', obra.moneda === 'USD' ? 'Dólares' : 'Pesos'],

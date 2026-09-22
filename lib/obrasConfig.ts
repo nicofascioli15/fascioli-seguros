@@ -17,6 +17,7 @@ export type Obra = {
   empresa: string | null
   tipo_obra: TipoObra
   titular_bps: TitularBps
+  cierre_responsable?: TitularBps | null   // quién hace el cierre (F9): puede ser distinto de a nombre de quién está la obra
   nro_obra_bps: string | null
   fecha_inscripcion_bps: string | null
   moneda: Moneda
@@ -330,8 +331,13 @@ export type EstadoCierre = {
   pendiente: boolean          // obra terminada y cierre todavía sin presentar
 }
 
-export function cierreBps(o: Pick<Obra, 'fecha_fin_real' | 'cierre_bps_estado' | 'titular_bps' | 'tipo_obra'>, hoy = hoyLocal()): EstadoCierre {
-  const responsable = o.tipo_obra === 'menor_cuantia' || o.titular_bps === 'empresa' ? 'empresa' : 'edificio'
+// Por defecto: por contrato y menor cuantía el cierre lo hace la empresa; por administración, el edificio.
+export function cierreResponsableDefault(tipo: TipoObra): TitularBps {
+  return tipo === 'administracion' ? 'edificio' : 'empresa'
+}
+
+export function cierreBps(o: Pick<Obra, 'fecha_fin_real' | 'cierre_bps_estado' | 'titular_bps' | 'tipo_obra' | 'cierre_responsable'>, hoy = hoyLocal()): EstadoCierre {
+  const responsable = o.tipo_obra === 'menor_cuantia' ? 'empresa' : (o.cierre_responsable || cierreResponsableDefault(o.tipo_obra))
   if (o.cierre_bps_estado === 'No aplica') return { aplica: false, responsable, limite: null, dias: null, vencido: false, pendiente: false }
   if (!o.fecha_fin_real) return { aplica: true, responsable, limite: null, dias: null, vencido: false, pendiente: false }
   const limite = addDias(o.fecha_fin_real, PLAZO_CIERRE_BPS_DIAS)

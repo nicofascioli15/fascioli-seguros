@@ -36,8 +36,8 @@ export default function ObraCierre({ obra, onChange, onPedirDocumento }: { obra:
   }
 
   const responsableTxt = cierre.responsable === 'empresa'
-    ? 'La obra está a nombre de la empresa: el cierre lo tiene que hacer ella. Pedile la constancia y subila acá.'
-    : 'La obra está a nombre del edificio: el cierre lo gestiona la administración (servicio en línea de BPS con usuario personal del titular o representante).'
+    ? 'El cierre lo hace la empresa. Pedile la constancia del F9 y subila acá.'
+    : 'El cierre lo hace la administración (servicio en línea de BPS con usuario personal del titular o representante).'
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
@@ -104,7 +104,7 @@ export default function ObraCierre({ obra, onChange, onPedirDocumento }: { obra:
           </div>
         )}
         <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--text-muted)' }}>
-          <strong style={{ color: 'var(--text-main)' }}>Régimen:</strong> {TIPOS_OBRA.find(t => t.value === obra.tipo_obra)?.label} · inscripta a nombre {obra.titular_bps === 'empresa' || obra.tipo_obra === 'menor_cuantia' ? 'de la empresa' : 'del edificio'}
+          <strong style={{ color: 'var(--text-main)' }}>Régimen:</strong> {TIPOS_OBRA.find(t => t.value === obra.tipo_obra)?.label} · inscripta a nombre {obra.titular_bps === 'empresa' || obra.tipo_obra === 'menor_cuantia' ? 'de la empresa' : 'del edificio'} · el cierre lo hace {cierre.responsable === 'empresa' ? 'la empresa' : 'la administración'}
           {obra.nro_obra_bps && <> · N° BPS {obra.nro_obra_bps}</>}
           {obra.fecha_inscripcion_bps && <> · inscripta el {formatFecha(obra.fecha_inscripcion_bps)}</>}
         </div>

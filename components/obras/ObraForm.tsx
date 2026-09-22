@@ -5,7 +5,7 @@ import DatePicker from '@/components/DatePicker'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
-import { TIPOS_OBRA, CIERRES_BPS, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
+import { TIPOS_OBRA, CIERRES_BPS, cierreResponsableDefault, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
 
 export type ObraFormState = {
   cliente_id: string
@@ -14,6 +14,7 @@ export type ObraFormState = {
   empresa: string
   tipo_obra: Obra['tipo_obra']
   titular_bps: Obra['titular_bps']
+  cierre_responsable: Obra['titular_bps']
   nro_obra_bps: string
   fecha_inscripcion_bps: string
   moneda: Obra['moneda']
@@ -33,7 +34,7 @@ export type ObraFormState = {
 
 export const emptyObraForm: ObraFormState = {
   cliente_id: '', titulo: '', descripcion: '', empresa: '',
-  tipo_obra: 'contrato', titular_bps: 'edificio', nro_obra_bps: '', fecha_inscripcion_bps: '',
+  tipo_obra: 'contrato', titular_bps: 'edificio', cierre_responsable: 'empresa', nro_obra_bps: '', fecha_inscripcion_bps: '',
   moneda: 'UYU', precio_total: '', fecha_contrato: '', fecha_inicio: '', fecha_fin_prevista: '', fecha_fin_real: '',
   avance: 0, tope_leyes: '', garantia_cantidad: 1, garantia_unidad: 'anios',
   cierre_bps_estado: 'Pendiente', cierre_bps_fecha: '', nota: '',
@@ -53,7 +54,7 @@ export function garantiaEnMeses(f: Pick<ObraFormState, 'garantia_cantidad' | 'ga
 export function obraToForm(o: Obra): ObraFormState {
   return {
     cliente_id: o.cliente_id, titulo: o.titulo || '', descripcion: o.descripcion || '', empresa: o.empresa || '',
-    tipo_obra: o.tipo_obra, titular_bps: o.titular_bps, nro_obra_bps: o.nro_obra_bps || '', fecha_inscripcion_bps: o.fecha_inscripcion_bps || '',
+    tipo_obra: o.tipo_obra, titular_bps: o.titular_bps, cierre_responsable: o.cierre_responsable || cierreResponsableDefault(o.tipo_obra), nro_obra_bps: o.nro_obra_bps || '', fecha_inscripcion_bps: o.fecha_inscripcion_bps || '',
     moneda: o.moneda, precio_total: o.precio_total != null ? String(o.precio_total) : '',
     fecha_contrato: o.fecha_contrato || '', fecha_inicio: o.fecha_inicio || '', fecha_fin_prevista: o.fecha_fin_prevista || '', fecha_fin_real: o.fecha_fin_real || '',
     avance: o.avance || 0, tope_leyes: o.tope_leyes != null ? String(o.tope_leyes) : '',
@@ -87,6 +88,7 @@ export function formToPayload(f: ObraFormState) {
     empresa: f.empresa.trim() || null,
     tipo_obra: f.tipo_obra,
     titular_bps: f.tipo_obra === 'menor_cuantia' ? 'empresa' : f.titular_bps,
+    cierre_responsable: f.tipo_obra === 'menor_cuantia' ? 'empresa' : f.cierre_responsable,
     nro_obra_bps: f.nro_obra_bps.trim() || null,
     fecha_inscripcion_bps: f.fecha_inscripcion_bps || null,
     moneda: f.moneda,
@@ -152,7 +154,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <label>Tipo de obra</label>
         <select value={form.tipo_obra} onChange={e => {
           const v = e.target.value as ObraFormState['tipo_obra']
-          set({ tipo_obra: v, titular_bps: v === 'menor_cuantia' ? 'empresa' : v === 'administracion' ? 'edificio' : form.titular_bps })
+          set({ tipo_obra: v, titular_bps: v === 'menor_cuantia' ? 'empresa' : v === 'administracion' ? 'edificio' : form.titular_bps, cierre_responsable: cierreResponsableDefault(v) })
         }}>
           {TIPOS_OBRA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -165,7 +167,15 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
           <option value="edificio">El edificio</option>
           <option value="empresa">La empresa</option>
         </select>
-        <div style={ayuda}>Define quién tiene que hacer el cierre de obra en BPS.</div>
+      </div>
+      <div className="fgroup">
+        <label>El cierre (F9) lo hace</label>
+        <select value={esMenorCuantia ? 'empresa' : form.cierre_responsable} disabled={esMenorCuantia}
+          onChange={e => set({ cierre_responsable: e.target.value as ObraFormState['cierre_responsable'] })}>
+          <option value="empresa">La empresa</option>
+          <option value="edificio">La administración</option>
+        </select>
+        <div style={ayuda}>Aunque la obra esté a nombre del edificio, si es por contrato normalmente lo hace la empresa.</div>
       </div>
       {!esNueva && <>
       <div className="fgroup">

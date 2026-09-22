@@ -16,7 +16,7 @@ export type ObraCompleta = Obra & {
 // Columnas reales de la tabla "obras". Se usa para guardar en el historial solo lo que existe
 // en la base (sin los campos calculados), así "Revertir" puede volver a escribirlo tal cual.
 const COLUMNAS_OBRA = [
-  'id', 'cliente_id', 'titulo', 'descripcion', 'empresa', 'tipo_obra', 'titular_bps', 'nro_obra_bps', 'fecha_inscripcion_bps',
+  'id', 'cliente_id', 'titulo', 'descripcion', 'empresa', 'tipo_obra', 'titular_bps', 'cierre_responsable', 'nro_obra_bps', 'fecha_inscripcion_bps',
   'moneda', 'precio_total', 'fecha_contrato', 'fecha_inicio', 'fecha_fin_prevista', 'fecha_fin_real', 'avance', 'estado',
   'tope_leyes', 'garantia_meses', 'garantia_unidad', 'cierre_bps_estado', 'cierre_bps_fecha', 'nota', 'created_at',
 ] as const
