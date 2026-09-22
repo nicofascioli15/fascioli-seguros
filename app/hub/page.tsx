@@ -18,7 +18,8 @@ type Module = {
   ready: boolean
   accent: string
   icon: React.ReactNode
-  stats?: { label: string; value: string | number }[]
+  stats?: { label: string; value: string | number; tone?: 'danger' | 'warn' }[]
+  atajo: string
 }
 
 function IconShield() {
@@ -71,7 +72,7 @@ export default function HubPage() {
   const [userName, setUserName] = useState('')
   const [loading, setLoading]   = useState(true)
   const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, vencidas: 0, pendientes: 0 })
-  const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
+  const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0, vencidos: 0 })
   const [contratosStats, setContratosStats] = useState({ contratos: 0, vencidos: 0, autoRenovados: 0 })
   const [obrasStats, setObrasStats] = useState({ enCurso: 0, atrasados: 0, alertas: 0 })
 
@@ -125,7 +126,9 @@ export default function HubPage() {
       const tanVigentes = soloVigentes(tanRaw || [])
       const enRango = (v: string | null) => !!v && v >= hoyStr && v <= en30Str
       const vencen30Mant = extVigentes.filter(r => enRango(r.vencimiento)).length + tanVigentes.filter(r => enRango(r.vencimiento)).length
-      setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant })
+      const vencido = (v: string | null) => !!v && v < hoyStr
+      const vencidosMant = extVigentes.filter(r => vencido(r.vencimiento)).length + tanVigentes.filter(r => vencido(r.vencimiento)).length
+      setMantStats({ edificios: edificios || 0, vencen30: vencen30Mant, vencidos: vencidosMant })
 
       // Load contratos stats (vigencia calculada en vivo; si se vence sin renovación manual, el
       // sistema la da por renovada sola con las mismas condiciones y queda marcada para revisar)
@@ -165,184 +168,232 @@ export default function HubPage() {
     router.push('/login')
   }
 
+  const tono = (n: number, t: 'danger' | 'warn') => (n > 0 ? t : undefined)
+
   const modules: Module[] = [
     {
-      id: 'seguros',
-      label: 'Seguros',
+      id: 'seguros', label: 'Seguros', atajo: '1',
       description: 'Pólizas, pagos, vencimientos, siniestros y documentos',
-      route: '/dashboard',
-      ready: true,
-      accent: GOLD,
-      icon: <IconShield />,
+      route: '/dashboard', ready: true, accent: GOLD, icon: <IconShield />,
       stats: [
         { label: 'Pólizas', value: stats.polizas },
-        { label: 'Vencidas', value: stats.vencidas },
-        { label: 'Vencen en 30d', value: stats.vencen30 },
+        { label: 'Vencidas', value: stats.vencidas, tone: tono(stats.vencidas, 'danger') },
+        { label: 'Vencen en 30 días', value: stats.vencen30, tone: tono(stats.vencen30, 'warn') },
       ],
     },
     {
-      id: 'mantenimiento',
-      label: 'Mantenimiento',
+      id: 'mantenimiento', label: 'Mantenimiento', atajo: '2',
       description: 'Extintores, tanques de agua, ensayos y bomberos',
-      route: '/mantenimiento',
-      ready: true,
-      accent: '#4FBE8C',
-      icon: <IconWrench />,
+      route: '/mantenimiento', ready: true, accent: '#4FBE8C', icon: <IconWrench />,
       stats: [
         { label: 'Edificios', value: mantStats.edificios },
-        { label: 'Vencen en 30d', value: mantStats.vencen30 },
+        { label: 'Vencidos', value: mantStats.vencidos, tone: tono(mantStats.vencidos, 'danger') },
+        { label: 'Vencen en 30 días', value: mantStats.vencen30, tone: tono(mantStats.vencen30, 'warn') },
       ],
     },
     {
-      id: 'contratos',
-      label: 'Contratos',
-      description: 'Ascensores, rampas y servicios',
-      route: '/contratos',
-      ready: true,
-      accent: '#9D7FD4',
-      icon: <IconFile />,
+      id: 'contratos', label: 'Contratos', atajo: '3',
+      description: 'Ascensores, rampas y servicios mensuales',
+      route: '/contratos', ready: true, accent: '#9D7FD4', icon: <IconFile />,
       stats: [
         { label: 'Contratos', value: contratosStats.contratos },
-        { label: 'Vencidos', value: contratosStats.vencidos },
-        { label: 'Auto-renovados', value: contratosStats.autoRenovados },
+        { label: 'Vencidos', value: contratosStats.vencidos, tone: tono(contratosStats.vencidos, 'danger') },
+        { label: 'Auto-renovados', value: contratosStats.autoRenovados, tone: tono(contratosStats.autoRenovados, 'warn') },
       ],
     },
     {
-      id: 'obras',
-      label: 'Obras',
+      id: 'obras', label: 'Obras', atajo: '4',
       description: 'Pagos, leyes sociales, garantías y cierres BPS',
-      route: '/obras',
-      ready: true,
-      accent: '#D9954F',
-      icon: <IconHardHat />,
+      route: '/obras', ready: true, accent: '#D9954F', icon: <IconHardHat />,
       stats: [
         { label: 'Abiertas', value: obrasStats.enCurso },
-        { label: 'Pagos atrasados', value: obrasStats.atrasados },
-        { label: 'Alertas', value: obrasStats.alertas },
+        { label: 'Pagos atrasados', value: obrasStats.atrasados, tone: tono(obrasStats.atrasados, 'danger') },
+        { label: 'Alertas', value: obrasStats.alertas, tone: tono(obrasStats.alertas, 'warn') },
       ],
     },
   ]
 
+  // Atajos de teclado: 1-4 abren cada módulo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const m = modules.find(x => x.atajo === e.key)
+      if (m?.ready) router.push(m.route)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  const pendientes = stats.vencidas + mantStats.vencidos + contratosStats.vencidos + obrasStats.atrasados
+  const nombre = userName ? userName.charAt(0).toUpperCase() + userName.slice(1) : ''
+  const ahora = new Date()
+  const hora = Number(new Intl.DateTimeFormat('es-UY', { hour: 'numeric', hour12: false, timeZone: 'America/Montevideo' }).format(ahora))
+  const saludo = hora < 12 ? 'Buen día' : hora < 20 ? 'Buenas tardes' : 'Buenas noches'
+  const fechaLarga = new Intl.DateTimeFormat('es-UY', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Montevideo' }).format(ahora)
+
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F7FB', fontFamily: "'Inter', system-ui, sans-serif", overflowX: 'hidden' }}>
+    <div className="hub">
+      <style>{HUB_CSS}</style>
 
-      {/* Topbar */}
-      <div style={{ background: NAVY, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(16px, 5vw, 32px)', boxShadow: '0 2px 8px rgba(0,0,0,.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 12px)', minWidth: 0 }}>
-          <img src="/logo-fascioli.svg" alt="Fascioli" style={{ height: 'clamp(20px, 5vw, 26px)', flexShrink: 0 }} />
-          <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,.15)', margin: '0 4px', flexShrink: 0 }} />
-          <span style={{ fontSize: 'clamp(9.5px, 2.6vw, 11px)', fontWeight: 700, color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Intranet</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2vw, 14px)', flexShrink: 0 }}>
-          <span style={{ fontSize: 12.5, color: '#B8C5D6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'clamp(60px, 20vw, 200px)' }}>{userName}</span>
-          <button onClick={handleLogout}
-            style={{ fontSize: 12, color: '#8A9BB5', background: 'none', border: '1px solid rgba(255,255,255,.1)', borderRadius: 7, padding: '5px clamp(9px, 2.4vw, 12px)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-            Salir
-          </button>
-        </div>
-      </div>
+      {/* Hero */}
+      <header className="hub-hero">
+        <div className="hub-glow hub-glow-1" />
+        <div className="hub-glow hub-glow-2" />
+        <div className="hub-grid-bg" />
 
-      {/* Content */}
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: 'clamp(28px, 8vw, 52px) clamp(16px, 5vw, 24px)' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 'clamp(28px, 6vw, 40px)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Portal de gestión
+        <nav className="hub-top">
+          <div className="hub-brand">
+            <img src="/logo-fascioli.svg" alt="Fascioli" />
+            <span className="hub-sep" />
+            <span className="hub-tag">Intranet</span>
           </div>
-          <h1 style={{ fontSize: 'clamp(22px, 6vw, 28px)', fontWeight: 800, color: NAVY, margin: '0 0 10px', lineHeight: 1.25 }}>
-            ¿A qué módulo querés ingresar?
-          </h1>
-          <p style={{ fontSize: 'clamp(12.5px, 3.2vw, 13.5px)', color: '#8A9BB5', margin: 0, lineHeight: 1.6 }}>
-            Seleccioná el área de trabajo. Cada módulo tiene su propio panel de gestión.
-          </p>
-        </div>
+          <div className="hub-user">
+            <span className="hub-avatar">{nombre.charAt(0) || '·'}</span>
+            <span className="hub-username">{nombre}</span>
+            <button onClick={handleLogout} className="hub-logout">Salir</button>
+          </div>
+        </nav>
 
-        {/* Module grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 'clamp(12px, 3vw, 16px)' }}>
-        {modules.map(mod => (
-            <ModuleCard key={mod.id} mod={mod} loading={loading} onClick={() => { if (mod.ready) router.push(mod.route) }} />
+        <div className="hub-hero-inner">
+          <div className="hub-date">{fechaLarga}</div>
+          <h1>{saludo}{nombre ? `, ${nombre}` : ''}</h1>
+          <p>¿A qué módulo querés ingresar?</p>
+          <div className={`hub-pill ${loading ? '' : pendientes > 0 ? 'is-alert' : 'is-ok'}`}>
+            <span className="hub-dot" />
+            {loading ? 'Cargando novedades…' : pendientes > 0 ? `${pendientes} ${pendientes === 1 ? 'tema vencido o atrasado' : 'temas vencidos o atrasados'} para revisar` : 'Todo al día, sin vencidos ni atrasos'}
+          </div>
+        </div>
+      </header>
+
+      {/* Módulos */}
+      <main className="hub-main">
+        <div className="hub-cards">
+          {modules.map((mod, i) => (
+            <ModuleCard key={mod.id} mod={mod} loading={loading} index={i} onClick={() => { if (mod.ready) router.push(mod.route) }} />
           ))}
         </div>
-
-        <div style={{ marginTop: 'clamp(28px, 6vw, 40px)', textAlign: 'center', fontSize: 12, color: '#B8C5D6' }}>
-          Fascioli Administraciones · Sistema interno de gestión
+        <div className="hub-foot">
+          Fascioli Administraciones · Sistema interno de gestión <span className="hub-foot-keys">Atajos: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
 
-function ModuleCard({ mod, loading, onClick }: { mod: Module; loading: any; onClick: () => void; key?: string }) {
-  const [hovered, setHovered] = useState(false)
-
+function ModuleCard({ mod, loading, index, onClick }: { mod: Module; loading: boolean; index: number; onClick: () => void; key?: string }) {
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
-      style={{
-        background: 'white',
-        borderRadius: 16,
-        border: `2px solid ${hovered && mod.ready ? mod.accent : '#E2E8F0'}`,
-        padding: 'clamp(20px, 5vw, 26px) clamp(18px, 5vw, 24px)',
-        cursor: mod.ready ? 'pointer' : 'default',
-        transition: 'all .18s ease',
-        boxShadow: hovered && mod.ready ? '0 8px 28px rgba(15,30,53,.1)' : '0 1px 3px rgba(15,30,53,.05)',
-        transform: hovered && mod.ready ? 'translateY(-2px)' : 'none',
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: 'clamp(14px, 3vw, 18px)',
-        opacity: mod.ready ? 1 : 0.65,
-        minWidth: 0,
-      }}>
-
-      {/* Icon + badge */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ width: 50, height: 50, borderRadius: 13, background: mod.ready ? NAVY : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mod.ready ? mod.accent : '#94A3B8', flexShrink: 0 }}>
-          {mod.icon}
+    <button type="button" className="hub-card" onClick={onClick} disabled={!mod.ready}
+      style={{ ['--accent' as any]: mod.accent, animationDelay: `${index * 70}ms` }}>
+      <span className="hub-card-shine" />
+      <div className="hub-card-head">
+        <div className="hub-icon">{mod.icon}</div>
+        <div className="hub-card-title">
+          <div className="hub-card-label">{mod.label}</div>
+          <div className="hub-card-desc">{mod.description}</div>
         </div>
-        {!mod.ready && (
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#94A3B8', background: '#F1F5F9', padding: '3px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-            Próximamente
-          </span>
-        )}
+        <span className="hub-kbd" title={`Atajo: tecla ${mod.atajo}`}>{mod.atajo}</span>
       </div>
 
-      {/* Text */}
-      <div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 5 }}>{mod.label}</div>
-        <div style={{ fontSize: 13, color: '#8A9BB5', lineHeight: 1.5 }}>{mod.description}</div>
-      </div>
-
-      {/* Stats */}
-      {mod.ready && mod.stats && mod.stats.length > 0 && (
-        <div style={{ display: 'flex', gap: 'clamp(14px, 4vw, 20px)', borderTop: '1px solid #F1F5F9', paddingTop: 16 }}>
+      {mod.stats && mod.stats.length > 0 && (
+        <div className="hub-stats">
           {mod.stats.map(s => (
-            <div key={s.label}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>
-                {loading ? '—' : s.value}
-              </div>
-              <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 2 }}>
-                {s.label}
-              </div>
+            <div key={s.label} className={`hub-stat ${!loading && s.tone ? `tone-${s.tone}` : ''}`}>
+              <div className="hub-stat-val">{loading ? <span className="hub-skel" /> : s.value}</div>
+              <div className="hub-stat-lbl">{s.label}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* CTA */}
-      {mod.ready && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: hovered ? NAVY : '#94A3B8', transition: 'color .15s' }}>
-            Ingresar al módulo
-          </span>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: hovered ? NAVY : '#F4F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hovered ? 'white' : '#94A3B8', transition: 'all .15s', flexShrink: 0 }}>
-            <IconArrow />
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="hub-cta">
+        <span>Ingresar</span>
+        <span className="hub-arrow"><IconArrow /></span>
+      </div>
+    </button>
   )
 }
 
+const HUB_CSS = `
+.hub { min-height: 100vh; background: #F3F5F9; font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; color: ${NAVY}; }
+
+.hub-hero { position: relative; overflow: hidden; background: radial-gradient(120% 140% at 0% 0%, #1B3155 0%, ${NAVY} 45%, #0A1526 100%); padding-bottom: 120px; }
+.hub-glow { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .45; pointer-events: none; }
+.hub-glow-1 { width: 420px; height: 420px; background: ${GOLD}; top: -220px; right: 8%; opacity: .22; }
+.hub-glow-2 { width: 360px; height: 360px; background: #5B7FD1; bottom: -200px; left: -80px; opacity: .25; }
+.hub-grid-bg { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 44px 44px; mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%); }
+
+.hub-top { position: relative; z-index: 2; max-width: 1120px; margin: 0 auto; height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(16px, 4vw, 32px); }
+.hub-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hub-brand img { height: clamp(20px, 5vw, 26px); flex-shrink: 0; }
+.hub-sep { width: 1px; height: 20px; background: rgba(255,255,255,.18); }
+.hub-tag { font-size: 11px; font-weight: 700; color: ${GOLD}; letter-spacing: .14em; text-transform: uppercase; }
+.hub-user { display: flex; align-items: center; gap: 10px; }
+.hub-avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: ${NAVY}; background: linear-gradient(135deg, #E8CF85, ${GOLD}); }
+.hub-username { font-size: 13px; color: #C9D4E3; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-logout { font: inherit; font-size: 12px; color: #C9D4E3; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: all .15s; backdrop-filter: blur(8px); }
+.hub-logout:hover { background: rgba(255,255,255,.14); color: white; }
+
+.hub-hero-inner { position: relative; z-index: 2; max-width: 1120px; margin: 0 auto; padding: clamp(28px, 6vw, 56px) clamp(16px, 4vw, 32px) 0; }
+.hub-date { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: ${GOLD}; margin-bottom: 12px; }
+.hub-hero h1 { margin: 0; font-size: clamp(28px, 5.5vw, 44px); font-weight: 800; letter-spacing: -.025em; line-height: 1.1; color: white; }
+.hub-hero p { margin: 10px 0 22px; font-size: clamp(14px, 2.4vw, 16px); color: #9FB0C8; }
+.hub-pill { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: #DDE5F0; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); padding: 8px 15px; border-radius: 999px; backdrop-filter: blur(10px); }
+.hub-dot { width: 8px; height: 8px; border-radius: 50%; background: #8A9BB5; }
+.hub-pill.is-alert .hub-dot { background: #F87171; box-shadow: 0 0 0 0 rgba(248,113,113,.6); animation: hubPulse 1.8s infinite; }
+.hub-pill.is-ok .hub-dot { background: #4ADE80; }
+
+.hub-main { position: relative; z-index: 3; max-width: 1120px; margin: -84px auto 0; padding: 0 clamp(16px, 4vw, 32px) 48px; }
+.hub-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(14px, 2.2vw, 20px); }
+@media (max-width: 760px) { .hub-cards { grid-template-columns: 1fr; } .hub-username { display: none; } }
+
+.hub-card { all: unset; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 22px; cursor: pointer;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(14px); border: 1px solid #E3E8F0; border-radius: 22px; padding: clamp(20px, 3vw, 28px);
+  box-shadow: 0 1px 2px rgba(15,30,53,.04), 0 12px 32px -12px rgba(15,30,53,.14);
+  transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, border-color .22s; animation: hubIn .5s cubic-bezier(.2,.8,.2,1) backwards; }
+.hub-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent 80%); opacity: .9; }
+.hub-card:hover, .hub-card:focus-visible { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 55%, #E3E8F0); box-shadow: 0 2px 4px rgba(15,30,53,.05), 0 24px 48px -16px color-mix(in srgb, var(--accent) 45%, rgba(15,30,53,.25)); }
+.hub-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hub-card[disabled] { opacity: .55; cursor: default; }
+.hub-card-shine { position: absolute; width: 260px; height: 260px; border-radius: 50%; right: -120px; top: -140px; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%); pointer-events: none; transition: transform .4s; }
+.hub-card:hover .hub-card-shine { transform: scale(1.25); }
+
+.hub-card-head { display: flex; align-items: center; gap: 16px; position: relative; }
+.hub-icon { width: 54px; height: 54px; border-radius: 16px; flex-shrink: 0; display: grid; place-items: center; color: var(--accent);
+  background: linear-gradient(145deg, #1B3155, ${NAVY}); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 18px -8px rgba(15,30,53,.6); transition: transform .22s; }
+.hub-card:hover .hub-icon { transform: rotate(-6deg) scale(1.05); }
+.hub-card-title { flex: 1; min-width: 0; }
+.hub-card-label { font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: ${NAVY}; }
+.hub-card-desc { font-size: 13px; color: #7C8DA6; margin-top: 3px; line-height: 1.45; }
+.hub-kbd { align-self: flex-start; font-size: 11px; font-weight: 700; color: #94A3B8; border: 1px solid #E3E8F0; border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; background: #F8FAFC; }
+
+.hub-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; position: relative; }
+.hub-stat { background: #F5F7FA; border: 1px solid #EDF1F6; border-radius: 14px; padding: 12px 12px 10px; min-width: 0; transition: background .2s; }
+.hub-stat-val { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: ${NAVY}; line-height: 1.1; font-variant-numeric: tabular-nums; min-height: 26px; }
+.hub-stat-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #94A3B8; margin-top: 4px; line-height: 1.3; }
+.hub-stat.tone-danger { background: #FEF2F2; border-color: #FEE2E2; }
+.hub-stat.tone-danger .hub-stat-val { color: #DC2626; }
+.hub-stat.tone-danger .hub-stat-lbl { color: #F87171; }
+.hub-stat.tone-warn { background: #FFFBEB; border-color: #FEF3C7; }
+.hub-stat.tone-warn .hub-stat-val { color: #B45309; }
+.hub-stat.tone-warn .hub-stat-lbl { color: #D9A441; }
+.hub-skel { display: inline-block; width: 38px; height: 20px; border-radius: 6px; background: linear-gradient(90deg, #E8EDF3, #F4F7FA, #E8EDF3); background-size: 200% 100%; animation: hubShimmer 1.2s infinite; vertical-align: middle; }
+
+.hub-cta { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: #94A3B8; transition: color .2s; position: relative; }
+.hub-card:hover .hub-cta { color: ${NAVY}; }
+.hub-arrow { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #F1F4F8; color: #94A3B8; transition: all .22s; }
+.hub-card:hover .hub-arrow { background: var(--accent); color: white; transform: translateX(3px); }
+
+.hub-foot { margin-top: 36px; display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #A3B1C6; }
+.hub-foot-keys { display: inline-flex; align-items: center; gap: 4px; }
+.hub-foot kbd { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid #DCE3EC; border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: white; color: #7C8DA6; }
+@media (hover: none) { .hub-kbd, .hub-foot-keys { display: none; } }
+
+@keyframes hubIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes hubShimmer { to { background-position: -200% 0; } }
+@keyframes hubPulse { 0% { box-shadow: 0 0 0 0 rgba(248,113,113,.6); } 70% { box-shadow: 0 0 0 8px rgba(248,113,113,0); } 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); } }
+@media (prefers-reduced-motion: reduce) { .hub-card, .hub-pill .hub-dot { animation: none !important; } }
+`
