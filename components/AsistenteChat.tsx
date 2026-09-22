@@ -9,7 +9,26 @@ type Mensaje = { role: 'user' | 'assistant'; texto: string; documentos?: Documen
 
 const MAX_CONTEXTO = 12 // cuántos mensajes recientes se le mandan al modelo como contexto (no todo el historial guardado, para no gastar de más)
 
-export default function AsistenteChat() {
+type Modulo = 'seguros' | 'obras'
+
+// Cada módulo tiene su propio "cerebro" (endpoint con sus herramientas) y su propio historial.
+const CONFIG: Record<Modulo, { endpoint: string; titulo: string; tooltip: string; ejemplos: string }> = {
+  seguros: {
+    endpoint: '/api/asistente',
+    titulo: 'Asistente Fascioli',
+    tooltip: 'Preguntame por vencimientos, clientes, cuotas o siniestros',
+    ejemplos: 'Preguntame cosas como "¿qué pólizas vencen este mes?", "buscame el cliente Marsala", "cuotas pendientes de tal cliente" o "dame los documentos de tal cliente".',
+  },
+  obras: {
+    endpoint: '/api/asistente-obras',
+    titulo: 'Asistente de Obras',
+    tooltip: 'Preguntame por pagos, cuotas, leyes sociales, garantías o cierres BPS',
+    ejemplos: 'Preguntame cosas como "¿qué cuotas de obras vencen este mes?", "¿cómo vienen las leyes sociales de la fachada de Sea Park?", "¿qué garantías vencen pronto?" o "¿a qué obras les falta el cierre en BPS?".',
+  },
+}
+
+export default function AsistenteChat({ modulo = 'seguros' }: { modulo?: Modulo }) {
+  const cfg = CONFIG[modulo]
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [tooltipVisible, setTooltipVisible] = useState(false)
@@ -25,7 +44,7 @@ export default function AsistenteChat() {
   }, [mensajes, open])
 
   useEffect(() => {
-    if (sessionStorage.getItem('asistente_tooltip_visto')) return
+    if (sessionStorage.getItem(`asistente_tooltip_visto_${modulo}`)) return
     const mostrar = setTimeout(() => setTooltipVisible(true), 1200)
     const ocultar = setTimeout(() => cerrarTooltip(), 9000)
     return () => { clearTimeout(mostrar); clearTimeout(ocultar) }
@@ -36,16 +55,21 @@ export default function AsistenteChat() {
     if (!open || historialCargado) return
     setHistorialCargado(true)
     ;(async () => {
-      const { data } = await supabase.from('asistente_mensajes').select('role, texto, documentos').order('created_at', { ascending: true }).limit(60)
+      let { data, error } = await supabase.from('asistente_mensajes').select('role, texto, documentos').eq('modulo', modulo).order('created_at', { ascending: false }).limit(60)
+      // Si todavía no se corrió el SQL que agrega la columna "modulo", Seguros sigue funcionando como antes.
+      if (error && modulo === 'seguros') {
+        ;({ data } = await supabase.from('asistente_mensajes').select('role, texto, documentos').order('created_at', { ascending: false }).limit(60))
+      }
+      data = (data || []).reverse()
       if (data && data.length > 0) {
         setMensajes(data.map((m: any) => ({ role: m.role, texto: m.texto, documentos: m.documentos || undefined })))
       }
     })()
-  }, [open, historialCargado, supabase])
+  }, [open, historialCargado, supabase, modulo])
 
   function cerrarTooltip() {
     setTooltipVisible(false)
-    sessionStorage.setItem('asistente_tooltip_visto', '1')
+    sessionStorage.setItem(`asistente_tooltip_visto_${modulo}`, '1')
   }
 
   function toggleOpen() {
@@ -53,16 +77,27 @@ export default function AsistenteChat() {
     setOpen(o => !o)
   }
 
-  function guardarMensaje(m: Mensaje) {
-    supabase.from('asistente_mensajes').insert([{ role: m.role, texto: m.texto, documentos: m.documentos || null }]).then(({ error }) => {
-      if (error) console.warn('No se pudo guardar el mensaje del asistente:', error.message)
-    })
+  async function guardarMensaje(m: Mensaje) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const fila: any = { role: m.role, texto: m.texto, documentos: m.documentos || null, modulo }
+    if (user) fila.usuario_id = user.id
+    let { error } = await supabase.from('asistente_mensajes').insert([fila])
+    if (error && modulo === 'seguros') {
+      // Compatibilidad: si la columna "modulo" todavía no existe, se guarda sin ella.
+      delete fila.modulo
+      ;({ error } = await supabase.from('asistente_mensajes').insert([fila]))
+    }
+    if (error) console.warn('No se pudo guardar el mensaje del asistente:', error.message)
   }
 
   async function vaciarHistorial() {
     if (!window.confirm('¿Vaciar todo el historial de conversación con el asistente?')) return
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) await supabase.from('asistente_mensajes').delete().eq('usuario_id', user.id)
+    if (user) {
+      const { error } = await supabase.from('asistente_mensajes').delete().eq('usuario_id', user.id).eq('modulo', modulo)
+      // Compatibilidad: si la columna "modulo" todavía no existe, se borra como antes.
+      if (error && modulo === 'seguros') await supabase.from('asistente_mensajes').delete().eq('usuario_id', user.id)
+    }
     setMensajes([])
   }
 
@@ -79,7 +114,7 @@ export default function AsistenteChat() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const historial = nuevos.slice(-MAX_CONTEXTO).map(m => ({ role: m.role, content: m.texto }))
-      const res = await fetch('/api/asistente', {
+      const res = await fetch(cfg.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ messages: historial }),
@@ -110,7 +145,7 @@ export default function AsistenteChat() {
         }}>
           <Sparkles size={16} color="var(--gold)" style={{ flexShrink: 0, marginTop: 1 }} />
           <span style={{ flex: 1, lineHeight: 1.4, fontSize: 12.5, color: 'var(--text-main)' }}>
-            Preguntame por vencimientos, clientes, cuotas o siniestros
+            {cfg.tooltip}
           </span>
           <button onClick={cerrarTooltip} aria-label="Cerrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, flexShrink: 0 }}>
             <X size={13} />
@@ -140,7 +175,7 @@ export default function AsistenteChat() {
           <div className="asistente-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <Sparkles size={15} color="var(--gold)" />
-              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>Asistente Fascioli</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 14 }}>{cfg.titulo}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button onClick={vaciarHistorial} aria-label="Vaciar historial" className="asistente-clear-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}>
@@ -158,7 +193,7 @@ export default function AsistenteChat() {
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {mensajes.length === 0 && (
               <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                Preguntame cosas como "¿qué pólizas vencen este mes?", "buscame el cliente Marsala", "cuotas pendientes de tal cliente" o "dame los documentos de tal cliente".
+                {cfg.ejemplos}
               </div>
             )}
             {mensajes.map((m, i) => (

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase'
 
 type Accion = 'crear' | 'editar' | 'eliminar'
-type Tabla  = 'clientes' | 'polizas' | 'pagos' | 'siniestros' | 'documentos' | 'poliza_controles_mensuales' | 'mant_clientes' | 'mant_extintores' | 'mant_tanques' | 'mant_bomberos' | 'mant_documentos' | 'mant_reclamos' | 'mant_comentarios' | 'mant_empresas' | 'contratos' | 'contratos_empresas' | 'contratos_documentos'
+type Tabla  = 'clientes' | 'polizas' | 'pagos' | 'siniestros' | 'documentos' | 'poliza_controles_mensuales' | 'mant_clientes' | 'mant_extintores' | 'mant_tanques' | 'mant_bomberos' | 'mant_documentos' | 'mant_reclamos' | 'mant_comentarios' | 'mant_empresas' | 'contratos' | 'contratos_empresas' | 'contratos_documentos' | 'obras' | 'obras_pagos' | 'obras_leyes' | 'obras_documentos' | 'obras_comentarios' | 'obras_empresas'
 
 export async function registrarAudit({
   accion,

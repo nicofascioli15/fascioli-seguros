@@ -40,6 +40,8 @@ const tablaLabel: Record<string, string> = {
   poliza_controles_mensuales: 'Control mensual',
   mant_clientes: 'Edificio (Mant.)', mant_extintores: 'Extintor', mant_tanques: 'Tanque', mant_bomberos: 'Habilitación de bomberos',
   mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_comentarios: 'Comentario (Mant.)', mant_empresas: 'Empresa (Mant.)',
+  obras: 'Obra', obras_pagos: 'Pago de obra', obras_leyes: 'Leyes sociales (obra)', obras_documentos: 'Documento (obra)',
+  obras_comentarios: 'Comentario (obra)', obras_empresas: 'Empresa (obras)',
 }
 
 function formatFecha(iso: string) {
@@ -52,6 +54,7 @@ function formatFecha(iso: string) {
 const CAMPOS_OCULTOS = new Set([
   'id', 'created_at', 'updated_at', 'cliente_id', 'poliza_id', 'campo_id',
   'clientes', 'polizas', 'doc_count', 'extintor_id', 'tanque_id', 'bombero_id',
+  'obra_id', 'mant_clientes', 'edificio', 'pagos', 'leyes', 'rp', 'rl', 'garantia', 'cierre', 'situacion',
 ])
 
 // Nombres de campo -> etiqueta en criollo. Cubre clientes, pólizas, pagos,
@@ -71,6 +74,12 @@ const CAMPO_LABEL: Record<string, string> = {
   tipo_tramite: 'Tipo de trámite', decreto: 'Decreto', fecha_certificacion: 'Fecha de certificación',
   tecnico_registrado: 'Técnico registrado', costo: 'Costo', etapa_actual: 'Etapa del Plan Gradual',
   fecha_c1: 'Fecha etapa C1', fecha_c2: 'Fecha etapa C2', fecha_c3: 'Fecha etapa C3',
+  titulo: 'Obra', tipo_obra: 'Tipo de obra', titular_bps: 'Inscripta a nombre de', nro_obra_bps: 'N° de obra BPS',
+  fecha_inscripcion_bps: 'Inscripción BPS', precio_total: 'Precio total', fecha_contrato: 'Firma del contrato',
+  fecha_inicio: 'Inicio de obra', fecha_fin_prevista: 'Fin previsto', fecha_fin_real: 'Fin real', avance: 'Avance (%)',
+  tope_leyes: 'Tope leyes sociales', garantia_meses: 'Garantía (meses)', cierre_bps_estado: 'Cierre BPS', cierre_bps_fecha: 'Fecha cierre BPS',
+  concepto: 'Concepto', porcentaje: 'Porcentaje', monto: 'Monto', fecha_prevista: 'Fecha prevista', condicion: 'Condición',
+  pagado: 'Pagado', comprobante: 'Comprobante', orden: 'Orden', rut: 'RUT',
 }
 
 function humanizar(key: string): string {

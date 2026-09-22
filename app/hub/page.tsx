@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { fetchCategorias, calcularAuto, calcularObra, hoyISO } from '@/lib/contratosConfig'
+import { fetchObrasCompletas } from '@/lib/obrasData'
+import { obraActiva } from '@/lib/obrasConfig'
 
 const NAVY = '#0F1E35'
 const GOLD = '#C9A84C'
@@ -71,6 +73,7 @@ export default function HubPage() {
   const [stats, setStats]       = useState({ polizas: 0, vencen30: 0, vencidas: 0, pendientes: 0 })
   const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0 })
   const [contratosStats, setContratosStats] = useState({ contratos: 0, vencidos: 0, autoRenovados: 0 })
+  const [obrasStats, setObrasStats] = useState({ enCurso: 0, atrasados: 0, alertas: 0 })
 
   useEffect(() => {
     async function init() {
@@ -143,6 +146,15 @@ export default function HubPage() {
       })
       setContratosStats({ contratos: contratosActivos.length, vencidos: vencidosContr, autoRenovados: autoRenovadosContr })
 
+      // Load obras stats (si las tablas todavía no existen, devuelve vacío y el portal sigue andando)
+      const obras = await fetchObrasCompletas(supabase)
+      const obrasVivas = obras.filter(o => o.estado !== 'Cancelada')
+      setObrasStats({
+        enCurso: obrasVivas.filter(o => obraActiva(o)).length,
+        atrasados: obrasVivas.reduce((s, o) => s + o.rp.vencidos.length, 0),
+        alertas: obrasVivas.filter(o => o.cierre.pendiente || o.rl.alerta === 'excedido').length,
+      })
+
       setLoading(false)
     }
     init()
@@ -171,7 +183,7 @@ export default function HubPage() {
     {
       id: 'mantenimiento',
       label: 'Mantenimiento',
-      description: 'Control de extintores, tanques de agua y ensayos',
+      description: 'Extintores, tanques de agua, ensayos y bomberos',
       route: '/mantenimiento',
       ready: true,
       accent: '#4FBE8C',
@@ -198,11 +210,16 @@ export default function HubPage() {
     {
       id: 'obras',
       label: 'Obras',
-      description: 'Seguimiento de obras y garantías',
+      description: 'Pagos, leyes sociales, garantías y cierres BPS',
       route: '/obras',
-      ready: false,
+      ready: true,
       accent: '#D9954F',
       icon: <IconHardHat />,
+      stats: [
+        { label: 'En curso', value: obrasStats.enCurso },
+        { label: 'Pagos atrasados', value: obrasStats.atrasados },
+        { label: 'Alertas', value: obrasStats.alertas },
+      ],
     },
   ]
 

@@ -1,0 +1,208 @@
+'use client'
+export const dynamic = 'force-dynamic'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Loader2, Pencil, Trash2, Building2, Briefcase, AlertTriangle, Wallet, Scale, ShieldCheck, FileText, MessageSquareText, ClipboardList, CalendarClock } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
+import { showToast } from '@/lib/toast'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import ObraModal from '@/components/obras/ObraModal'
+import ObraPagos from '@/components/obras/ObraPagos'
+import ObraLeyes from '@/components/obras/ObraLeyes'
+import ObraCierre from '@/components/obras/ObraCierre'
+import ObraDocumentos from '@/components/obras/ObraDocumentos'
+import ObraComentarios from '@/components/obras/ObraComentarios'
+import { Barra, Kpi, colorLeyes } from '@/components/obras/ui'
+import { fetchObrasCompletas, soloColumnasObra, type ObraCompleta } from '@/lib/obrasData'
+import { formatMonto, formatFecha, TIPOS_OBRA } from '@/lib/obrasConfig'
+
+type Tab = 'pagos' | 'leyes' | 'cierre' | 'documentos' | 'comentarios' | 'datos'
+
+export default function ObraFichaPage() {
+  const { id } = useParams() as { id: string }
+  const router = useRouter()
+  const supabase = createClient()
+  const [obra, setObra] = useState<ObraCompleta | null | undefined>(undefined)
+  const [tab, setTab] = useState<Tab>('pagos')
+  const [editando, setEditando] = useState(false)
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
+  const [tipoDocInicial, setTipoDocInicial] = useState<string | undefined>(undefined)
+
+  useEffect(() => { cargar() }, [id])
+
+  async function cargar() {
+    const [o] = await fetchObrasCompletas(supabase, { obraId: id })
+    setObra(o || null)
+  }
+
+  async function eliminar() {
+    if (!obra) return
+    setEliminando(true)
+    const { data: docs } = await supabase.from('obras_documentos').select('storage_path').eq('obra_id', obra.id)
+    const paths = (docs || []).map((d: any) => d.storage_path).filter(Boolean)
+    // Primero se borra la obra y recién después los archivos: si el borrado falla, no se pierden adjuntos.
+    const { error } = await supabase.from('obras').delete().eq('id', obra.id)
+    if (error) { setEliminando(false); showToast(error.message, 'error'); return }
+    if (paths.length) await supabase.storage.from('documentos').remove(paths)
+    setEliminando(false)
+    await registrarAudit({ accion: 'eliminar', tabla: 'obras', registroId: obra.id, descripcion: `Obra eliminada: ${obra.titulo} — ${obra.edificio}`, datosAntes: soloColumnasObra(obra) })
+    showToast('Obra eliminada', 'success')
+    router.push('/obras/lista')
+  }
+
+  if (obra === undefined) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}><Loader2 size={24} className="spin" /></div>
+  if (obra === null) return (
+    <div style={{ textAlign: 'center', padding: 60 }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>No se encontró la obra</div>
+      <Link href="/obras/lista" className="btn-outline">Volver a Obras</Link>
+    </div>
+  )
+
+  const etiqueta = `${obra.titulo} (${obra.edificio})`
+  const alertas: { tono: 'danger' | 'warning'; texto: string; tab: Tab }[] = []
+  if (obra.rp.vencidos.length > 0) alertas.push({ tono: 'danger', tab: 'pagos', texto: `${obra.rp.vencidos.length} pago${obra.rp.vencidos.length > 1 ? 's' : ''} atrasado${obra.rp.vencidos.length > 1 ? 's' : ''} por ${formatMonto(obra.rp.vencidos.reduce((s, p) => s + p.monto, 0), obra.moneda)}` })
+  if (obra.rl.alerta === 'excedido') alertas.push({ tono: 'danger', tab: 'leyes', texto: `Leyes sociales pasadas del tope por ${formatMonto(obra.rl.excedente)}: descontarlo de los pagos a la empresa` })
+  if (obra.rl.alerta === 'cerca') alertas.push({ tono: 'warning', tab: 'leyes', texto: `Leyes sociales al ${Math.round((obra.rl.pctTope || 0) * 100)}% del tope` })
+  if (obra.cierre.pendiente) alertas.push({ tono: obra.cierre.vencido ? 'danger' : 'warning', tab: 'cierre', texto: obra.cierre.vencido ? `Cierre de obra en BPS vencido (plazo ${formatFecha(obra.cierre.limite)})` : `Falta el cierre de obra en BPS: plazo hasta ${formatFecha(obra.cierre.limite)}` })
+  if (obra.garantia.porVencer) alertas.push({ tono: 'warning', tab: 'cierre', texto: `La garantía vence el ${formatFecha(obra.garantia.hasta)} (${obra.garantia.dias} días)` })
+  if (obra.precio_total != null && obra.pagos.length > 0 && Math.abs(obra.rp.diferenciaPlan) >= 0.01) alertas.push({ tono: 'warning', tab: 'pagos', texto: `El plan de pagos no coincide con el precio (diferencia ${formatMonto(obra.rp.diferenciaPlan, obra.moneda)})` })
+
+  const tabs: { id: Tab; label: string; icon: any; badge?: number }[] = [
+    { id: 'pagos', label: 'Pagos', icon: Wallet, badge: obra.rp.vencidos.length || undefined },
+    { id: 'leyes', label: 'Leyes sociales', icon: Scale },
+    { id: 'cierre', label: 'Cierre BPS y garantía', icon: ShieldCheck, badge: obra.cierre.pendiente ? 1 : undefined },
+    { id: 'documentos', label: 'Documentos', icon: FileText },
+    { id: 'comentarios', label: 'Comentarios', icon: MessageSquareText },
+    { id: 'datos', label: 'Datos', icon: ClipboardList },
+  ]
+
+  const prox = obra.rp.proximoPago
+
+  return (
+    <div>
+      <Link href="/obras/lista" className="btn-outline btn-sm" style={{ marginBottom: 14, display: 'inline-flex' }}><ArrowLeft size={13} /> Obras</Link>
+
+      {/* Encabezado */}
+      <div style={{ background: 'var(--navy)', borderRadius: 16, padding: '20px 22px', marginBottom: 16, color: 'white', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <span className={`badge ${obra.situacion.cls}`}>{obra.situacion.label}</span>
+            <span className="badge badge-neutral">{TIPOS_OBRA.find(t => t.value === obra.tipo_obra)?.label}</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{obra.titulo}</div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: '#B8C5D6' }}>
+            <Link href={`/obras/lista?edificio=${obra.cliente_id}`} style={{ color: '#E2C47A', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}><Building2 size={13} /> {obra.edificio}</Link>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>
+            {(obra.fecha_inicio || obra.fecha_fin_prevista) && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarClock size={13} /> {formatFecha(obra.fecha_inicio)} → {obra.fecha_fin_real ? formatFecha(obra.fecha_fin_real) : `prev. ${formatFecha(obra.fecha_fin_prevista)}`}</span>}
+          </div>
+          {!obra.fecha_fin_real && obra.estado !== 'Presupuestada' && obra.estado !== 'Cancelada' && (
+            <div style={{ marginTop: 12, maxWidth: 360 }}>
+              <div style={{ fontSize: 11, color: '#B8C5D6', marginBottom: 4 }}>Avance de obra: {obra.avance}%</div>
+              <Barra pct={obra.avance / 100} color="#E2C47A" fondo="rgba(255,255,255,.15)" />
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditando(true)}><Pencil size={13} /> Editar</button>
+          <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: '#FCA5A5', borderColor: 'rgba(252,165,165,.35)' }} onClick={() => setConfirmEliminar(true)}><Trash2 size={13} /></button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
+        <Kpi label="Precio del contrato" valor={formatMonto(obra.precio_total, obra.moneda)} sub={obra.fecha_contrato ? `Firmado el ${formatFecha(obra.fecha_contrato)}` : 'Sin fecha de firma'} />
+        <Kpi label="Pagado" valor={formatMonto(obra.rp.totalPagado, obra.moneda)} sub={<><Barra pct={obra.rp.pctPagado} /><div style={{ marginTop: 4 }}>{Math.round(obra.rp.pctPagado * 100)}% · saldo {formatMonto(obra.rp.saldo, obra.moneda)}</div></>} />
+        <Kpi label="Próximo pago" valor={prox ? formatMonto(prox.monto, obra.moneda) : '—'} color={prox && obra.rp.vencidos.includes(prox) ? 'var(--danger)' : undefined}
+          sub={prox ? `${prox.concepto} · ${prox.fecha_prevista ? formatFecha(prox.fecha_prevista) : prox.condicion || 'sin fecha'}` : obra.pagos.length ? 'Todo pagado' : 'Sin plan de pagos'} />
+        <Kpi label="Leyes sociales" valor={formatMonto(obra.rl.totalFacturado)} color={obra.rl.alerta === 'excedido' ? 'var(--danger)' : undefined}
+          sub={obra.rl.tope != null ? <><Barra pct={Math.min(1, obra.rl.pctTope || 0)} color={colorLeyes(obra.rl.alerta)} /><div style={{ marginTop: 4 }}>tope {formatMonto(obra.rl.tope)}</div></> : 'Sin tope definido'} />
+      </div>
+
+      {/* Alertas */}
+      {alertas.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {alertas.map((a, i) => (
+            <button key={i} onClick={() => setTab(a.tab)} style={{
+              display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', cursor: 'pointer', border: 'none', borderRadius: 9, padding: '9px 12px', fontSize: 13, fontWeight: 600,
+              background: a.tono === 'danger' ? '#FEE2E2' : '#FEF3C7', color: a.tono === 'danger' ? '#991B1B' : '#92400E',
+            }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0 }} /> {a.texto}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto' }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+            borderBottom: `2.5px solid ${tab === t.id ? 'var(--gold)' : 'transparent'}`, marginBottom: -1,
+            color: tab === t.id ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: tab === t.id ? 800 : 600, fontSize: 13.5, fontFamily: 'inherit',
+          }}>
+            <t.icon size={15} /> {t.label}
+            {t.badge ? <span style={{ background: 'var(--danger)', color: 'white', borderRadius: 9, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{t.badge}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'pagos' && <ObraPagos obra={obra} onChange={cargar} />}
+      {tab === 'leyes' && <ObraLeyes obra={obra} onChange={cargar} />}
+      {tab === 'cierre' && <ObraCierre obra={obra} onChange={cargar} onPedirDocumento={() => { setTipoDocInicial('Cierre de obra BPS (F9)'); setTab('documentos') }} />}
+      {tab === 'documentos' && <ObraDocumentos obraId={obra.id} etiqueta={etiqueta} tipoInicial={tipoDocInicial} />}
+      {tab === 'comentarios' && <ObraComentarios obraId={obra.id} etiqueta={etiqueta} />}
+      {tab === 'datos' && <DatosObra obra={obra} onEditar={() => setEditando(true)} />}
+
+      {editando && <ObraModal obra={obra} onClose={() => setEditando(false)} onSaved={() => { setEditando(false); cargar() }} />}
+
+      <ConfirmDialog
+        open={confirmEliminar}
+        title="¿Eliminar esta obra?"
+        message={<>Se va a eliminar <strong style={{ color: 'var(--text-main)' }}>{obra.titulo}</strong> de {obra.edificio}, con su plan de pagos, leyes sociales, documentos y comentarios. <strong style={{ color: 'var(--text-main)' }}>No se puede deshacer</strong>: el historial solo guarda los datos generales de la obra. Si solo terminó, mejor marcala "Finalizada" o "Cancelada".</>}
+        loading={eliminando}
+        onConfirm={eliminar}
+        onCancel={() => setConfirmEliminar(false)}
+      />
+    </div>
+  )
+}
+
+function DatosObra({ obra, onEditar }: { obra: ObraCompleta; onEditar: () => void }) {
+  const filas: [string, React.ReactNode][] = [
+    ['Edificio', obra.edificio],
+    ['Empresa', obra.empresa || '—'],
+    ['Tipo de obra', TIPOS_OBRA.find(t => t.value === obra.tipo_obra)?.label],
+    ['Inscripta a nombre de', obra.tipo_obra === 'menor_cuantia' || obra.titular_bps === 'empresa' ? 'La empresa' : 'El edificio'],
+    ['N° de obra BPS', obra.nro_obra_bps || '—'],
+    ['Inscripción BPS', formatFecha(obra.fecha_inscripcion_bps)],
+    ['Moneda', obra.moneda === 'USD' ? 'Dólares' : 'Pesos'],
+    ['Precio total', formatMonto(obra.precio_total, obra.moneda)],
+    ['Firma del contrato', formatFecha(obra.fecha_contrato)],
+    ['Inicio', formatFecha(obra.fecha_inicio)],
+    ['Fin previsto', formatFecha(obra.fecha_fin_prevista)],
+    ['Fin real', formatFecha(obra.fecha_fin_real)],
+    ['Estado', obra.estado],
+    ['Avance', `${obra.avance}%`],
+    ['Tope leyes sociales', formatMonto(obra.tope_leyes)],
+    ['Garantía', `${obra.garantia_meses} meses`],
+    ['Cierre BPS', `${obra.cierre_bps_estado}${obra.cierre_bps_fecha ? ` (${formatFecha(obra.cierre_bps_fecha)})` : ''}`],
+  ]
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 12, padding: 16 }}>
+      {obra.descripcion && <div style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 14, whiteSpace: 'pre-wrap' }}>{obra.descripcion}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px 18px' }}>
+        {filas.map(([k, v]) => (
+          <div key={k}>
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{k}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      {obra.nota && <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}><strong>Nota:</strong> {obra.nota}</div>}
+      <button className="btn-outline btn-sm" style={{ marginTop: 16 }} onClick={onEditar}><Pencil size={13} /> Editar datos</button>
+    </div>
+  )
+}

@@ -1,0 +1,237 @@
+'use client'
+import DatePicker from '@/components/DatePicker'
+import { TIPOS_OBRA, ESTADOS_OBRA, CIERRES_BPS, type Obra } from '@/lib/obrasConfig'
+
+export type ObraFormState = {
+  cliente_id: string
+  titulo: string
+  descripcion: string
+  empresa: string
+  tipo_obra: Obra['tipo_obra']
+  titular_bps: Obra['titular_bps']
+  nro_obra_bps: string
+  fecha_inscripcion_bps: string
+  moneda: Obra['moneda']
+  precio_total: string
+  fecha_contrato: string
+  fecha_inicio: string
+  fecha_fin_prevista: string
+  fecha_fin_real: string
+  avance: number
+  estado: Obra['estado']
+  tope_leyes: string
+  garantia_meses: number
+  cierre_bps_estado: Obra['cierre_bps_estado']
+  cierre_bps_fecha: string
+  nota: string
+}
+
+export const emptyObraForm: ObraFormState = {
+  cliente_id: '', titulo: '', descripcion: '', empresa: '',
+  tipo_obra: 'contrato', titular_bps: 'edificio', nro_obra_bps: '', fecha_inscripcion_bps: '',
+  moneda: 'UYU', precio_total: '', fecha_contrato: '', fecha_inicio: '', fecha_fin_prevista: '', fecha_fin_real: '',
+  avance: 0, estado: 'Presupuestada', tope_leyes: '', garantia_meses: 12,
+  cierre_bps_estado: 'Pendiente', cierre_bps_fecha: '', nota: '',
+}
+
+export function obraToForm(o: Obra): ObraFormState {
+  return {
+    cliente_id: o.cliente_id, titulo: o.titulo || '', descripcion: o.descripcion || '', empresa: o.empresa || '',
+    tipo_obra: o.tipo_obra, titular_bps: o.titular_bps, nro_obra_bps: o.nro_obra_bps || '', fecha_inscripcion_bps: o.fecha_inscripcion_bps || '',
+    moneda: o.moneda, precio_total: o.precio_total != null ? String(o.precio_total) : '',
+    fecha_contrato: o.fecha_contrato || '', fecha_inicio: o.fecha_inicio || '', fecha_fin_prevista: o.fecha_fin_prevista || '', fecha_fin_real: o.fecha_fin_real || '',
+    avance: o.avance || 0, estado: o.estado, tope_leyes: o.tope_leyes != null ? String(o.tope_leyes) : '',
+    garantia_meses: o.garantia_meses ?? 12, cierre_bps_estado: o.cierre_bps_estado, cierre_bps_fecha: o.cierre_bps_fecha || '', nota: o.nota || '',
+  }
+}
+
+// Acepta "1.234.567,50", "1234567.5" o "1,234,567.50" y devuelve número (o null si está vacío)
+export function parseMonto(s: string): number | null {
+  const t = (s || '').trim().replace(/\s/g, '').replace(/[$USu]/g, '')
+  if (!t) return null
+  let norm = t
+  if (t.includes(',') && t.includes('.')) {
+    norm = t.lastIndexOf(',') > t.lastIndexOf('.') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '')
+  } else if (t.includes(',')) {
+    norm = t.replace(',', '.')
+  } else if ((t.match(/\./g) || []).length > 1 || /^\d{1,3}\.\d{3}$/.test(t)) {
+    // En Uruguay el punto separa miles: "850.000" son ochocientos cincuenta mil.
+    norm = t.replace(/\./g, '')
+  }
+  const n = Number(norm)
+  return isFinite(n) ? n : null
+}
+
+export function formToPayload(f: ObraFormState) {
+  const finReal = f.fecha_fin_real || null
+  return {
+    cliente_id: f.cliente_id,
+    titulo: f.titulo.trim(),
+    descripcion: f.descripcion.trim() || null,
+    empresa: f.empresa.trim() || null,
+    tipo_obra: f.tipo_obra,
+    titular_bps: f.tipo_obra === 'menor_cuantia' ? 'empresa' : f.titular_bps,
+    nro_obra_bps: f.nro_obra_bps.trim() || null,
+    fecha_inscripcion_bps: f.fecha_inscripcion_bps || null,
+    moneda: f.moneda,
+    precio_total: parseMonto(f.precio_total),
+    fecha_contrato: f.fecha_contrato || null,
+    fecha_inicio: f.fecha_inicio || null,
+    fecha_fin_prevista: f.fecha_fin_prevista || null,
+    fecha_fin_real: finReal,
+    avance: finReal ? 100 : Math.max(0, Math.min(100, Number(f.avance) || 0)),
+    // Si se carga la fecha de fin real, la obra pasa sola a "Finalizada" (salvo que esté cancelada);
+    // si se borra la fecha de una obra finalizada, vuelve a "En ejecución".
+    estado: finReal && f.estado !== 'Cancelada' ? 'Finalizada' : !finReal && f.estado === 'Finalizada' ? 'En ejecución' : f.estado,
+    tope_leyes: (parseMonto(f.tope_leyes) ?? 0) > 0 ? parseMonto(f.tope_leyes) : null,   // 0 o vacío = sin tope
+    garantia_meses: Math.max(0, Number(f.garantia_meses) || 0),
+    cierre_bps_estado: f.cierre_bps_estado,
+    cierre_bps_fecha: f.cierre_bps_fecha || null,
+    nota: f.nota.trim() || null,
+  }
+}
+
+const seccion: React.CSSProperties = { gridColumn: 'span 2', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--gold)', marginTop: 8, paddingTop: 10, borderTop: '1px solid var(--border-soft)' }
+const ayuda: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }
+
+export default function ObraForm({ form, setForm, edificios, edificioLocked, empresas }: {
+  form: ObraFormState
+  setForm: (fn: (p: ObraFormState) => ObraFormState) => void
+  edificios: { id: string; nombre: string }[]
+  edificioLocked?: { id: string; nombre: string } | null
+  empresas: string[]
+}) {
+  const set = (patch: Partial<ObraFormState>) => setForm(p => ({ ...p, ...patch }))
+  const tipoInfo = TIPOS_OBRA.find(t => t.value === form.tipo_obra)
+  const esMenorCuantia = form.tipo_obra === 'menor_cuantia'
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Edificio *</label>
+        {edificioLocked ? (
+          <div style={{ padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, color: 'var(--navy)', background: 'var(--bg-card-alt)', fontWeight: 600 }}>{edificioLocked.nombre}</div>
+        ) : (
+          <select value={form.cliente_id} onChange={e => set({ cliente_id: e.target.value })}>
+            <option value="">Seleccionar edificio...</option>
+            {edificios.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+        )}
+      </div>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Obra / trabajo *</label>
+        <input value={form.titulo} onChange={e => set({ titulo: e.target.value })} placeholder="Ej: Pintura total de fachada" />
+      </div>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Descripción</label>
+        <textarea value={form.descripcion} onChange={e => set({ descripcion: e.target.value })} rows={2} placeholder="Alcance del trabajo, materiales, observaciones del contrato..."
+          style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', resize: 'vertical', boxSizing: 'border-box' }} />
+      </div>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Empresa</label>
+        <input list="obras-empresas-list" value={form.empresa} onChange={e => set({ empresa: e.target.value })} placeholder="Elegí de la lista o escribí el nombre" />
+        <datalist id="obras-empresas-list">{empresas.map(e => <option key={e} value={e} />)}</datalist>
+        <div style={ayuda}>El catálogo de empresas se administra desde "Empresas".</div>
+      </div>
+
+      <div style={seccion}>Régimen BPS</div>
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Tipo de obra</label>
+        <select value={form.tipo_obra} onChange={e => {
+          const v = e.target.value as ObraFormState['tipo_obra']
+          set({ tipo_obra: v, titular_bps: v === 'menor_cuantia' ? 'empresa' : v === 'administracion' ? 'edificio' : form.titular_bps })
+        }}>
+          {TIPOS_OBRA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        {tipoInfo && <div style={{ ...ayuda, background: 'var(--bg-card-alt)', borderRadius: 7, padding: '7px 10px' }}>{tipoInfo.descripcion}</div>}
+      </div>
+      <div className="fgroup">
+        <label>Obra inscripta a nombre de</label>
+        <select value={esMenorCuantia ? 'empresa' : form.titular_bps} disabled={esMenorCuantia || form.tipo_obra === 'administracion'}
+          onChange={e => set({ titular_bps: e.target.value as ObraFormState['titular_bps'] })}>
+          <option value="edificio">El edificio</option>
+          <option value="empresa">La empresa</option>
+        </select>
+        <div style={ayuda}>Define quién tiene que hacer el cierre de obra en BPS.</div>
+      </div>
+      <div className="fgroup">
+        <label>N° de obra BPS</label>
+        <input value={form.nro_obra_bps} onChange={e => set({ nro_obra_bps: e.target.value })} placeholder="Opcional" />
+      </div>
+      <div className="fgroup">
+        <label>Fecha de inscripción BPS</label>
+        <DatePicker value={form.fecha_inscripcion_bps} onChange={v => set({ fecha_inscripcion_bps: v })} placeholder="Opcional" />
+      </div>
+
+      <div style={seccion}>Contrato</div>
+      <div className="fgroup">
+        <label>Moneda del contrato</label>
+        <select value={form.moneda} onChange={e => set({ moneda: e.target.value as ObraFormState['moneda'] })}>
+          <option value="UYU">Pesos ($)</option>
+          <option value="USD">Dólares (U$S)</option>
+        </select>
+      </div>
+      <div className="fgroup">
+        <label>Precio total</label>
+        <input inputMode="decimal" value={form.precio_total} onChange={e => set({ precio_total: e.target.value })} placeholder="Ej: 850000" />
+      </div>
+      <div className="fgroup">
+        <label>Firma del contrato</label>
+        <DatePicker value={form.fecha_contrato} onChange={v => set({ fecha_contrato: v })} placeholder="Fecha de firma" />
+      </div>
+      <div className="fgroup">
+        <label>Estado</label>
+        <select value={form.estado} onChange={e => set({ estado: e.target.value as ObraFormState['estado'] })}>
+          {ESTADOS_OBRA.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div className="fgroup">
+        <label>Inicio de obra</label>
+        <DatePicker value={form.fecha_inicio} onChange={v => set({ fecha_inicio: v })} placeholder="Fecha de inicio" />
+      </div>
+      <div className="fgroup">
+        <label>Fin previsto</label>
+        <DatePicker value={form.fecha_fin_prevista} onChange={v => set({ fecha_fin_prevista: v })} placeholder="Según contrato" />
+      </div>
+      <div className="fgroup">
+        <label>Avance (%)</label>
+        <input type="number" min={0} max={100} value={form.fecha_fin_real ? 100 : form.avance} disabled={!!form.fecha_fin_real}
+          onChange={e => set({ avance: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })} />
+      </div>
+      <div className="fgroup">
+        <label>Fin real (recepción)</label>
+        <DatePicker value={form.fecha_fin_real} onChange={v => set({ fecha_fin_real: v })} placeholder="Cuando se termina" />
+        <div style={ayuda}>Desde acá corre la garantía y el plazo de 30 días para el cierre en BPS.</div>
+      </div>
+
+      <div style={seccion}>Leyes sociales y garantía</div>
+      <div className="fgroup">
+        <label>Tope de leyes sociales ($)</label>
+        <input inputMode="decimal" value={form.tope_leyes} onChange={e => set({ tope_leyes: e.target.value })} placeholder="Máximo que asume el edificio" />
+        <div style={ayuda}>Siempre en pesos. Lo facturado por encima lo absorbe la empresa.</div>
+      </div>
+      <div className="fgroup">
+        <label>Garantía post-obra (meses)</label>
+        <input type="number" min={0} value={form.garantia_meses} onChange={e => set({ garantia_meses: Math.max(0, parseInt(e.target.value) || 0) })} />
+      </div>
+
+      <div style={seccion}>Cierre de obra BPS (ex F9)</div>
+      <div className="fgroup">
+        <label>Estado del cierre</label>
+        <select value={form.cierre_bps_estado} onChange={e => set({ cierre_bps_estado: e.target.value as ObraFormState['cierre_bps_estado'] })}>
+          {CIERRES_BPS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div className="fgroup">
+        <label>Fecha de presentación</label>
+        <DatePicker value={form.cierre_bps_fecha} onChange={v => set({ cierre_bps_fecha: v })} placeholder="Cuando se presentó" />
+      </div>
+
+      <div className="fgroup" style={{ gridColumn: 'span 2' }}>
+        <label>Nota interna</label>
+        <textarea value={form.nota} onChange={e => set({ nota: e.target.value })} rows={2}
+          style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', resize: 'vertical', boxSizing: 'border-box' }} />
+      </div>
+    </div>
+  )
+}
