@@ -48,6 +48,7 @@ export type PagoObra = {
   condicion: string | null
   pagado: boolean
   fecha_pago: string | null
+  metodo?: string | null
   comprobante: string | null
 }
 

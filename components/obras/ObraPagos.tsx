@@ -1,12 +1,11 @@
 'use client'
-import { useState } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle2, Circle, Wand2, X, Loader2, AlertTriangle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus, Pencil, Trash2, Wand2, X, Loader2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { Barra } from '@/components/obras/ui'
 import { parseMonto } from '@/components/obras/ObraForm'
 import {
   formatMonto, formatFecha, hoyLocal, generarPlan, PRESETS_PLAN, TIPOS_PAGO, addMesesObra, redondear,
@@ -14,30 +13,44 @@ import {
 } from '@/lib/obrasConfig'
 import type { ObraCompleta as ObraCompletaLike } from '@/lib/obrasData'
 
-type PagoForm = { concepto: string; tipo: TipoPago; monto: string; fecha_prevista: string; condicion: string; pagado: boolean; fecha_pago: string; comprobante: string }
-const vacio: PagoForm = { concepto: '', tipo: 'cuota', monto: '', fecha_prevista: '', condicion: '', pagado: false, fecha_pago: '', comprobante: '' }
+type PagoForm = { concepto: string; tipo: TipoPago; monto: string; fecha_prevista: string; condicion: string }
+const vacio: PagoForm = { concepto: '', tipo: 'cuota', monto: '', fecha_prevista: '', condicion: '' }
 
+// Mismo manejo que las cuotas de las pólizas en Seguros: lista numerada, "+ Registrar pago"
+// (fecha, método, referencia), etiqueta "Pagada" y "Deshacer".
 export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; onChange: () => void }) {
   const supabase = createClient()
   const hoy = hoyLocal()
   const { rp, pagos, moneda } = obra
 
+  const [metodos, setMetodos] = useState<string[]>([])
   const [editando, setEditando] = useState<PagoObra | 'nuevo' | null>(null)
   const [form, setForm] = useState<PagoForm>(vacio)
   const [saving, setSaving] = useState(false)
   const [pagando, setPagando] = useState<PagoObra | null>(null)
-  const [pagoFecha, setPagoFecha] = useState(hoy)
-  const [pagoComprobante, setPagoComprobante] = useState('')
+  const [pagoForm, setPagoForm] = useState({ fecha: hoy, metodo: '', referencia: '' })
+  const [confirmDeshacer, setConfirmDeshacer] = useState<PagoObra | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState<PagoObra | null>(null)
   const [showPlan, setShowPlan] = useState(false)
+
+  // Los métodos de pago son los mismos que usa Seguros (se administran en su Configuración).
+  useEffect(() => {
+    supabase.from('metodos_pago').select('nombre').order('nombre').then(({ data }) => {
+      if (data) setMetodos(data.map((x: any) => x.nombre))
+    })
+  }, [])
 
   function abrirNuevo() {
     setForm({ ...vacio, concepto: `Cuota ${pagos.filter(p => p.tipo === 'cuota').length + 1}` })
     setEditando('nuevo')
   }
   function abrirEditar(p: PagoObra) {
-    setForm({ concepto: p.concepto, tipo: p.tipo, monto: String(p.monto), fecha_prevista: p.fecha_prevista || '', condicion: p.condicion || '', pagado: p.pagado, fecha_pago: p.fecha_pago || '', comprobante: p.comprobante || '' })
+    setForm({ concepto: p.concepto, tipo: p.tipo, monto: String(p.monto), fecha_prevista: p.fecha_prevista || '', condicion: p.condicion || '' })
     setEditando(p)
+  }
+  function abrirPago(p: PagoObra) {
+    setPagoForm({ fecha: p.fecha_prevista && p.fecha_prevista <= hoy ? p.fecha_prevista : hoy, metodo: metodos[0] || 'Transferencia', referencia: '' })
+    setPagando(p)
   }
 
   async function guardar() {
@@ -48,7 +61,6 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
       concepto: form.concepto.trim(), tipo: form.tipo, monto,
       porcentaje: obra.precio_total ? redondear(monto / obra.precio_total * 100) : null,
       fecha_prevista: form.fecha_prevista || null, condicion: form.condicion.trim() || null,
-      pagado: form.pagado, fecha_pago: form.pagado ? (form.fecha_pago || hoy) : null, comprobante: form.comprobante.trim() || null,
     }
     if (editando === 'nuevo') {
       const orden = (pagos.reduce((m, p) => Math.max(m, p.orden), 0) || 0) + 1
@@ -65,24 +77,28 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
     onChange()
   }
 
-  async function confirmarPago() {
+  async function registrarPago() {
     if (!pagando) return
     setSaving(true)
-    const cambios = { pagado: true, fecha_pago: pagoFecha || hoy, comprobante: pagoComprobante.trim() || pagando.comprobante }
+    const cambios = { pagado: true, fecha_pago: pagoForm.fecha || hoy, metodo: pagoForm.metodo || null, comprobante: pagoForm.referencia.trim() || null }
     const { error } = await supabase.from('obras_pagos').update(cambios).eq('id', pagando.id)
-    if (!error) {
-      await registrarAudit({ accion: 'editar', tabla: 'obras_pagos', registroId: pagando.id, descripcion: `Pago registrado: ${pagando.concepto} (${formatMonto(pagando.monto, moneda)}) — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: false, fecha_pago: null, comprobante: pagando.comprobante }, datosDespues: cambios })
-      showToast('Pago registrado', 'success')
-    } else showToast(error.message, 'error')
     setSaving(false)
+    if (error) { showToast(error.message, 'error'); return }
+    await registrarAudit({ accion: 'editar', tabla: 'obras_pagos', registroId: pagando.id, descripcion: `Pago registrado: ${pagando.concepto} (${formatMonto(pagando.monto, moneda)}) — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: false, fecha_pago: null, metodo: pagando.metodo ?? null, comprobante: pagando.comprobante }, datosDespues: cambios })
+    showToast('Pago registrado', 'success')
     setPagando(null)
     onChange()
   }
 
-  async function deshacerPago(p: PagoObra) {
-    const { error } = await supabase.from('obras_pagos').update({ pagado: false, fecha_pago: null }).eq('id', p.id)
+  async function deshacerPago() {
+    const p = confirmDeshacer
+    if (!p) return
+    setSaving(true)
+    const { error } = await supabase.from('obras_pagos').update({ pagado: false, fecha_pago: null, metodo: null, comprobante: null }).eq('id', p.id)
+    setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
-    await registrarAudit({ accion: 'editar', tabla: 'obras_pagos', registroId: p.id, descripcion: `Pago desmarcado: ${p.concepto} — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: true, fecha_pago: p.fecha_pago }, datosDespues: { pagado: false, fecha_pago: null } })
+    await registrarAudit({ accion: 'editar', tabla: 'obras_pagos', registroId: p.id, descripcion: `Pago deshecho: ${p.concepto} — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: true, fecha_pago: p.fecha_pago, metodo: p.metodo ?? null, comprobante: p.comprobante }, datosDespues: { pagado: false, fecha_pago: null, metodo: null, comprobante: null } })
+    setConfirmDeshacer(null)
     onChange()
   }
 
@@ -98,68 +114,110 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
   }
 
   const ordenados = [...pagos].sort((a, b) => a.orden - b.orden)
+  const cantPagados = pagos.filter(p => p.pagado).length
+  const pct = Math.round(rp.pctPagado * 100)
 
   return (
     <div>
-      {/* Resumen */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Pagado</div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{formatMonto(rp.totalPagado, moneda)} <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>de {formatMonto(obra.precio_total ?? rp.totalPlan, moneda)}</span></div>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', padding: '18px 20px' }}>
+        {/* Encabezado igual que "Cuotas" en Seguros */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
+            Pagos <span style={{ fontWeight: 400 }}>({cantPagados}/{pagos.length} pagados)</span>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Saldo</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: rp.saldo > 0 ? 'var(--text-main)' : '#2E9668' }}>{formatMonto(rp.saldo, moneda)}</div>
-          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: pct === 100 ? 'var(--success)' : 'var(--slate)' }}>{pct}%</span>
         </div>
-        <Barra pct={rp.pctPagado} alto={8} color={rp.vencidos.length > 0 ? 'var(--danger)' : 'var(--gold)'} />
+        <div style={{ background: 'var(--border)', borderRadius: 4, height: 5, marginBottom: 10 }}>
+          <div style={{ background: pct === 100 ? 'var(--success)' : rp.vencidos.length ? 'var(--danger)' : 'var(--gold)', height: '100%', borderRadius: 4, width: `${pct}%`, transition: 'width .4s' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14, flexWrap: 'wrap', gap: 6 }}>
+          <span>Pagado <strong style={{ color: 'var(--text-main)' }}>{formatMonto(rp.totalPagado, moneda)}</strong> de {formatMonto(obra.precio_total ?? rp.totalPlan, moneda)}</span>
+          <span>Saldo <strong style={{ color: 'var(--text-main)' }}>{formatMonto(rp.saldo, moneda)}</strong></span>
+        </div>
         {obra.precio_total != null && pagos.length > 0 && Math.abs(rp.diferenciaPlan) >= 0.01 && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: '#B45309', marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: '#B45309', marginBottom: 12 }}>
             <AlertTriangle size={13} /> El plan suma {formatMonto(rp.totalPlan, moneda)}: {rp.diferenciaPlan > 0 ? `faltan ${formatMonto(rp.diferenciaPlan, moneda)}` : `sobran ${formatMonto(-rp.diferenciaPlan, moneda)}`} para llegar al precio del contrato.
           </div>
         )}
-      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <button className="btn-primary btn-sm" onClick={() => setShowPlan(true)}><Wand2 size={13} /> {pagos.length === 0 ? 'Armar plan de pagos' : 'Rearmar plan'}</button>
-        <button className="btn-outline btn-sm" onClick={abrirNuevo}><Plus size={13} /> Agregar pago</button>
-      </div>
-
-      {ordenados.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px dashed var(--border)', borderRadius: 12, fontSize: 13 }}>
-          Todavía no hay plan de pagos. Usá "Armar plan de pagos" para generarlo en un paso (entrega inicial, avance, cuotas, final).
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {ordenados.map(p => {
-            const atrasado = !p.pagado && !!p.fecha_prevista && p.fecha_prevista < hoy
-            return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: 'var(--bg-card)', border: `1px solid ${atrasado ? '#FCA5A5' : 'var(--border-soft)'}`, borderRadius: 10, flexWrap: 'wrap' }}>
-                <button title={p.pagado ? 'Desmarcar pago' : 'Registrar pago'} onClick={() => p.pagado ? deshacerPago(p) : (setPagando(p), setPagoFecha(hoy), setPagoComprobante(p.comprobante || ''))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: p.pagado ? '#2E9668' : atrasado ? 'var(--danger)' : 'var(--text-muted)', display: 'flex' }}>
-                  {p.pagado ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-                </button>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.concepto}{p.porcentaje ? <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}> · {Number(p.porcentaje).toLocaleString('es-UY', { maximumFractionDigits: 2 })}%</span> : null}</div>
-                  <div style={{ fontSize: 12, color: atrasado ? 'var(--danger)' : 'var(--text-muted)' }}>
-                    {p.pagado
-                      ? `Pagado el ${formatFecha(p.fecha_pago)}${p.comprobante ? ` · ${p.comprobante}` : ''}`
-                      : p.fecha_prevista ? `${atrasado ? 'Atrasado — vencía' : 'Vence'} el ${formatFecha(p.fecha_prevista)}` : (p.condicion || 'Sin fecha')}
-                  </div>
-                </div>
-                <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap' }}>{formatMonto(p.monto, moneda)}</div>
-                <div style={{ display: 'flex', gap: 2 }}>
-                  <button className="btn-outline btn-sm" title="Editar" onClick={() => abrirEditar(p)}><Pencil size={12} /></button>
-                  <button className="btn-outline btn-sm" title="Eliminar" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(p)}><Trash2 size={12} /></button>
+        {ordenados.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 10px', color: 'var(--text-muted)', fontSize: 13 }}>
+            Todavía no hay pagos. Usá "Armar plan de pagos" para generar la entrega inicial y las cuotas en un paso.
+          </div>
+        ) : ordenados.map((p, i) => {
+          const atrasado = !p.pagado && !!p.fecha_prevista && p.fecha_prevista < hoy
+          const cuando = p.fecha_prevista ? formatFecha(p.fecha_prevista) : (p.condicion || 'sin fecha')
+          return (
+            <div key={p.id} className={`cuota-row ${p.pagado ? 'paid' : ''}`}
+              style={atrasado ? { background: '#FEF2F2', borderColor: '#FECACA' } : undefined}>
+              <div className={`cuota-num ${p.pagado ? 'paid' : 'pending'}`}
+                style={atrasado ? { background: '#FEE2E2', color: '#B91C1C' } : undefined}>{i + 1}</div>
+              <div className="cuota-info">
+                <div className="cuota-title">{p.concepto} — {cuando} · <span style={{ fontWeight: 800 }}>{formatMonto(p.monto, moneda)}</span></div>
+                <div className="cuota-sub" style={atrasado ? { color: '#B91C1C' } : undefined}>
+                  {p.pagado
+                    ? `Pagado ${formatFecha(p.fecha_pago)}${p.metodo ? ` · ${p.metodo}` : ''}${p.comprobante ? ` · ${p.comprobante}` : ''}`
+                    : atrasado ? 'Atrasado' : 'Pendiente'}
                 </div>
               </div>
-            )
-          })}
+              {p.pagado ? (
+                <>
+                  <span className="cuota-paid-tag">Pagada</span>
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => setConfirmDeshacer(p)}>Deshacer</button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-primary btn-sm" onClick={() => abrirPago(p)}>+ Registrar pago</button>
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} title="Editar" onClick={() => abrirEditar(p)}><Pencil size={12} /></button>
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6, color: 'var(--danger)', borderColor: '#FEE2E2' }} title="Eliminar" onClick={() => setConfirmEliminar(p)}><Trash2 size={12} /></button>
+                </>
+              )}
+            </div>
+          )
+        })}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <button className="btn-primary btn-sm" onClick={() => setShowPlan(true)}><Wand2 size={13} /> {pagos.length === 0 ? 'Armar plan de pagos' : 'Rearmar plan'}</button>
+          <button className="btn-outline btn-sm" onClick={abrirNuevo}><Plus size={13} /> Agregar pago suelto</button>
+        </div>
+      </div>
+
+      {/* Modal registrar pago — igual al de Seguros */}
+      {pagando && (
+        <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !saving) setPagando(null) }}>
+          <div className="pago-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800 }}>Registrar pago</h3>
+              <button onClick={() => setPagando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              {obra.edificio} · {obra.titulo} · {pagando.concepto} · <strong style={{ color: 'var(--text-main)' }}>{formatMonto(pagando.monto, moneda)}</strong>
+            </div>
+            <div className="fgroup">
+              <label>Fecha de pago</label>
+              <DatePicker value={pagoForm.fecha} onChange={v => setPagoForm(f => ({ ...f, fecha: v }))} />
+            </div>
+            <div className="fgroup">
+              <label>Método de pago</label>
+              <select value={pagoForm.metodo} onChange={e => setPagoForm(f => ({ ...f, metodo: e.target.value }))}>
+                {(metodos.length ? metodos : ['Transferencia']).map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="fgroup">
+              <label>Referencia</label>
+              <input value={pagoForm.referencia} onChange={e => setPagoForm(f => ({ ...f, referencia: e.target.value }))} placeholder="Comprobante / factura (opcional)" />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setPagando(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={registrarPago} disabled={saving}>
+                {saving ? <><Loader2 size={14} className="spin" /> Guardando...</> : 'Confirmar pago'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Modal agregar / editar pago */}
+      {/* Modal agregar / editar un pago del plan */}
       {editando && (
         <div className="pago-overlay open" onClick={e => { if (e.target === e.currentTarget && !saving) setEditando(null) }}>
           <div className="pago-modal" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
@@ -176,23 +234,10 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
                 </select></div>
               <div className="fgroup"><label>Monto ({moneda === 'USD' ? 'U$S' : '$'})</label>
                 <input inputMode="decimal" value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} /></div>
-              <div className="fgroup"><label>Fecha prevista</label>
+              <div className="fgroup"><label>Fecha</label>
                 <DatePicker value={form.fecha_prevista} onChange={v => setForm(f => ({ ...f, fecha_prevista: v }))} placeholder="Si tiene fecha fija" /></div>
-              <div className="fgroup"><label>Condición</label>
-                <input value={form.condicion} onChange={e => setForm(f => ({ ...f, condicion: e.target.value }))} placeholder="Ej: al 50% de avance" /></div>
-              <div className="fgroup" style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input type="checkbox" checked={form.pagado} onChange={e => setForm(f => ({ ...f, pagado: e.target.checked, fecha_pago: e.target.checked ? (f.fecha_pago || hoy) : '' }))} style={{ width: 'auto' }} /> Ya está pagado
-                </label>
-              </div>
-              {form.pagado && (
-                <>
-                  <div className="fgroup"><label>Fecha de pago</label>
-                    <DatePicker value={form.fecha_pago} onChange={v => setForm(f => ({ ...f, fecha_pago: v }))} /></div>
-                  <div className="fgroup"><label>Comprobante / factura</label>
-                    <input value={form.comprobante} onChange={e => setForm(f => ({ ...f, comprobante: e.target.value }))} placeholder="Opcional" /></div>
-                </>
-              )}
+              <div className="fgroup"><label>Si no tiene fecha</label>
+                <input value={form.condicion} onChange={e => setForm(f => ({ ...f, condicion: e.target.value }))} placeholder="Ej: al terminar la obra" /></div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
@@ -202,24 +247,14 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
         </div>
       )}
 
-      {/* Modal registrar pago */}
       <ConfirmDialog
-        open={!!pagando}
-        tone="neutral"
-        icon={<CheckCircle2 size={26} color="#2E9668" />}
-        title={`Registrar pago: ${pagando?.concepto || ''}`}
-        confirmLabel="Registrar pago"
+        open={!!confirmDeshacer}
+        title="¿Deshacer este pago?"
+        message={<>Se eliminará el registro de pago de <strong style={{ color: 'var(--text-main)' }}>{confirmDeshacer?.concepto}</strong>. El pago volverá a quedar pendiente.</>}
+        confirmLabel="Deshacer pago"
         loading={saving}
-        loadingLabel="Guardando..."
-        message={
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
-            <div style={{ fontSize: 14 }}>Monto: <strong style={{ color: 'var(--text-main)' }}>{pagando ? formatMonto(pagando.monto, moneda) : ''}</strong></div>
-            <div className="fgroup" style={{ margin: 0 }}><label style={{ fontSize: 11 }}>Fecha de pago</label><DatePicker value={pagoFecha} onChange={setPagoFecha} /></div>
-            <div className="fgroup" style={{ margin: 0 }}><label style={{ fontSize: 11 }}>Comprobante / factura (opcional)</label><input value={pagoComprobante} onChange={e => setPagoComprobante(e.target.value)} /></div>
-          </div>
-        }
-        onConfirm={confirmarPago}
-        onCancel={() => setPagando(null)}
+        onConfirm={deshacerPago}
+        onCancel={() => setConfirmDeshacer(null)}
       />
 
       <ConfirmDialog
