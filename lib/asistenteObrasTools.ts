@@ -112,7 +112,6 @@ function resumenCorto(o: ObraCompleta) {
     pagos_atrasados: o.rp.vencidos.map(p => ({ concepto: p.concepto, monto: p.monto, fecha_prevista: p.fecha_prevista })),
     proximo_pago: prox ? { concepto: prox.concepto, monto: prox.monto, fecha_prevista: prox.fecha_prevista, condicion: prox.condicion } : null,
     leyes: { facturado_pesos: o.rl.totalFacturado, tope_pesos: o.rl.tope, excedente_pesos: o.rl.excedente, porcentaje_tope: o.rl.pctTope != null ? Math.round(o.rl.pctTope * 100) : null, alerta: o.rl.alerta },
-    avance_obra: o.avance,
     fecha_inicio: o.fecha_inicio,
     fin_previsto: o.fecha_fin_prevista,
     fin_real: o.fecha_fin_real,

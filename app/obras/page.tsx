@@ -130,8 +130,8 @@ export default function ObrasDashboard() {
               {activas.slice(0, 8).map(o => (
                 <Fila key={o.id} onClick={() => router.push(`/obras/${o.id}`)} titulo={`${o.edificio} · ${o.titulo}`}
                   detalle={<div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
-                    <div style={{ flex: 1 }}><Barra pct={o.avance / 100} color="#D9954F" /></div>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>obra {o.avance}% · pagado {Math.round(o.rp.pctPagado * 100)}%</span>
+                    <div style={{ flex: 1 }}><Barra pct={o.rp.pctPagado} color="#D9954F" /></div>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>pagado {Math.round(o.rp.pctPagado * 100)}%</span>
                   </div>}
                   derecha={<span className={`badge ${o.situacion.cls}`}>{o.estado}</span>} />
               ))}

@@ -21,11 +21,11 @@ export default function ObraCierre({ obra, onChange, onPedirDocumento }: { obra:
     if (!accion) return
     setSaving(true)
     const cambios: any = accion === 'fin'
-      ? { fecha_fin_real: fecha, estado: 'Finalizada', avance: 100 }
+      ? { fecha_fin_real: fecha, estado: 'Finalizada' }
       // Al aprobar se conserva la fecha de presentación si ya estaba cargada.
       : { cierre_bps_estado: accion, cierre_bps_fecha: accion === 'Presentado' ? fecha : accion === 'Aprobado' ? (obra.cierre_bps_fecha || fecha) : obra.cierre_bps_fecha }
     const antes: any = accion === 'fin'
-      ? { fecha_fin_real: obra.fecha_fin_real, estado: obra.estado, avance: obra.avance }
+      ? { fecha_fin_real: obra.fecha_fin_real, estado: obra.estado }
       : { cierre_bps_estado: obra.cierre_bps_estado, cierre_bps_fecha: obra.cierre_bps_fecha }
     const { error } = await supabase.from('obras').update(cambios).eq('id', obra.id)
     setSaving(false)

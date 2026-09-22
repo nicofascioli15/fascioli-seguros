@@ -108,12 +108,6 @@ export default function ObraFichaPage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>
             {(obra.fecha_inicio || obra.fecha_fin_prevista) && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarClock size={13} /> {formatFecha(obra.fecha_inicio)} → {obra.fecha_fin_real ? formatFecha(obra.fecha_fin_real) : `prev. ${formatFecha(obra.fecha_fin_prevista)}`}</span>}
           </div>
-          {!obra.fecha_fin_real && obra.estado !== 'Presupuestada' && obra.estado !== 'Cancelada' && (
-            <div style={{ marginTop: 12, maxWidth: 360 }}>
-              <div style={{ fontSize: 11, color: '#B8C5D6', marginBottom: 4 }}>Avance de obra: {obra.avance}%</div>
-              <Barra pct={obra.avance / 100} color="#E2C47A" fondo="rgba(255,255,255,.15)" />
-            </div>
-          )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {obra.estado !== 'Cancelada' && obra.estado !== 'Presupuestada' && (
@@ -239,7 +233,6 @@ function DatosObra({ obra, onEditar }: { obra: ObraCompleta; onEditar: () => voi
     ['Fin previsto', formatFecha(obra.fecha_fin_prevista)],
     ['Fin real', formatFecha(obra.fecha_fin_real)],
     ['Estado', obra.estado],
-    ['Avance', `${obra.avance}%`],
     ['Tope leyes sociales', formatMonto(obra.tope_leyes)],
     ['Garantía', `${textoGarantia(obra.garantia_meses, obra.garantia_unidad)}${obra.garantia.hasta ? ` · vence ${formatFecha(obra.garantia.hasta)}` : ''}`],
     ['Cierre BPS', `${obra.cierre_bps_estado}${obra.cierre_bps_fecha ? ` (${formatFecha(obra.cierre_bps_fecha)})` : ''}`],

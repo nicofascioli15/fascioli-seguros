@@ -91,7 +91,6 @@ export function formToPayload(f: ObraFormState) {
     fecha_inicio: f.fecha_inicio || null,
     fecha_fin_prevista: f.fecha_fin_prevista || null,
     fecha_fin_real: finReal,
-    avance: finReal ? 100 : Math.max(0, Math.min(100, Number(f.avance) || 0)),
     // Si se carga la fecha de fin real, la obra pasa sola a "Finalizada" (salvo que esté cancelada);
     // si se borra la fecha de una obra finalizada, vuelve a "En ejecución".
     estado: finReal && f.estado !== 'Cancelada' ? 'Finalizada' : !finReal && f.estado === 'Finalizada' ? 'En ejecución' : f.estado,
@@ -213,12 +212,6 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
         <DatePicker value={form.fecha_fin_prevista} onChange={v => set({ fecha_fin_prevista: v })} placeholder="Según contrato" />
       </div>
       {!esNueva && <>
-      <div className="fgroup">
-        <label>Avance físico de la obra (%)</label>
-        <input type="number" min={0} max={100} value={form.fecha_fin_real ? 100 : form.avance} disabled={!!form.fecha_fin_real}
-          onChange={e => set({ avance: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })} />
-        <div style={ayuda}>Cuánto del trabajo está hecho (no es plata). Sirve para ver de un vistazo cómo viene la obra y para los pagos "por avance".</div>
-      </div>
       <div className="fgroup">
         <label>Fin real de la obra</label>
         <DatePicker value={form.fecha_fin_real} onChange={v => set({ fecha_fin_real: v })} placeholder="Cuando se termina" />

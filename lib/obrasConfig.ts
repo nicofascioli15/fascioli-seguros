@@ -344,7 +344,7 @@ export function situacionObra(o: Obra, hoy = hoyLocal()): { label: string; cls: 
   if (o.estado === 'Cancelada') return { label: 'Cancelada', cls: 'badge-neutral' }
   if (o.estado === 'Presupuestada') return { label: 'Presupuestada', cls: 'badge-neutral' }
   if (o.estado === 'Contratada') return { label: 'Contratada', cls: 'badge-gold' }
-  if (o.estado === 'En ejecución' || !o.fecha_fin_real) return { label: `En ejecución${o.avance ? ` · ${o.avance}%` : ''}`, cls: 'badge-warning' }
+  if (o.estado === 'En ejecución' || !o.fecha_fin_real) return { label: 'En ejecución', cls: 'badge-warning' }
   const c = cierreBps(o, hoy)
   if (c.pendiente) return { label: c.vencido ? 'Cierre BPS vencido' : 'Falta cierre BPS', cls: 'badge-danger' }
   const g = garantiaObra(o, hoy)
