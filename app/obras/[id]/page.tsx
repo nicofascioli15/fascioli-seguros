@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Pencil, Trash2, Building2, Briefcase, AlertTriangle, Wallet, Scale, ShieldCheck, FileText, MessageSquareText, ClipboardList, CalendarClock, CheckCircle2, Circle, FileCheck2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Trash2, Building2, Briefcase, AlertTriangle, Wallet, Scale, ShieldCheck, FileText, MessageSquareText, ClipboardList, CalendarClock, CheckCircle2, Circle, FileCheck2, Printer } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -15,6 +15,7 @@ import ObraCierre from '@/components/obras/ObraCierre'
 import ObraDocumentos from '@/components/obras/ObraDocumentos'
 import ObraComentarios from '@/components/obras/ObraComentarios'
 import { Barra, Kpi, colorLeyes } from '@/components/obras/ui'
+import { imprimirObraPDF } from '@/lib/obraPdf'
 import { fetchObrasCompletas, soloColumnasObra, type ObraCompleta } from '@/lib/obrasData'
 import { formatMonto, formatFecha, TIPOS_OBRA, textoGarantia, cuotasPagas, tieneF9 } from '@/lib/obrasConfig'
 
@@ -31,6 +32,7 @@ export default function ObraFichaPage() {
   const [eliminando, setEliminando] = useState(false)
   const [tipoDocInicial, setTipoDocInicial] = useState<string | undefined>(undefined)
   const [tiposDocs, setTiposDocs] = useState<string[]>([])
+  const [imprimiendo, setImprimiendo] = useState(false)
 
   useEffect(() => { cargar() }, [id])
 
@@ -41,6 +43,23 @@ export default function ObraFichaPage() {
     ])
     setObra(o || null)
     setTiposDocs((docs || []).map((d: any) => d.tipo || ''))
+  }
+
+  async function imprimir() {
+    if (!obra) return
+    setImprimiendo(true)
+    try {
+      const [{ data: ed }, { data: emp }, { data: docs }, { data: coms }] = await Promise.all([
+        supabase.from('mant_clientes').select('direccion').eq('id', obra.cliente_id).maybeSingle(),
+        obra.empresa ? supabase.from('obras_empresas').select('rut, contacto, tel, email').eq('nombre', obra.empresa).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from('obras_documentos').select('nombre, tipo, created_at').eq('obra_id', obra.id).order('created_at'),
+        supabase.from('obras_comentarios').select('fecha, texto').eq('obra_id', obra.id).order('fecha', { ascending: false }),
+      ])
+      await imprimirObraPDF(obra, { direccion: ed?.direccion, empresaDatos: emp, documentos: docs || [], comentarios: coms || [] })
+    } catch (e: any) {
+      showToast(`No se pudo generar el PDF: ${e?.message || e}`, 'error')
+    }
+    setImprimiendo(false)
   }
 
   function irA(t: Tab, tipoDoc?: string) {
@@ -115,6 +134,7 @@ export default function ObraFichaPage() {
               <FileCheck2 size={13} /> {obra.fecha_fin_real ? 'Cierre BPS (F9)' : 'Fin de obra y F9'}
             </button>
           )}
+          <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={imprimir} disabled={imprimiendo} title="Descargar la ficha completa en PDF">{imprimiendo ? <Loader2 size={13} className="spin" /> : <Printer size={13} />} PDF</button>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditando(true)}><Pencil size={13} /> Editar</button>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: '#FCA5A5', borderColor: 'rgba(252,165,165,.35)' }} onClick={() => setConfirmEliminar(true)}><Trash2 size={13} /></button>
         </div>
