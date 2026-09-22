@@ -5,6 +5,21 @@ import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS  = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
+const ANIO_MIN = 1950   // hay edificios y contratos muy viejos
+
+// Acepta "d/m/aaaa", "dd-mm-aaaa", "dd.mm.aaaa" o "ddmmaaaa" y devuelve "aaaa-mm-dd" (o null si no es válida).
+function parsearFechaEscrita(txt: string): string | null {
+  const t = txt.trim()
+  let d: number, m: number, y: number
+  const sep = t.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2}|\d{4})$/)
+  const pegado = t.match(/^(\d{2})(\d{2})(\d{4})$/)
+  if (sep) { d = +sep[1]; m = +sep[2]; y = +sep[3] }
+  else if (pegado) { d = +pegado[1]; m = +pegado[2]; y = +pegado[3] }
+  else return null
+  if (y < 100) y += y > (new Date().getFullYear() % 100) + 10 ? 1900 : 2000
+  if (m < 1 || m > 12 || d < 1 || d > new Date(y, m, 0).getDate() || y < 1900 || y > 2100) return null
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
 
 type Props = {
   value: string
@@ -20,17 +35,21 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
   const [pos, setPos]           = useState({ top: 0, left: 0, width: 0 })
   const triggerRef              = useRef<HTMLDivElement>(null)
   const calRef                  = useRef<HTMLDivElement>(null)
+  const [escrita, setEscrita]   = useState('')
+  const [errorEscrita, setErrorEscrita] = useState(false)
 
   // Calculate dropdown position when opening
   function openCalendar() {
     if (disabled || !triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    const calH = 340 // approximate calendar height
+    const calH = 390 // approximate calendar height
     const spaceBelow = window.innerHeight - rect.bottom
     const top = spaceBelow >= calH
       ? rect.bottom + window.scrollY + 6
       : rect.top + window.scrollY - calH - 6
     setPos({ top, left: rect.left + window.scrollX, width: Math.max(rect.width, 280) })
+    setEscrita(value ? formatDisplay(value) : '')
+    setErrorEscrita(false)
     setOpen(o => !o)
   }
 
@@ -100,6 +119,18 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
   const daysInMonth    = getDaysInMonth(viewYear, viewMonth)
   const firstDayOffset = getFirstDayOfMonth(viewYear, viewMonth)
 
+  const anioMax = today.getFullYear() + 10
+  const anioDesde = Math.min(ANIO_MIN, viewYear)
+  const anios = Array.from({ length: Math.max(anioMax, viewYear) - anioDesde + 1 }, (_, i) => Math.max(anioMax, viewYear) - i)   // del más nuevo al más viejo
+
+  function aplicarEscrita() {
+    if (!escrita.trim()) return
+    const f = parsearFechaEscrita(escrita)
+    if (!f) { setErrorEscrita(true); return }
+    onChange(f)
+    setOpen(false)
+  }
+
   const cells: (number | null)[] = [
     ...Array(firstDayOffset).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
@@ -124,6 +155,17 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
       }}
       onMouseDown={e => e.stopPropagation()}
     >
+      {/* Escribir la fecha directo (más rápido para fechas viejas) */}
+      <input
+        value={escrita}
+        onChange={e => { setEscrita(e.target.value); setErrorEscrita(false) }}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicarEscrita() } }}
+        onBlur={() => { if (escrita.trim() && escrita !== (value ? formatDisplay(value) : '')) aplicarEscrita() }}
+        placeholder="Escribí la fecha: dd/mm/aaaa"
+        style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', marginBottom: errorEscrita ? 4 : 12, border: `1.5px solid ${errorEscrita ? 'var(--danger, #DC2626)' : 'var(--border-soft)'}`, borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+      />
+      {errorEscrita && <div style={{ fontSize: 11.5, color: 'var(--danger, #DC2626)', marginBottom: 10 }}>Fecha no válida. Ej: 15/03/1978</div>}
+
       {/* Month/Year nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button onClick={prevMonth}
@@ -139,7 +181,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
           </select>
           <select value={viewYear} onChange={e => setViewYear(+e.target.value)}
             style={{ border: 'none', background: 'none', fontWeight: 800, fontSize: 15, color: 'var(--text-main)', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-            {Array.from({ length: today.getFullYear() + 10 - 2021 + 1 }, (_, i) => 2021 + i).map(y =>
+            {anios.map(y =>
               <option key={y} value={y}>{y}</option>
             )}
           </select>
