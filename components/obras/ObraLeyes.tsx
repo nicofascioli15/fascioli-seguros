@@ -6,6 +6,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { useAdjuntos, subirAdjuntos, AdjuntoBoton, AdjuntosModal, SelectorComprobante } from '@/components/obras/Adjuntos'
 import { parseMonto } from '@/components/obras/ObraForm'
 import { formatMonto, formatFecha, formatPeriodo, hoyLocal, redondear, ALERTA_TOPE_LEYES, type LeyObra } from '@/lib/obrasConfig'
 import { soloColumnasLey, type ObraCompleta } from '@/lib/obrasData'
@@ -28,6 +29,9 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
   const [saving, setSaving] = useState(false)
   const [pagando, setPagando] = useState<LeyObra | null>(null)
   const [pagoForm, setPagoForm] = useState({ fecha: hoy, metodo: '', referencia: '' })
+  const [comprobantes, setComprobantes] = useState<File[]>([])
+  const [verAdjuntos, setVerAdjuntos] = useState<LeyObra | null>(null)
+  const adjuntos = useAdjuntos(obra.id, 'ley_id')
   const [confirmDeshacer, setConfirmDeshacer] = useState<LeyObra | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState<LeyObra | null>(null)
   const [editTope, setEditTope] = useState(false)
@@ -52,6 +56,7 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
     setEditando(l)
   }
   function abrirPago(l: LeyObra) {
+    setComprobantes([])
     setPagoForm({ fecha: hoy, metodo: metodos[0] || 'Transferencia', referencia: l.comprobante || '' })
     setPagando(l)
   }
@@ -89,6 +94,13 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
     setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'editar', tabla: 'obras_leyes', registroId: pagando.id, descripcion: `Leyes ${formatPeriodo(pagando.periodo)} pagadas (${formatMonto(pagando.monto)}) — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: false, fecha_pago: null, metodo: pagando.metodo ?? null, comprobante: pagando.comprobante }, datosDespues: cambios })
+    if (comprobantes.length) {
+      setSaving(true)
+      const errores = await subirAdjuntos({ obraId: obra.id, campo: 'ley_id', itemId: pagando.id, tipo: 'Planilla / factura BPS', files: comprobantes, etiqueta: `Leyes ${formatPeriodo(pagando.periodo)} — ${obra.titulo} (${obra.edificio})` })
+      setSaving(false)
+      if (errores.length) showToast(`El pago quedó registrado, pero no se pudo subir el comprobante: ${errores.join(' · ')}`, 'error')
+      adjuntos.recargar()
+    }
     showToast('Pago de leyes registrado', 'success')
     setPagando(null)
     onChange()
@@ -223,11 +235,13 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
             {l.pagado ? (
               <>
                 <span className="cuota-paid-tag">Pagada</span>
-                <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => setConfirmDeshacer(l)}>Deshacer</button>
+                <AdjuntoBoton count={adjuntos.porItem[l.id]?.length || 0} onClick={() => setVerAdjuntos(l)} />
+                  <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => setConfirmDeshacer(l)}>Deshacer</button>
               </>
             ) : (
               <>
                 <button className="btn-primary btn-sm" onClick={() => abrirPago(l)}>+ Registrar pago</button>
+                  <AdjuntoBoton count={adjuntos.porItem[l.id]?.length || 0} onClick={() => setVerAdjuntos(l)} />
                 <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} title="Editar" onClick={() => abrirEditar(l)}><Pencil size={12} /></button>
                 <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6, color: 'var(--danger)', borderColor: '#FEE2E2' }} title="Eliminar" onClick={() => setConfirmEliminar(l)}><Trash2 size={12} /></button>
               </>
@@ -299,6 +313,7 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
               <label>Referencia</label>
               <input value={pagoForm.referencia} onChange={e => setPagoForm(f => ({ ...f, referencia: e.target.value }))} placeholder="N° de factura BPS / comprobante (opcional)" />
             </div>
+            <SelectorComprobante files={comprobantes} setFiles={setComprobantes} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setPagando(null)}>Cancelar</button>
               <button className="btn-primary" onClick={registrarPago} disabled={saving}>
@@ -307,6 +322,12 @@ export default function ObraLeyes({ obra, onChange }: { obra: ObraCompleta; onCh
             </div>
           </div>
         </div>
+      )}
+
+      {verAdjuntos && (
+        <AdjuntosModal obraId={obra.id} campo="ley_id" itemId={verAdjuntos.id} tipo={'Planilla / factura BPS'}
+          titulo={`Comprobantes · Leyes ${formatPeriodo(verAdjuntos.periodo)}`} subtitulo={`${obra.edificio} · ${obra.titulo} · ${formatMonto(verAdjuntos.monto)}`} etiqueta={`Leyes ${formatPeriodo(verAdjuntos.periodo)} — ${obra.titulo} (${obra.edificio})`}
+          docs={adjuntos.porItem[verAdjuntos.id] || []} onClose={() => setVerAdjuntos(null)} onChange={adjuntos.recargar} />
       )}
 
       <ConfirmDialog

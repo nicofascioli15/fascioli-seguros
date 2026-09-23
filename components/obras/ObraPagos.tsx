@@ -6,6 +6,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { useAdjuntos, subirAdjuntos, AdjuntoBoton, AdjuntosModal, SelectorComprobante } from '@/components/obras/Adjuntos'
 import { parseMonto } from '@/components/obras/ObraForm'
 import {
   formatMonto, formatFecha, hoyLocal, generarPlan, PRESETS_PLAN, TIPOS_PAGO, addMesesObra, redondear,
@@ -29,6 +30,9 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
   const [saving, setSaving] = useState(false)
   const [pagando, setPagando] = useState<PagoObra | null>(null)
   const [pagoForm, setPagoForm] = useState({ fecha: hoy, metodo: '', referencia: '' })
+  const [comprobantes, setComprobantes] = useState<File[]>([])
+  const [verAdjuntos, setVerAdjuntos] = useState<PagoObra | null>(null)
+  const adjuntos = useAdjuntos(obra.id, 'pago_id')
   const [confirmDeshacer, setConfirmDeshacer] = useState<PagoObra | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState<PagoObra | null>(null)
   const [showPlan, setShowPlan] = useState(false)
@@ -49,6 +53,7 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
     setEditando(p)
   }
   function abrirPago(p: PagoObra) {
+    setComprobantes([])
     setPagoForm({ fecha: p.fecha_prevista && p.fecha_prevista <= hoy ? p.fecha_prevista : hoy, metodo: metodos[0] || 'Transferencia', referencia: '' })
     setPagando(p)
   }
@@ -85,6 +90,13 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
     setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'editar', tabla: 'obras_pagos', registroId: pagando.id, descripcion: `Pago registrado: ${pagando.concepto} (${formatMonto(pagando.monto, moneda)}) — ${obra.titulo} (${obra.edificio})`, datosAntes: { pagado: false, fecha_pago: null, metodo: pagando.metodo ?? null, comprobante: pagando.comprobante }, datosDespues: cambios })
+    if (comprobantes.length) {
+      setSaving(true)
+      const errores = await subirAdjuntos({ obraId: obra.id, campo: 'pago_id', itemId: pagando.id, tipo: 'Recibo', files: comprobantes, etiqueta: `${pagando.concepto} — ${obra.titulo} (${obra.edificio})` })
+      setSaving(false)
+      if (errores.length) showToast(`El pago quedó registrado, pero no se pudo subir el comprobante: ${errores.join(' · ')}`, 'error')
+      adjuntos.recargar()
+    }
     showToast('Pago registrado', 'success')
     setPagando(null)
     onChange()
@@ -163,11 +175,13 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
               {p.pagado ? (
                 <>
                   <span className="cuota-paid-tag">Pagada</span>
+                  <AdjuntoBoton count={adjuntos.porItem[p.id]?.length || 0} onClick={() => setVerAdjuntos(p)} />
                   <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => setConfirmDeshacer(p)}>Deshacer</button>
                 </>
               ) : (
                 <>
                   <button className="btn-primary btn-sm" onClick={() => abrirPago(p)}>+ Registrar pago</button>
+                  <AdjuntoBoton count={adjuntos.porItem[p.id]?.length || 0} onClick={() => setVerAdjuntos(p)} />
                   <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6 }} title="Editar" onClick={() => abrirEditar(p)}><Pencil size={12} /></button>
                   <button className="btn-outline btn-sm" style={{ fontSize: 11, marginLeft: 6, color: 'var(--danger)', borderColor: '#FEE2E2' }} title="Eliminar" onClick={() => setConfirmEliminar(p)}><Trash2 size={12} /></button>
                 </>
@@ -207,6 +221,7 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
               <label>Referencia</label>
               <input value={pagoForm.referencia} onChange={e => setPagoForm(f => ({ ...f, referencia: e.target.value }))} placeholder="Comprobante / factura (opcional)" />
             </div>
+            <SelectorComprobante files={comprobantes} setFiles={setComprobantes} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setPagando(null)}>Cancelar</button>
               <button className="btn-primary" onClick={registrarPago} disabled={saving}>
@@ -245,6 +260,12 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
             </div>
           </div>
         </div>
+      )}
+
+      {verAdjuntos && (
+        <AdjuntosModal obraId={obra.id} campo="pago_id" itemId={verAdjuntos.id} tipo={'Recibo'}
+          titulo={`Comprobantes · ${verAdjuntos.concepto}`} subtitulo={`${obra.edificio} · ${obra.titulo} · ${formatMonto(verAdjuntos.monto, moneda)}`} etiqueta={`${verAdjuntos.concepto} — ${obra.titulo} (${obra.edificio})`}
+          docs={adjuntos.porItem[verAdjuntos.id] || []} onClose={() => setVerAdjuntos(null)} onChange={adjuntos.recargar} />
       )}
 
       <ConfirmDialog

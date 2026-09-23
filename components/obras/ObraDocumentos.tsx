@@ -8,7 +8,7 @@ import { registrarAudit } from '@/lib/audit'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { DOCS_TIPOS_OBRAS, formatFecha } from '@/lib/obrasConfig'
 
-type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string }
+type Doc = { id: string; nombre: string; tipo: string; storage_path: string; tamanio_bytes: number; created_at: string; pago_id?: string | null; ley_id?: string | null }
 
 function formatBytes(b: number) {
   if (!b) return '—'
@@ -112,7 +112,7 @@ export default function ObraDocumentos({ obraId, etiqueta, tipoInicial, onCount 
               <FileText size={18} color="var(--gold)" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.nombre}>{d.nombre}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{d.tipo} · {formatBytes(d.tamanio_bytes)} · {formatFecha(d.created_at)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{d.tipo} · {formatBytes(d.tamanio_bytes)} · {formatFecha(d.created_at)}{d.pago_id ? ' · adjunto a una cuota' : d.ley_id ? ' · adjunto a leyes sociales' : ''}</div>
               </div>
               <button className="btn-outline btn-sm" title="Descargar" onClick={() => descargarDocumento(supabase, d.storage_path)}><Download size={12} /></button>
               <button className="btn-outline btn-sm" title="Eliminar" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(d)}><Trash2 size={12} /></button>
