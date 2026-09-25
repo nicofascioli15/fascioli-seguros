@@ -34,7 +34,7 @@ export default function ObraFichaPage() {
   const [tipoDocInicial, setTipoDocInicial] = useState<string | undefined>(undefined)
   const [tiposDocs, setTiposDocs] = useState<string[]>([])
   const [imprimiendo, setImprimiendo] = useState(false)
-  const [empresaDatos, setEmpresaDatos] = useState<{ rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null } | null>(null)
+  const [empresaDatos, setEmpresaDatos] = useState<{ rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null } | null>(null)
 
   useEffect(() => { cargar() }, [id])
 
@@ -132,7 +132,7 @@ export default function ObraFichaPage() {
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: '#B8C5D6' }}>
             <Link href={`/obras/lista?edificio=${obra.cliente_id}`} style={{ color: '#E2C47A', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}><Building2 size={13} /> {obra.edificio}</Link>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>
-            {(empresaDatos?.banco || empresaDatos?.nro_cuenta) && <CuentaBanco banco={empresaDatos.banco} cuenta={empresaDatos.nro_cuenta} oscuro />}
+            {(empresaDatos?.banco || empresaDatos?.nro_cuenta) && <CuentaBanco banco={empresaDatos.banco} cuenta={empresaDatos.nro_cuenta} titular={empresaDatos.titular_cuenta} oscuro />}
             {(obra.fecha_inicio || obra.fecha_fin_prevista) && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarClock size={13} /> {formatFecha(obra.fecha_inicio)} → {obra.fecha_fin_real ? formatFecha(obra.fecha_fin_real) : `prev. ${formatFecha(obra.fecha_fin_prevista)}`}</span>}
           </div>
         </div>

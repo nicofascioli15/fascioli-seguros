@@ -4,7 +4,7 @@ import { formatFecha, formatPeriodo, formatMonto, TIPOS_OBRA, TIPOS_PAGO, textoG
 
 type Extra = {
   direccion?: string | null
-  empresaDatos?: { rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null } | null
+  empresaDatos?: { rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null } | null
   documentos: { nombre: string; tipo: string | null; created_at: string }[]
   comentarios: { fecha: string; texto: string }[]
 }
@@ -123,7 +123,7 @@ export async function imprimirObraPDF(obra: ObraCompleta, extra: Extra) {
     ...(extra.empresaDatos?.contacto || extra.empresaDatos?.tel || extra.empresaDatos?.email
       ? [['Contacto empresa', [extra.empresaDatos?.contacto, extra.empresaDatos?.tel, extra.empresaDatos?.email].filter(Boolean).join(' · ')] as [string, string]] : []),
     ...(extra.empresaDatos?.banco || extra.empresaDatos?.nro_cuenta
-      ? [['Cuenta bancaria', [extra.empresaDatos?.banco, extra.empresaDatos?.nro_cuenta].filter(Boolean).join(' · ')] as [string, string]] : []),
+      ? [['Cuenta bancaria', [extra.empresaDatos?.banco, extra.empresaDatos?.nro_cuenta, extra.empresaDatos?.titular_cuenta ? `a nombre de ${extra.empresaDatos.titular_cuenta}` : null].filter(Boolean).join(' · ')] as [string, string]] : []),
     ['Tipo de obra', tipoLabel],
     ['Obra a nombre de', aNombre],
     ['El cierre (F9) lo hace', obra.cierre.responsable === 'empresa' ? 'La empresa' : 'La administración'],

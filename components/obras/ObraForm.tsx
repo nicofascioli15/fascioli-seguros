@@ -269,7 +269,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
 function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: string; empresas: string[]; onChange: (v: string) => void; onCreada?: (nombre: string) => void }) {
   const supabase = createClient()
   const [creando, setCreando] = useState(false)
-  const [nueva, setNueva] = useState({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '' })
+  const [nueva, setNueva] = useState({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '', titular_cuenta: '' })
   const [saving, setSaving] = useState(false)
 
   async function crear() {
@@ -278,14 +278,14 @@ function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: strin
     const existente = empresas.find(e => e.toLowerCase() === nombre.toLowerCase())
     if (existente) { onChange(existente); setCreando(false); return }
     setSaving(true)
-    const payload = { nombre, rut: nueva.rut.trim() || null, contacto: nueva.contacto.trim() || null, tel: nueva.tel.trim() || null, banco: nueva.banco || null, nro_cuenta: nueva.nro_cuenta.trim() || null }
+    const payload = { nombre, rut: nueva.rut.trim() || null, contacto: nueva.contacto.trim() || null, tel: nueva.tel.trim() || null, banco: nueva.banco || null, nro_cuenta: nueva.nro_cuenta.trim() || null, titular_cuenta: nueva.titular_cuenta.trim() || null }
     const { data, error } = await supabase.from('obras_empresas').insert([payload]).select().single()
     setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'crear', tabla: 'obras_empresas', registroId: data?.id, descripcion: `Empresa de obras agregada (desde nueva obra): ${nombre}`, datosDespues: data })
     onCreada?.(nombre)
     onChange(nombre)
-    setNueva({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '' })
+    setNueva({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '', titular_cuenta: '' })
     setCreando(false)
     showToast(`Empresa "${nombre}" creada`, 'success')
   }
@@ -320,6 +320,7 @@ function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: strin
               {BANCOS_UY.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <input style={inputSt} value={nueva.nro_cuenta} onChange={e => setNueva(n => ({ ...n, nro_cuenta: e.target.value }))} placeholder="N° de cuenta (opcional)" />
+            <input style={{ ...inputSt, gridColumn: 'span 2' }} value={nueva.titular_cuenta} onChange={e => setNueva(n => ({ ...n, titular_cuenta: e.target.value }))} placeholder="Titular de la cuenta (si es distinto a la empresa)" />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
             <button type="button" className="btn-outline btn-sm" onClick={() => setCreando(false)}>Cancelar</button>

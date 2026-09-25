@@ -11,8 +11,8 @@ import CuentaBanco from '@/components/obras/CuentaBanco'
 import { BANCOS_UY } from '@/lib/obrasConfig'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
-type Empresa = { id: string; nombre: string; rut: string | null; contacto: string | null; tel: string | null; email: string | null; banco?: string | null; nro_cuenta?: string | null }
-const vacia = { nombre: '', rut: '', contacto: '', tel: '', email: '', banco: '', nro_cuenta: '' }
+type Empresa = { id: string; nombre: string; rut: string | null; contacto: string | null; tel: string | null; email: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null }
+const vacia = { nombre: '', rut: '', contacto: '', tel: '', email: '', banco: '', nro_cuenta: '', titular_cuenta: '' }
 
 export default function ObrasEmpresasPage() {
   const supabase = createClient()
@@ -50,7 +50,7 @@ export default function ObrasEmpresasPage() {
   async function guardar() {
     if (!form.nombre.trim()) { showToast('Poné el nombre de la empresa', 'error'); return }
     setSaving(true)
-    const payload = { nombre: form.nombre.trim(), rut: form.rut.trim() || null, contacto: form.contacto.trim() || null, tel: form.tel.trim() || null, email: form.email.trim() || null, banco: form.banco || null, nro_cuenta: form.nro_cuenta.trim() || null }
+    const payload = { nombre: form.nombre.trim(), rut: form.rut.trim() || null, contacto: form.contacto.trim() || null, tel: form.tel.trim() || null, email: form.email.trim() || null, banco: form.banco || null, nro_cuenta: form.nro_cuenta.trim() || null, titular_cuenta: form.titular_cuenta.trim() || null }
     if (editando === 'nueva') {
       const { data, error } = await supabase.from('obras_empresas').insert([payload]).select().single()
       if (error) { setSaving(false); showToast(error.message.includes('unique') || error.message.includes('duplicate') ? 'Ya existe una empresa con ese nombre' : error.message, 'error'); return }
@@ -113,14 +113,14 @@ export default function ObrasEmpresasPage() {
                       <div style={{ fontWeight: 800, fontSize: 15 }}>{e.nombre}</div>
                       {e.rut && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>RUT {e.rut}</div>}
                     </div>
-                    <button className="btn-outline btn-sm" onClick={() => { setForm({ nombre: e.nombre, rut: e.rut || '', contacto: e.contacto || '', tel: e.tel || '', email: e.email || '', banco: e.banco || '', nro_cuenta: e.nro_cuenta || '' }); setEditando(e) }}><Pencil size={12} /></button>
+                    <button className="btn-outline btn-sm" onClick={() => { setForm({ nombre: e.nombre, rut: e.rut || '', contacto: e.contacto || '', tel: e.tel || '', email: e.email || '', banco: e.banco || '', nro_cuenta: e.nro_cuenta || '', titular_cuenta: e.titular_cuenta || '' }); setEditando(e) }}><Pencil size={12} /></button>
                     <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(e)}><Trash2 size={12} /></button>
                   </div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {e.contacto && <span>{e.contacto}</span>}
                     {e.tel && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={12} /> {e.tel}</span>}
                     {e.email && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={12} /> {e.email}</span>}
-                    {(e.banco || e.nro_cuenta) && <CuentaBanco banco={e.banco} cuenta={e.nro_cuenta} />}
+                    {(e.banco || e.nro_cuenta) && <CuentaBanco banco={e.banco} cuenta={e.nro_cuenta} titular={e.titular_cuenta} />}
                   </div>
                   <button onClick={() => router.push(`/obras/lista?q=${encodeURIComponent(e.nombre)}`)} disabled={c.total === 0}
                     style={{ marginTop: 'auto', textAlign: 'left', background: 'var(--bg-card-alt)', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, color: 'var(--text-main)', cursor: c.total ? 'pointer' : 'default', fontFamily: 'inherit' }}>
@@ -152,6 +152,7 @@ export default function ObrasEmpresasPage() {
                   {form.banco && !BANCOS_UY.includes(form.banco) && <option value={form.banco}>{form.banco}</option>}
                 </select></div>
               <div className="fgroup"><label>N° de cuenta</label><input value={form.nro_cuenta} onChange={ev => setForm(f => ({ ...f, nro_cuenta: ev.target.value }))} placeholder="Ej: 001234567-00001" /></div>
+              <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Titular de la cuenta</label><input value={form.titular_cuenta} onChange={ev => setForm(f => ({ ...f, titular_cuenta: ev.target.value }))} placeholder="Si es distinto al nombre de la empresa" /></div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
               <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
