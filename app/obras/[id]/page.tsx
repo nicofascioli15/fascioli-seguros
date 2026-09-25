@@ -16,6 +16,7 @@ import ObraDocumentos from '@/components/obras/ObraDocumentos'
 import ObraComentarios from '@/components/obras/ObraComentarios'
 import { Barra, Kpi, colorLeyes } from '@/components/obras/ui'
 import { imprimirObraPDF } from '@/lib/obraPdf'
+import CuentaBanco from '@/components/obras/CuentaBanco'
 import { fetchObrasCompletas, soloColumnasObra, type ObraCompleta } from '@/lib/obrasData'
 import { formatMonto, formatFecha, TIPOS_OBRA, textoGarantia, cuotasPagas, tieneF9 } from '@/lib/obrasConfig'
 
@@ -33,6 +34,7 @@ export default function ObraFichaPage() {
   const [tipoDocInicial, setTipoDocInicial] = useState<string | undefined>(undefined)
   const [tiposDocs, setTiposDocs] = useState<string[]>([])
   const [imprimiendo, setImprimiendo] = useState(false)
+  const [empresaDatos, setEmpresaDatos] = useState<{ rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null } | null>(null)
 
   useEffect(() => { cargar() }, [id])
 
@@ -43,6 +45,11 @@ export default function ObraFichaPage() {
     ])
     setObra(o || null)
     setTiposDocs((docs || []).map((d: any) => d.tipo || ''))
+    // Datos de la empresa (banco y cuenta se muestran en el encabezado)
+    if (o?.empresa) {
+      const { data: emp } = await supabase.from('obras_empresas').select('*').ilike('nombre', o.empresa.replace(/[%_\\]/g, m => '\\' + m)).limit(1).maybeSingle()
+      setEmpresaDatos(emp || null)
+    } else setEmpresaDatos(null)
   }
 
   async function imprimir() {
@@ -51,7 +58,7 @@ export default function ObraFichaPage() {
     try {
       const [{ data: ed }, { data: emp }, { data: docs }, { data: coms }] = await Promise.all([
         supabase.from('mant_clientes').select('direccion').eq('id', obra.cliente_id).maybeSingle(),
-        obra.empresa ? supabase.from('obras_empresas').select('rut, contacto, tel, email').eq('nombre', obra.empresa).maybeSingle() : Promise.resolve({ data: null }),
+        Promise.resolve({ data: empresaDatos }),
         supabase.from('obras_documentos').select('nombre, tipo, created_at').eq('obra_id', obra.id).order('created_at'),
         supabase.from('obras_comentarios').select('fecha, texto').eq('obra_id', obra.id).order('fecha', { ascending: false }),
       ])
@@ -125,6 +132,7 @@ export default function ObraFichaPage() {
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: '#B8C5D6' }}>
             <Link href={`/obras/lista?edificio=${obra.cliente_id}`} style={{ color: '#E2C47A', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}><Building2 size={13} /> {obra.edificio}</Link>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>
+            {(empresaDatos?.banco || empresaDatos?.nro_cuenta) && <CuentaBanco banco={empresaDatos.banco} cuenta={empresaDatos.nro_cuenta} oscuro />}
             {(obra.fecha_inicio || obra.fecha_fin_prevista) && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarClock size={13} /> {formatFecha(obra.fecha_inicio)} → {obra.fecha_fin_real ? formatFecha(obra.fecha_fin_real) : `prev. ${formatFecha(obra.fecha_fin_prevista)}`}</span>}
           </div>
         </div>

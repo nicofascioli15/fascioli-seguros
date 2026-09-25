@@ -92,6 +92,9 @@ export const DOCS_TIPOS_OBRAS = [
   'Inscripción BPS', 'Cierre de obra BPS (F9)', 'Garantía', 'Fotos', 'Otro',
 ]
 
+// Bancos / billeteras para la cuenta de cada empresa
+export const BANCOS_UY = ['BROU', 'Itaú', 'Santander', 'Scotiabank', 'BBVA', 'Prex', 'Mi Dinero', 'Banque Heritage', 'BTG Pactual', 'Mercado Pago']
+
 // Días corridos que da BPS para comunicar el fin de la obra.
 export const PLAZO_CIERRE_BPS_DIAS = 30
 // Aviso cuando las leyes sociales facturadas llegan a este % del tope.

@@ -5,7 +5,7 @@ import DatePicker from '@/components/DatePicker'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
-import { TIPOS_OBRA, CIERRES_BPS, cierreResponsableDefault, addMesesObra, formatFecha, type Obra } from '@/lib/obrasConfig'
+import { TIPOS_OBRA, CIERRES_BPS, cierreResponsableDefault, addMesesObra, formatFecha, type Obra, BANCOS_UY } from '@/lib/obrasConfig'
 
 export type ObraFormState = {
   cliente_id: string
@@ -269,7 +269,7 @@ export default function ObraForm({ form, setForm, edificios, edificioLocked, emp
 function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: string; empresas: string[]; onChange: (v: string) => void; onCreada?: (nombre: string) => void }) {
   const supabase = createClient()
   const [creando, setCreando] = useState(false)
-  const [nueva, setNueva] = useState({ nombre: '', rut: '', contacto: '', tel: '' })
+  const [nueva, setNueva] = useState({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '' })
   const [saving, setSaving] = useState(false)
 
   async function crear() {
@@ -278,14 +278,14 @@ function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: strin
     const existente = empresas.find(e => e.toLowerCase() === nombre.toLowerCase())
     if (existente) { onChange(existente); setCreando(false); return }
     setSaving(true)
-    const payload = { nombre, rut: nueva.rut.trim() || null, contacto: nueva.contacto.trim() || null, tel: nueva.tel.trim() || null }
+    const payload = { nombre, rut: nueva.rut.trim() || null, contacto: nueva.contacto.trim() || null, tel: nueva.tel.trim() || null, banco: nueva.banco || null, nro_cuenta: nueva.nro_cuenta.trim() || null }
     const { data, error } = await supabase.from('obras_empresas').insert([payload]).select().single()
     setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'crear', tabla: 'obras_empresas', registroId: data?.id, descripcion: `Empresa de obras agregada (desde nueva obra): ${nombre}`, datosDespues: data })
     onCreada?.(nombre)
     onChange(nombre)
-    setNueva({ nombre: '', rut: '', contacto: '', tel: '' })
+    setNueva({ nombre: '', rut: '', contacto: '', tel: '', banco: '', nro_cuenta: '' })
     setCreando(false)
     showToast(`Empresa "${nombre}" creada`, 'success')
   }
@@ -315,6 +315,11 @@ function EmpresaSelector({ valor, empresas, onChange, onCreada }: { valor: strin
             <input style={inputSt} value={nueva.rut} onChange={e => setNueva(n => ({ ...n, rut: e.target.value }))} placeholder="RUT (opcional)" />
             <input style={inputSt} value={nueva.tel} onChange={e => setNueva(n => ({ ...n, tel: e.target.value }))} placeholder="Teléfono (opcional)" />
             <input style={{ ...inputSt, gridColumn: 'span 2' }} value={nueva.contacto} onChange={e => setNueva(n => ({ ...n, contacto: e.target.value }))} placeholder="Contacto (opcional)" />
+            <select style={{ ...inputSt, color: nueva.banco ? 'var(--navy)' : 'var(--slate)' }} value={nueva.banco} onChange={e => setNueva(n => ({ ...n, banco: e.target.value }))}>
+              <option value="">Banco (opcional)</option>
+              {BANCOS_UY.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <input style={inputSt} value={nueva.nro_cuenta} onChange={e => setNueva(n => ({ ...n, nro_cuenta: e.target.value }))} placeholder="N° de cuenta (opcional)" />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
             <button type="button" className="btn-outline btn-sm" onClick={() => setCreando(false)}>Cancelar</button>
