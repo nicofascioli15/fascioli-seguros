@@ -120,7 +120,7 @@ export default function ObrasEmpresasPage() {
                     {e.contacto && <span>{e.contacto}</span>}
                     {e.tel && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={12} /> {e.tel}</span>}
                     {e.email && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={12} /> {e.email}</span>}
-                    {(e.banco || e.nro_cuenta) && <CuentaBanco banco={e.banco} cuenta={e.nro_cuenta} titular={e.titular_cuenta} />}
+                    {(e.banco || e.nro_cuenta) && <CuentaBanco banco={e.banco} cuenta={e.nro_cuenta} titular={e.titular_cuenta} empresa={e.nombre} />}
                   </div>
                   <button onClick={() => router.push(`/obras/lista?q=${encodeURIComponent(e.nombre)}`)} disabled={c.total === 0}
                     style={{ marginTop: 'auto', textAlign: 'left', background: 'var(--bg-card-alt)', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, color: 'var(--text-main)', cursor: c.total ? 'pointer' : 'default', fontFamily: 'inherit' }}>
