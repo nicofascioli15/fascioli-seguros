@@ -52,6 +52,23 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
     setForm({ concepto: p.concepto, tipo: p.tipo, monto: String(p.monto), fecha_prevista: p.fecha_prevista || '', condicion: p.condicion || '' })
     setEditando(p)
   }
+  // Lo que falta pagar del contrato (precio total menos lo ya pagado), para sugerir el "Pago total".
+  const saldoPendiente = redondear(Math.max(0, (obra.precio_total ?? 0) - rp.totalPagado))
+  function cambiarTipo(tipo: TipoPago) {
+    setForm(f => {
+      if (tipo !== 'total') return { ...f, tipo }
+      return {
+        ...f, tipo,
+        concepto: !f.concepto.trim() || /^Cuota \d+$/.test(f.concepto.trim()) ? 'Pago total' : f.concepto,
+        monto: !f.monto.trim() && saldoPendiente > 0 ? String(saldoPendiente) : f.monto,
+        condicion: !f.fecha_prevista && !f.condicion.trim() ? 'Al finalizar la obra' : f.condicion,
+      }
+    })
+  }
+  function abrirPagoTotal() {
+    setForm({ concepto: 'Pago total', tipo: 'total', monto: saldoPendiente > 0 ? String(saldoPendiente) : '', fecha_prevista: '', condicion: 'Al finalizar la obra' })
+    setEditando('nuevo')
+  }
   function abrirPago(p: PagoObra) {
     setComprobantes([])
     setPagoForm({ fecha: p.fecha_prevista && p.fecha_prevista <= hoy ? p.fecha_prevista : hoy, metodo: metodos[0] || 'Transferencia', referencia: '' })
@@ -154,7 +171,7 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
 
         {ordenados.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '24px 10px', color: 'var(--text-muted)', fontSize: 13 }}>
-            Todavía no hay pagos. Usá "Armar plan de pagos" para generar la entrega inicial y las cuotas en un paso.
+            Todavía no hay pagos. Usá "Armar plan de pagos" para generar la entrega inicial y las cuotas en un paso, o "Pago total" si se paga todo junto al terminar.
           </div>
         ) : ordenados.map((p, i) => {
           const atrasado = !p.pagado && !!p.fecha_prevista && p.fecha_prevista < hoy
@@ -193,6 +210,7 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn-primary btn-sm" onClick={() => setShowPlan(true)}><Wand2 size={13} /> {pagos.length === 0 ? 'Armar plan de pagos' : 'Rearmar plan'}</button>
           <button className="btn-outline btn-sm" onClick={abrirNuevo}><Plus size={13} /> Agregar pago suelto</button>
+          {pagos.length === 0 && <button className="btn-outline btn-sm" onClick={abrirPagoTotal} title="Un solo pago por el total, al terminar la obra"><Plus size={13} /> Pago total (sin cuotas)</button>}
         </div>
       </div>
 
@@ -244,7 +262,7 @@ export default function ObraPagos({ obra, onChange }: { obra: ObraCompletaLike; 
               <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Concepto</label>
                 <input value={form.concepto} onChange={e => setForm(f => ({ ...f, concepto: e.target.value }))} /></div>
               <div className="fgroup"><label>Tipo</label>
-                <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoPago }))}>
+                <select value={form.tipo} onChange={e => cambiarTipo(e.target.value as TipoPago)}>
                   {TIPOS_PAGO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select></div>
               <div className="fgroup"><label>Monto ({moneda === 'USD' ? 'U$S' : '$'})</label>

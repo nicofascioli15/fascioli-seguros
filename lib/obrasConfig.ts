@@ -7,7 +7,7 @@ export type TipoObra = 'contrato' | 'administracion' | 'menor_cuantia'
 export type TitularBps = 'edificio' | 'empresa'
 export type EstadoObra = 'Presupuestada' | 'Contratada' | 'En ejecución' | 'Finalizada' | 'Cancelada'
 export type CierreBps = 'No aplica' | 'Pendiente' | 'Presentado' | 'Aprobado'
-export type TipoPago = 'entrega_inicial' | 'avance' | 'cuota' | 'final' | 'otro'
+export type TipoPago = 'entrega_inicial' | 'avance' | 'cuota' | 'final' | 'total' | 'otro'
 
 export type Obra = {
   id: string
@@ -84,6 +84,7 @@ export const TIPOS_PAGO: { value: TipoPago; label: string }[] = [
   { value: 'avance', label: 'Por avance de obra' },
   { value: 'cuota', label: 'Cuota' },
   { value: 'final', label: 'Final de obra' },
+  { value: 'total', label: 'Pago total (un solo pago)' },
   { value: 'otro', label: 'Otro' },
 ]
 
