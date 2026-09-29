@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { showToast } from '@/lib/toast'
+import { parseMonto } from '@/components/obras/ObraForm'
 import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
@@ -140,7 +141,7 @@ function fechasACuotaMes(fechas: string[]): string {
 }
 
 type Cliente  = { id: string; nombre: string; direccion: string }
-type Poliza   = { id: string; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number; renovada?: boolean; renueva_poliza_id?: string | null; renovacion_mensual?: boolean }
+type Poliza   = { id: string; monto_cuota?: number | null; numero: string; ramo: string; compania: string; vencimiento: string | null; corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string | null; cliente_id: string; clientes?: { nombre: string }; doc_count?: number; renovada?: boolean; renueva_poliza_id?: string | null; renovacion_mensual?: boolean }
 type Documento = { id: string; nombre: string; storage_path: string; tipo: string; tamanio_bytes: number; created_at: string }
 type Pago     = { id: string; cuota_num: number; fecha: string; metodo: string }
 type ControlMensual = { id: string; poliza_id: string; periodo: string; estado: 'pendiente' | 'controlado' | 'pagado'; fecha_control: string | null; fecha_pago: string | null }
@@ -266,7 +267,7 @@ export default function PolizasPage() {
   const [nuevoCorredor, setNuevoCorredor]         = useState('')
   const [numeroExiste, setNumeroExiste]           = useState(false)
   const [checkingNumero, setCheckingNumero]       = useState(false)
-  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
+  const [form, setForm]               = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
   const [controlesMensuales, setControlesMensuales] = useState<ControlMensual[]>([])
   const [camposRamo, setCamposRamo]   = useState<{id:string;nombre:string;tipo:string;opciones:string|null}[]>([])
   const [valoresCampos, setValoresCampos] = useState<Record<string,string>>({})
@@ -548,6 +549,7 @@ export default function PolizasPage() {
       nota:        editForm.nota || null,
       cuotas:      nCuotas,
       cuota_mes:   nuevasCuotaMes,
+      monto_cuota: parseMonto(String((editForm as any).monto_cuota ?? '')),
     }).eq('id', editando.id)
     // Save/update campos dinamicos
     if (editCamposRamo.length > 0) {
@@ -611,6 +613,7 @@ export default function PolizasPage() {
       corredor_nombre: form.corredor === 'Otro' ? form.corredor_nombre : null,
       corredor_tel:    form.corredor === 'Otro' ? form.corredor_tel    : null,
       moneda: form.moneda, cuotas: nCuotas,
+      monto_cuota: form.renovacionMensual ? null : parseMonto(form.monto_cuota),
       cuota_mes: form.renovacionMensual ? '' : fechasACuotaMes(form.fechasCuotas), nota: form.nota || null,
       renueva_poliza_id: form.tipoAlta === 'renovacion' ? form.renuevaPolizaId : null,
       renovacion_mensual: form.renovacionMensual,
@@ -698,7 +701,7 @@ export default function PolizasPage() {
 
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSeleccionado(null)
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '', renovacionMensual: false })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '', renovacionMensual: false })
     setCamposRamo([])
     setValoresCampos({})
     setShowModal(true)
@@ -708,7 +711,7 @@ export default function PolizasPage() {
   function renovarPoliza() {
     if (!detalle) return
     setClienteSeleccionado({ id: detalle.cliente_id, nombre: detalle.clientes?.nombre || '', direccion: '' })
-    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
+    setForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
     setCamposRamo([])
     setValoresCampos({})
     setPaso('poliza')
@@ -936,6 +939,10 @@ export default function PolizasPage() {
                         <label>Cantidad de cuotas *</label>
                         <input type="number" min="1" max="36" value={form.cuotas} onChange={e => setForm({ ...form, cuotas: e.target.value, fechasCuotas: [] })} placeholder="Ej: 10" />
                       </div>
+                      <div className="fgroup">
+                        <label>Monto de cada cuota <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span></label>
+                        <input inputMode="decimal" value={form.monto_cuota} onChange={e => setForm({ ...form, monto_cuota: e.target.value })} placeholder="Ej: 2.450" />
+                      </div>
                       <div className="fgroup" style={{ gridColumn: 'span 2' }}>
                         <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad de cuotas primero</span></label>
                         <CuotasFechas cuotas={parseInt(form.cuotas) || 0} value={form.fechasCuotas} onChange={v => setForm({ ...form, fechasCuotas: v })} />
@@ -1084,7 +1091,7 @@ export default function PolizasPage() {
               onClick={e => {
                 e.stopPropagation()
                 setEditando(detalle)
-                setEditForm({ numero: detalle.numero, ramo: detalle.ramo, compania: detalle.compania, corredor: detalle.corredor, corredor_nombre: detalle.corredor_nombre || '', corredor_tel: detalle.corredor_tel || '', moneda: detalle.moneda, vencimiento: detalle.vencimiento, nota: detalle.nota, cuotas: detalle.cuotas } as any)
+                setEditForm({ numero: detalle.numero, ramo: detalle.ramo, compania: detalle.compania, corredor: detalle.corredor, corredor_nombre: detalle.corredor_nombre || '', corredor_tel: detalle.corredor_tel || '', moneda: detalle.moneda, vencimiento: detalle.vencimiento, nota: detalle.nota, cuotas: detalle.cuotas, monto_cuota: (detalle as any).monto_cuota ?? '' } as any)
                 setEditPagosCount(detallePagos.length)
                 setEditFechasCuotas(parseFechasCuotaMes(detalle.cuota_mes || ''))
                 supabase.from('ramos').select('id').eq('nombre', detalle.ramo).single().then(({ data: ramoData }) => {
@@ -1365,6 +1372,8 @@ export default function PolizasPage() {
                 <select value={editForm.moneda || ''} onChange={e => setEditForm(p => ({...p, moneda: e.target.value}))}>
                   {catalogos.monedas.map((m:string) => <option key={m}>{m}</option>)}
                 </select></div>
+              <div className="fgroup"><label>Monto de cada cuota</label>
+                <input inputMode="decimal" value={(editForm as any).monto_cuota ?? ''} onChange={e => setEditForm((p: any) => ({ ...p, monto_cuota: e.target.value }))} placeholder="Opcional" /></div>
               <div className="fgroup">
                 <label>Cantidad de cuotas</label>
                 <input type="number" value={editForm.cuotas || ''} min={editPagosCount} max={36}

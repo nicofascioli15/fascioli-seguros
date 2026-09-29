@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { parseMonto } from '@/components/obras/ObraForm'
 import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
@@ -167,6 +168,7 @@ function CuotasFechas({ cuotas, value, onChange }: { cuotas: number; value: stri
 }
 
 type Poliza = {
+  monto_cuota?: number | null
   id: string; numero: string; ramo: string; compania: string; vencimiento: string | null
   corredor: string; corredor_nombre?: string | null; corredor_tel?: string | null; moneda: string; cuotas: number; cuota_mes: string; nota: string
   poliza_campos?: { valor: string; campos_ramo: { nombre: string } }[]
@@ -204,7 +206,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   // Nueva póliza
   const [showPolizaModal, setShowPolizaModal] = useState(false)
-  const [polizaForm, setPolizaForm]           = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
+  const [polizaForm, setPolizaForm]           = useState({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [] as string[], nota: '', tipoAlta: 'nueva' as 'nueva' | 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
   const [camposRamo, setCamposRamo]           = useState<{ id: string; nombre: string; tipo: string; opciones: string | null }[]>([])
   const [valoresCampos, setValoresCampos]     = useState<Record<string, string>>({})
   const [errores, setErrores]                 = useState<Record<string, boolean>>({})
@@ -315,7 +317,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
 
   async function abrirEditar(pol: Poliza) {
     setEditandoPoliza(pol)
-    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, corredor_nombre: pol.corredor_nombre || '', corredor_tel: pol.corredor_tel || '', moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas })
+    setEditPolizaForm({ numero: pol.numero, ramo: pol.ramo, compania: pol.compania, corredor: pol.corredor, corredor_nombre: pol.corredor_nombre || '', corredor_tel: pol.corredor_tel || '', moneda: pol.moneda, vencimiento: pol.vencimiento, nota: pol.nota || '', cuotas: pol.cuotas, monto_cuota: pol.monto_cuota ?? '' })
     setEditFechasCuotas(parseFechasCuotaMes(pol.cuota_mes || ''))
     // Load pagos count
     const { count } = await supabase.from('pagos').select('id', { count: 'exact', head: true }).eq('poliza_id', pol.id)
@@ -350,6 +352,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       moneda: editPolizaForm.moneda, vencimiento: editPolizaForm.vencimiento || null,
       nota: editPolizaForm.nota || null,
       cuotas: nCuotas, cuota_mes: nuevasCuotaMes,
+      monto_cuota: parseMonto(String(editPolizaForm.monto_cuota ?? '')),
     }).eq('id', editandoPoliza.id)
     if (editCamposRamo.length > 0) {
       const upserts = Object.entries(editValoresCampos).filter(([_, v]) => v.trim())
@@ -411,7 +414,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   }
 
   function renovarPoliza(pol: Poliza) {
-    setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
+    setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [], nota: '', tipoAlta: 'renovacion', renuevaPolizaId: '', renovacionMensual: false })
     setCamposRamo([])
     setValoresCampos({})
     setErrores({})
@@ -442,6 +445,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       cliente_id: id, ramo: polizaForm.ramo, compania: polizaForm.compania,
       numero: polizaForm.numero, vencimiento: polizaForm.vencimiento || null,
       corredor: polizaForm.corredor, moneda: polizaForm.moneda, cuotas: nCuotas,
+      monto_cuota: polizaForm.renovacionMensual ? null : parseMonto(polizaForm.monto_cuota),
       corredor_nombre: polizaForm.corredor === 'Otro' ? polizaForm.corredor_nombre : null,
       corredor_tel:    polizaForm.corredor === 'Otro' ? polizaForm.corredor_tel    : null,
       cuota_mes: polizaForm.renovacionMensual ? '' : fechasACuotaMes(polizaForm.fechasCuotas), nota: polizaForm.nota || null,
@@ -490,7 +494,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       }
       setShowPolizaModal(false)
       setCamposRamo([]); setValoresCampos({})
-      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '', renovacionMensual: false })
+      setPolizaForm({ ramo: '', compania: '', numero: '', vencimiento: '', corredor: '', corredor_nombre: '', corredor_tel: '', moneda: '', cuotas: '', monto_cuota: '', fechasCuotas: [], nota: '', tipoAlta: 'nueva', renuevaPolizaId: '', renovacionMensual: false })
       await fetchPolizas()
     }
     setSavingPoliza(false)
@@ -983,6 +987,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                     <input type="number" min="1" max="36" value={polizaForm.cuotas} onChange={e => { setPolizaForm({ ...polizaForm, cuotas: e.target.value, fechasCuotas: [] }); setErrores(p => ({...p, cuotas: false})) }} placeholder="Ej: 10" style={{ borderColor: errores.cuotas ? 'var(--danger)' : undefined }} />
                     {errores.cuotas && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>Ingresá al menos 1 cuota</div>}
                   </div>
+                  <div className="fgroup">
+                        <label>Monto de cada cuota <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opcional)</span></label>
+                        <input inputMode="decimal" value={polizaForm.monto_cuota} onChange={e => setPolizaForm({ ...polizaForm, monto_cuota: e.target.value })} placeholder="Ej: 2.450" />
+                      </div>
                   <div className="fgroup" style={{ gridColumn: 'span 2' }}>
                     <label>Fechas de vencimiento por cuota *<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>— ingresá la cantidad primero</span></label>
                     {Object.keys(errores).some(k => k.startsWith('fecha_cuota')) && <div style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 6 }}>Completá todas las fechas</div>}
@@ -1111,6 +1119,8 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                 <select value={editPolizaForm.moneda || ''} onChange={e => setEditPolizaForm((p: any) => ({...p, moneda: e.target.value}))}>
                   {catalogos.monedas.map(m => <option key={m}>{m}</option>)}
                 </select></div>
+              <div className="fgroup"><label>Monto de cada cuota</label>
+                <input inputMode="decimal" value={editPolizaForm.monto_cuota ?? ''} onChange={e => setEditPolizaForm((p: any) => ({ ...p, monto_cuota: e.target.value }))} placeholder="Opcional" /></div>
               <div className="fgroup">
                 <label>Cantidad de cuotas</label>
                 <input type="number" value={editPolizaForm.cuotas || ''} min={editPagosCount} max={36}
