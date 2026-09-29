@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, AlertTriangle, X, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { hoyLocal } from '@/lib/obrasConfig'
 import DatePicker from '@/components/DatePicker'
 import { Pagination, paginate } from '@/components/Pagination'
 
@@ -59,7 +60,7 @@ export default function SiniestrosPage() {
   const [polizaSel, setPolizaSel]     = useState<Poliza | null>(null)
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState({
-    tipo: 'Choque', descripcion: '', fecha_ocurrencia: new Date().toISOString().slice(0,10), estado: 'En gestión'
+    tipo: 'Choque', descripcion: '', fecha_ocurrencia: hoyLocal(), estado: 'En gestión'
   })
 
   useEffect(() => {
@@ -136,7 +137,7 @@ export default function SiniestrosPage() {
   function abrirModal() {
     setPaso('cliente'); setClienteSearch(''); setClienteSel(null); setPolizaSel(null)
     setPolizasCliente([])
-    setForm({ tipo: 'Choque', descripcion: '', fecha_ocurrencia: new Date().toISOString().slice(0,10), estado: 'En gestión' })
+    setForm({ tipo: 'Choque', descripcion: '', fecha_ocurrencia: hoyLocal(), estado: 'En gestión' })
     setShowModal(true)
   }
 

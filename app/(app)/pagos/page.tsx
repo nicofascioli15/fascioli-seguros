@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Search, Download, CheckCircle, Loader2, X, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { registrarAudit } from '@/lib/audit'
+import { showToast } from '@/lib/toast'
+import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
+import { hoyLocal } from '@/lib/obrasConfig'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
 import { Pagination, paginate } from '@/components/Pagination'
@@ -61,7 +65,7 @@ export default function PagosPage() {
   const [search, setSearch]     = useState('')
   const [filtro, setFiltro]     = useState('Todos')
   const [showModal, setShowModal] = useState<Cuota | null>(null)
-  const [pagoForm, setPagoForm] = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
+  const [pagoForm, setPagoForm] = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '' })
   const [saving, setSaving]     = useState(false)
   const [dateVenc, setDateVenc]   = useState<DateRange>({ from: '', to: '' })
   const [dateCobro, setDateCobro] = useState<DateRange>({ from: '', to: '' })
@@ -154,20 +158,28 @@ export default function PagosPage() {
   async function cobrar() {
     if (!showModal) return
     setSaving(true)
-    await supabase.from('pagos').upsert([{
+    const { data: pagoData, error } = await supabase.from('pagos').upsert([{
       poliza_id:  showModal.poliza_id,
       cuota_num:  showModal.cuota_num,
       fecha:      pagoForm.fecha,
       metodo:     pagoForm.metodo,
       referencia: pagoForm.referencia,
-    }], { onConflict: 'poliza_id,cuota_num' })
-    setShowModal(null)
+    }], { onConflict: 'poliza_id,cuota_num' }).select().single()
     setSaving(false)
+    if (error) { showToast(`No se pudo registrar el cobro: ${error.message}`, 'error'); return }
+    await registrarAudit({ accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id, descripcion: `Pago registrado: cuota ${showModal.cuota_num} — ${showModal.ramo} ${showModal.numero_poliza} — ${showModal.cliente_nombre}`, datosDespues: pagoData })
+    setShowModal(null)
+    showToast('Cuota cobrada', 'success')
+    avisarCuotasCambiaron()
     await fetchCuotas()
   }
 
   async function deshacer(c: Cuota) {
-    await supabase.from('pagos').delete().eq('poliza_id', c.poliza_id).eq('cuota_num', c.cuota_num)
+    const { data: pagoAntes } = await supabase.from('pagos').select('*').eq('poliza_id', c.poliza_id).eq('cuota_num', c.cuota_num).maybeSingle()
+    const { error } = await supabase.from('pagos').delete().eq('poliza_id', c.poliza_id).eq('cuota_num', c.cuota_num)
+    if (error) { showToast(`No se pudo deshacer: ${error.message}`, 'error'); return }
+    await registrarAudit({ accion: 'eliminar', tabla: 'pagos', registroId: pagoAntes?.id, descripcion: `Pago deshecho: cuota ${c.cuota_num} — ${c.ramo} ${c.numero_poliza} — ${c.cliente_nombre}`, datosAntes: pagoAntes })
+    avisarCuotasCambiaron()
     await fetchCuotas()
   }
 
@@ -191,7 +203,7 @@ export default function PagosPage() {
     const q = search.toLowerCase()
     const estado = getEstado(c)
     return (!q || c.cliente_nombre.toLowerCase().includes(q) || c.numero_poliza.toLowerCase().includes(q) || c.ramo.toLowerCase().includes(q)) &&
-           (filtro === 'Todos' || estado === filtro) &&
+           (filtro === 'Todos' || estado === filtro || (filtro === 'Próximos 5 días' && estado === 'Pendiente' && (diasHasta(c.vencimiento) ?? 99) <= 5)) &&
            (!dateVenc.from || !c.vencimiento || c.vencimiento >= dateVenc.from) &&
            (!dateVenc.to   || !c.vencimiento || c.vencimiento <= dateVenc.to) &&
            (!dateCobro.from || !c.pago_fecha || c.pago_fecha >= dateCobro.from) &&
@@ -262,7 +274,7 @@ export default function PagosPage() {
             style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {['Todos','Cobrado','Controlado','Pendiente','Vencido'].map(t =>
+          {['Todos','Cobrado','Controlado','Pendiente','Próximos 5 días','Vencido'].map(t =>
             <button key={t} onClick={() => { setFiltro(t); setPage(1) }} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
           )}
         </div>
@@ -327,7 +339,7 @@ export default function PagosPage() {
                   </td>
                   <td onClick={e => e.stopPropagation()}>
                     {(estado !== 'Cobrado' && estado !== 'Controlado')
-                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                      ? <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || hoyLocal(), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                           <CheckCircle size={12} /> Cobrar
                         </button>
                       : <button className="btn-outline btn-sm" style={{ fontSize: 11, color: 'var(--text-muted)' }} onClick={() => setConfirmDeshacer(c)}>Deshacer</button>
@@ -367,7 +379,7 @@ export default function PagosPage() {
                       </a>
                     )}
                     {(estado !== 'Cobrado' && estado !== 'Controlado') && (
-                      <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
+                      <button className="btn-primary btn-sm" onClick={() => { setPagoForm({ fecha: c.vencimiento || hoyLocal(), metodo: metodoDefault, referencia: '' }); setShowModal(c) }}>
                         Cobrar
                       </button>
                     )}
@@ -497,7 +509,7 @@ export default function PagosPage() {
                   <button className="btn-outline" onClick={() => setDetalleCuota(null)}>Cerrar</button>
                   {(estado !== 'Cobrado' && estado !== 'Controlado') ? (
                     <button className="btn-primary" onClick={() => {
-                      setPagoForm({ fecha: detalleCuota.vencimiento || new Date().toISOString().slice(0,10), metodo: metodoDefault, referencia: '' })
+                      setPagoForm({ fecha: detalleCuota.vencimiento || hoyLocal(), metodo: metodoDefault, referencia: '' })
                       setShowModal(detalleCuota)
                       setDetalleCuota(null)
                     }}>

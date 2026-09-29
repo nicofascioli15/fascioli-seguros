@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { showToast } from '@/lib/toast'
+import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
+import { hoyLocal } from '@/lib/obrasConfig'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
 import ExportButton from '@/components/ExportButton'
@@ -191,7 +193,7 @@ function formatBytes(b: number) {
 
 function cuotaFechaISO(item: string): string {
   const parts = item.split('/')
-  if (parts.length < 4) return new Date().toISOString().slice(0,10)
+  if (parts.length < 4) return hoyLocal()
   const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
   const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
   return `${y}-${m}-${d}`
@@ -242,7 +244,7 @@ export default function PolizasPage() {
   const [showPagoModal, setShowPagoModal]         = useState<number | null>(null)
   const [confirmDeshacerCuota, setConfirmDeshacerCuota] = useState<number | null>(null)
   const [confirmEliminarControl, setConfirmEliminarControl] = useState<ControlMensual | null>(null)
-  const [pagoForm, setPagoForm]             = useState({ fecha: new Date().toISOString().slice(0,10), metodo: 'Transferencia', referencia: '' })
+  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '' })
   const [savingPago, setSavingPago]         = useState(false)
   const [metodos, setMetodos]               = useState<string[]>([])
   const [tiposDoc, setTiposDoc]               = useState<string[]>([])
@@ -349,7 +351,7 @@ export default function PolizasPage() {
 
   async function marcarControlado(c: ControlMensual) {
     if (!detalle) return
-    const fecha_control = new Date().toISOString().slice(0, 10)
+    const fecha_control = hoyLocal()
     await supabase.from('poliza_controles_mensuales').update({ estado: 'controlado', fecha_control }).eq('id', c.id)
     await registrarAudit({
       accion: 'editar', tabla: 'poliza_controles_mensuales', registroId: c.id,
@@ -361,7 +363,7 @@ export default function PolizasPage() {
 
   async function marcarPagado(c: ControlMensual) {
     if (!detalle) return
-    const hoy = new Date().toISOString().slice(0, 10)
+    const hoy = hoyLocal()
     await supabase.from('poliza_controles_mensuales').update({ estado: 'pagado', fecha_pago: hoy }).eq('id', c.id)
     await registrarAudit({
       accion: 'editar', tabla: 'poliza_controles_mensuales', registroId: c.id,
@@ -473,6 +475,7 @@ export default function PolizasPage() {
     })
     setShowPagoModal(null)
     setSavingPago(false)
+    avisarCuotasCambiaron()
     await abrirDetalle(detalle)
     // Refresh polizas list in background
     fetchPolizas()
@@ -487,6 +490,7 @@ export default function PolizasPage() {
       descripcion: `Pago deshecho: cuota ${cuotaNum} — ${detalle.ramo} ${detalle.numero} — ${detalle.clientes?.nombre || ''}`,
       datosAntes: pagoAntes,
     })
+    avisarCuotasCambiaron()
     await abrirDetalle(detalle)
     fetchPolizas()
   }

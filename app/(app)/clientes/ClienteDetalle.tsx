@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
+import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
+import { hoyLocal } from '@/lib/obrasConfig'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 import DatePicker from '@/components/DatePicker'
@@ -185,7 +187,7 @@ function esRamoMensual(ramo: string): boolean {
 
 function cuotaFechaISO(item: string): string {
   const parts = item.split('/')
-  if (parts.length < 4) return new Date().toISOString().slice(0,10)
+  if (parts.length < 4) return hoyLocal()
   const meses: Record<string,string> = { Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12' }
   const d = parts[1].padStart(2,'0'), m = meses[parts[2]] || '01', y = `20${parts[3]}`
   return `${y}-${m}-${d}`
@@ -226,7 +228,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   // Pago
   const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
   const [confirmDeshacer, setConfirmDeshacer] = useState<{ polizaId: string; cuotaNum: number } | null>(null)
-  const [pagoForm, setPagoForm]             = useState({ fecha: new Date().toISOString().slice(0, 10), metodo: 'Transferencia', referencia: '' })
+  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '' })
   const [savingPago, setSavingPago]         = useState(false)
 
   // Docs
@@ -531,6 +533,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     await registrarAudit({ accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id, descripcion: `Pago registrado: cuota ${showPagoModal.cuotaNum} — ${showPagoModal.ramo} — ${nombre}`, datosDespues: pagoData })
     setShowPagoModal(null)
     setSavingPago(false)
+    avisarCuotasCambiaron()
     await fetchPolizas()
   }
 
@@ -543,6 +546,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
       descripcion: `Pago deshecho: cuota ${cuotaNum} — ${polDe?.ramo || ''} ${polDe?.numero || ''} — ${nombre}`,
       datosAntes: pagoAntes,
     })
+    avisarCuotasCambiaron()
     await fetchPolizas()
   }
 

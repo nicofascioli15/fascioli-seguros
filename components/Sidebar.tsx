@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { EVENTO_CUOTAS } from '@/lib/cuotasEvento'
+import { hoyLocal } from '@/lib/obrasConfig'
 import { useAuth } from '@/lib/AuthProvider'
 import { useTheme } from '@/lib/ThemeProvider'
 import {
@@ -29,6 +31,7 @@ const bottomNavItems = [
   { href: '/pagos',        icon: CreditCard,      label: 'Pagos' },
 ]
 
+const DIAS_AVISO_CUOTAS = 5
 const LIMIT_BYTES = 1 * 1024 * 1024 * 1024
 
 function formatBytes(b: number) {
@@ -45,35 +48,52 @@ export default function Sidebar() {
 
   const [open, setOpen]           = useState(false)
   const [usedBytes, setUsedBytes]   = useState<number | null>(null)
-  const [urgentCount, setUrgentCount] = useState(0)
+  const [urgent, setUrgent] = useState({ vencidas: 0, proximas: 0 })
+  const urgentCount = urgent.vencidas + urgent.proximas
+  const urgentColor = urgent.vencidas > 0 ? '#DC2626' : '#D97706'
+  const urgentTitle = [urgent.vencidas && `${urgent.vencidas} vencida${urgent.vencidas > 1 ? 's' : ''} sin cobrar`, urgent.proximas && `${urgent.proximas} vence${urgent.proximas > 1 ? 'n' : ''} en los próximos ${DIAS_AVISO_CUOTAS} días`].filter(Boolean).join(' · ')
 
-  useEffect(() => { fetchStorageUsage(); fetchUrgentCuotas() }, [])
-  useEffect(() => { setOpen(false) }, [pathname])
+  useEffect(() => { fetchStorageUsage() }, [])
+  useEffect(() => { setOpen(false); fetchUrgentCuotas() }, [pathname])
+  useEffect(() => {
+    const refrescar = () => fetchUrgentCuotas()
+    const alVolver = () => { if (document.visibilityState === 'visible') fetchUrgentCuotas() }
+    window.addEventListener(EVENTO_CUOTAS, refrescar)
+    document.addEventListener('visibilitychange', alVolver)
+    return () => { window.removeEventListener(EVENTO_CUOTAS, refrescar); document.removeEventListener('visibilitychange', alVolver) }
+  }, [])
 
+  // Numerito de "Pagos y cuotas": cuotas sin cobrar ya vencidas + las que vencen en los próximos 5 días.
+  // Se recalcula al cambiar de pantalla, al volver a la pestaña y apenas se cobra / deshace una cuota.
   async function fetchUrgentCuotas() {
     try {
-      const hoy = new Date(); hoy.setHours(0,0,0,0)
-      const en2dias = new Date(hoy); en2dias.setDate(en2dias.getDate() + 5)
-      const { data: polizas } = await supabase.from('polizas').select('id, cuotas, cuota_mes')
-      const { data: pagos } = await supabase.from('pagos').select('poliza_id, cuota_num')
+      const hoyISO = hoyLocal()
+      const [hy, hm, hd] = hoyISO.split('-').map(Number)
+      const hoy = new Date(hy, hm - 1, hd)
+      const limite = new Date(hoy); limite.setDate(limite.getDate() + DIAS_AVISO_CUOTAS)
+      const [{ data: polizas }, { data: pagos }] = await Promise.all([
+        supabase.from('polizas').select('id, cuotas, cuota_mes'),
+        supabase.from('pagos').select('poliza_id, cuota_num'),
+      ])
       if (!polizas) return
       const pagosSet = new Set((pagos || []).map((pg: any) => `${pg.poliza_id}-${pg.cuota_num}`))
       const meses: Record<string,number> = { Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12 }
-      let count = 0
+      let vencidas = 0, proximas = 0
       for (const pol of polizas) {
         if (!pol.cuota_mes) continue
         const items = pol.cuota_mes.split(' - ')
-        for (let n = 1; n <= pol.cuotas; n++) {
+        for (let n = 1; n <= (pol.cuotas || 0); n++) {
           if (pagosSet.has(`${pol.id}-${n}`)) continue
           const item = items[n-1]; if (!item) continue
           const parts = item.split('/')
           if (parts.length < 4) continue
           const d = parseInt(parts[1]), m = meses[parts[2]] || 1, y = 2000 + parseInt(parts[3])
           const fecha = new Date(y, m-1, d)
-          if (fecha >= hoy && fecha <= en2dias) count++
+          if (fecha < hoy) vencidas++
+          else if (fecha <= limite) proximas++
         }
       }
-      setUrgentCount(count)
+      setUrgent({ vencidas, proximas })
     } catch {}
   }
 
@@ -122,7 +142,7 @@ export default function Sidebar() {
             <div style={{ position: 'relative' }}>
               <item.icon size={19} />
               {item.href === '/pagos' && urgentCount > 0 && (
-                <span style={{ position: 'absolute', top: -4, right: -6, background: '#DC2626', color: 'white', borderRadius: 8, fontSize: 9, fontWeight: 800, padding: '0 4px', minWidth: 14, textAlign: 'center', lineHeight: '14px' }}>
+                <span title={urgentTitle} style={{ position: 'absolute', top: -4, right: -6, background: urgentColor, color: 'white', borderRadius: 8, fontSize: 9, fontWeight: 800, padding: '0 4px', minWidth: 14, textAlign: 'center', lineHeight: '14px' }}>
                   {urgentCount}
                 </span>
               )}
@@ -160,7 +180,7 @@ export default function Sidebar() {
               <item.icon size={17} />
               {item.label}
               {item.urgent && urgentCount > 0 && (
-                <span style={{ marginLeft: 'auto', background: '#DC2626', color: 'white', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>
+                <span title={urgentTitle} style={{ marginLeft: 'auto', background: urgentColor, color: 'white', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>
                   {urgentCount}
                 </span>
               )}
