@@ -317,7 +317,7 @@ export default function PagosPage() {
                 <span className="pagos-card-icon"><Icon size={15} /></span>
               </div>
               <div className="pagos-card-num">{loading ? '—' : t.lista.length}</div>
-              <div className="pagos-card-sub">{loading ? '' : total || (t.lista.length ? 'Sin montos cargados' : 'Nada por acá')}</div>
+              <div className="pagos-card-sub">{loading ? '' : total || (t.lista.length ? '' : 'Nada por acá')}</div>
             </button>
           )
         })}
@@ -328,13 +328,14 @@ export default function PagosPage() {
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input placeholder="Buscar cliente, póliza, ramo o compañía..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 280, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+            style={{ padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', width: 320, background: 'var(--bg-card)', color: 'var(--text-main)' }} />
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['Todos','Cobrado','Controlado','Pendiente','Próximos 5 días','Vencido'].map(t =>
-            <button key={t} onClick={() => { setFiltro(t); setPage(1) }} className={`filter-btn ${filtro === t ? 'active' : ''}`}>{t}</button>
-          )}
-        </div>
+        {filtro !== 'Todos' && (
+          <button onClick={() => { setFiltro('Todos'); setPage(1) }} className="filter-btn active" title="Quitar filtro"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {tarjetas.find(t => t.filtro === filtro)?.label || filtro} <X size={13} />
+          </button>
+        )}
         <DateRangeFilter value={dateVenc} onChange={setDateVenc} label="Vencim. cuota" />
         <DateRangeFilter value={dateCobro} onChange={setDateCobro} label="Fecha cobro" />
       </div>
