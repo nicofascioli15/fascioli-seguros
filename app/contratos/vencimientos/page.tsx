@@ -117,7 +117,7 @@ export default function VencimientosContratosPage() {
 
   const filtrados = rows.filter(r => {
     const q = search.toLowerCase()
-    const matchSearch = !q || r.cliente_nombre.toLowerCase().includes(q) || r.empresa.toLowerCase().includes(q) || r.tipo_contrato.toLowerCase().includes(q)
+    const matchSearch = !q || (r.cliente_nombre || '').toLowerCase().includes(q) || (r.empresa || '').toLowerCase().includes(q) || (r.tipo_contrato || '').toLowerCase().includes(q) || (r.categoriaLabel || '').toLowerCase().includes(q)
     const matchCat = !filtroCategoria || r.categoria === filtroCategoria
     return matchFiltroFor(filtro)(r) && matchSearch && matchCat
   })

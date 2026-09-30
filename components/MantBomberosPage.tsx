@@ -255,7 +255,7 @@ export default function MantBomberosPage() {
 
   function matchFiltros(it: Item) {
     const q = search.toLowerCase()
-    const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.tecnico_registrado.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
+    const matchQ = !q || (it.cliente_nombre || '').toLowerCase().includes(q) || (it.empresa || '').toLowerCase().includes(q) || (it.tecnico_registrado || '').toLowerCase().includes(q) || (it.comentarios || '').toLowerCase().includes(q)
     const matchDias = filtroDias === -1 ? true : filtroDias === 0 ? (it.dias !== null && it.dias < 0) : (it.dias !== null && it.dias >= 0 && it.dias <= filtroDias)
     const matchEstado = !filtroEstado || it.estado === filtroEstado
     return matchQ && matchDias && matchEstado
@@ -275,7 +275,7 @@ export default function MantBomberosPage() {
   ]
   const itemsExport = (() => {
     const q = search.toLowerCase()
-    const matchQ = (it: Item) => !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q)
+    const matchQ = (it: Item) => !q || (it.cliente_nombre || '').toLowerCase().includes(q) || (it.empresa || '').toLowerCase().includes(q)
     let base = items.filter(matchQ)
     if (exportScope === 'vigentes') base = base.filter(it => it.vigente)
     return [...base].sort((a, b) => {

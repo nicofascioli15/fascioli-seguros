@@ -724,7 +724,7 @@ export default function PolizasPage() {
   const filtradasBase = polizasEnriched.filter(p => {
     const q = search.toLowerCase()
     const nombre = p.clientes?.nombre || ''
-    const pasaTexto = !q || nombre.toLowerCase().includes(q) || p.numero.toLowerCase().includes(q) || p.ramo.toLowerCase().includes(q)
+    const pasaTexto = !q || nombre.toLowerCase().includes(q) || (p.numero || '').toLowerCase().includes(q) || (p.ramo || '').toLowerCase().includes(q)
     const pasaRamo = filtroRamo === 'Todos' || p.ramo === filtroRamo
     const pasaFecha = (!dateRange.from && !dateRange.to) ||
       (p.vencimiento && (!dateRange.from || p.vencimiento >= dateRange.from) && (!dateRange.to || p.vencimiento <= dateRange.to))

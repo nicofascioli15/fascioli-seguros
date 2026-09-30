@@ -92,7 +92,7 @@ export default function VencimientosPage() {
 
   const filtrados = items.filter(v => {
     const q = search.toLowerCase()
-    const matchQ = !q || v.cliente_nombre.toLowerCase().includes(q) || v.numero.toLowerCase().includes(q)
+    const matchQ = !q || (v.cliente_nombre || '').toLowerCase().includes(q) || (v.numero || '').toLowerCase().includes(q)
     const matchFiltro = filtro === 0 ? (matchQ && v.dias !== null && v.dias < 0)
       : filtro === -1 ? matchQ
       // los filtros numéricos (30/90/180 días) son solo lo próximo a vencer — lo ya vencido

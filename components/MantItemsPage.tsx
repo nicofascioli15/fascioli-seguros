@@ -278,7 +278,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
   // así lo que se exporta siempre respeta lo que está filtrado (edificio, estado, días).
   function matchFiltros(it: Item) {
     const q = search.toLowerCase()
-    const matchQ = !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
+    const matchQ = !q || (it.cliente_nombre || '').toLowerCase().includes(q) || (it.empresa || '').toLowerCase().includes(q) || (it.comentarios || '').toLowerCase().includes(q)
     const matchDias = filtroDias === -1 ? true : filtroDias === 0 ? (it.dias !== null && it.dias < 0) : (it.dias !== null && it.dias >= 0 && it.dias <= filtroDias)
     const matchEstado = !filtroEstado || it.estado === filtroEstado
     return matchQ && matchDias && matchEstado
@@ -302,7 +302,7 @@ export default function MantItemsPage({ tabla, titulo, singular }: Props) {
     // son de la vista en pantalla y no deben cruzarse con el alcance elegido (si no, "completados"
     // podía dar 0 resultados por chocar con el filtro de días o de estado activo).
     const q = search.toLowerCase()
-    const matchQ = (it: Item) => !q || it.cliente_nombre.toLowerCase().includes(q) || it.empresa.toLowerCase().includes(q) || it.comentarios.toLowerCase().includes(q)
+    const matchQ = (it: Item) => !q || (it.cliente_nombre || '').toLowerCase().includes(q) || (it.empresa || '').toLowerCase().includes(q) || (it.comentarios || '').toLowerCase().includes(q)
     let base = items.filter(matchQ)
     if (exportScope === 'vigentes') base = base.filter(it => it.vigente)
     else if (exportScope === 'completados') base = base.filter(it => it.vigente && it.estado === 'Completado')
