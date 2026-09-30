@@ -49,6 +49,8 @@ function formatValor(valor: string): string {
   return valor
 }
 
+const fmtMonto = (n: any, mon?: string | null) => n == null || n === '' ? '' : `${mon || '$'} ${Number(n).toLocaleString('es-UY', { maximumFractionDigits: 2 })}`
+
 function formatFecha(iso: string | null) {
   if (!iso) return '—'
   const [y,m,d] = iso.split('-')
@@ -245,7 +247,7 @@ export default function PolizasPage() {
   const [showPagoModal, setShowPagoModal]         = useState<number | null>(null)
   const [confirmDeshacerCuota, setConfirmDeshacerCuota] = useState<number | null>(null)
   const [confirmEliminarControl, setConfirmEliminarControl] = useState<ControlMensual | null>(null)
-  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '' })
+  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '', monto: '' })
   const [savingPago, setSavingPago]         = useState(false)
   const [metodos, setMetodos]               = useState<string[]>([])
   const [tiposDoc, setTiposDoc]               = useState<string[]>([])
@@ -468,6 +470,7 @@ export default function PolizasPage() {
       fecha:      pagoForm.fecha,
       metodo:     pagoForm.metodo,
       referencia: pagoForm.referencia,
+      ...(pagoForm.monto.trim() ? { monto: parseMonto(pagoForm.monto) } : {}),
     }], { onConflict: 'poliza_id,cuota_num' }).select().single()
     await registrarAudit({
       accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id,
@@ -1262,7 +1265,7 @@ export default function PolizasPage() {
                   <div className={`cuota-num ${pago ? 'paid' : 'pending'}`}
                     style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{n}</div>
                   <div className="cuota-info">
-                    <div className="cuota-title">Cuota {n} — {fechaStr}</div>
+                    <div className="cuota-title">Cuota {n} — {fechaStr}{(pago as any)?.monto != null ? ` · ${fmtMonto((pago as any).monto, detalle?.moneda)}` : !pago && detalle?.monto_cuota != null ? ` · ${fmtMonto(detalle.monto_cuota, detalle?.moneda)}` : ''}</div>
                     <div className="cuota-sub">{pago ? `${esControlado ? 'Controlado' : 'Pagado'} ${pago.fecha} · ${pago.metodo}` : 'Pendiente'}</div>
                   </div>
                   {pago ? (
@@ -1276,7 +1279,7 @@ export default function PolizasPage() {
                     </>
                   ) : (
                     <button className="btn-primary btn-sm"
-                      onClick={() => { setPagoForm({ fecha: cuotaFechaISO(item), metodo: metodos[0] || 'Transferencia', referencia: '' }); setShowPagoModal(n) }}>
+                      onClick={() => { setPagoForm({ fecha: cuotaFechaISO(item), metodo: metodos[0] || 'Transferencia', referencia: '', monto: detalle?.monto_cuota != null ? String(detalle.monto_cuota) : '' }); setShowPagoModal(n) }}>
                       + Registrar pago
                     </button>
                   )}
@@ -1562,7 +1565,11 @@ export default function PolizasPage() {
               <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
-              {detalle?.ramo} · {detalle?.numero} · Cuota {showPagoModal}
+              {detalle?.ramo} · {detalle?.numero} · Cuota {showPagoModal}{detalle?.monto_cuota != null ? <> · <strong style={{ color: 'var(--text-main)' }}>{fmtMonto(detalle.monto_cuota, detalle?.moneda)}</strong></> : null}
+            </div>
+            <div className="fgroup">
+              <label>Monto cobrado ({detalle?.moneda || '$'})</label>
+              <input inputMode="decimal" value={pagoForm.monto} onChange={e => setPagoForm({ ...pagoForm, monto: e.target.value })} placeholder="Opcional — se sugiere el monto de la cuota" />
             </div>
             <div className="fgroup">
               <label>Fecha de pago</label>

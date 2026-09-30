@@ -187,6 +187,8 @@ function esRamoMensual(ramo: string): boolean {
   return ramo.trim().toLowerCase() === 'accidentes de trabajo'
 }
 
+const fmtMonto = (n: any, mon?: string | null) => n == null || n === '' ? '' : `${mon || '$'} ${Number(n).toLocaleString('es-UY', { maximumFractionDigits: 2 })}`
+
 function cuotaFechaISO(item: string): string {
   const parts = item.split('/')
   if (parts.length < 4) return hoyLocal()
@@ -228,9 +230,9 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
   const [editFechasCuotas, setEditFechasCuotas] = useState<string[]>([])
 
   // Pago
-  const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string } | null>(null)
+  const [showPagoModal, setShowPagoModal]   = useState<{ polizaId: string; cuotaNum: number; ramo: string; moneda?: string | null; monto_cuota?: number | null } | null>(null)
   const [confirmDeshacer, setConfirmDeshacer] = useState<{ polizaId: string; cuotaNum: number } | null>(null)
-  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '' })
+  const [pagoForm, setPagoForm]             = useState({ fecha: hoyLocal(), metodo: 'Transferencia', referencia: '', monto: '' })
   const [savingPago, setSavingPago]         = useState(false)
 
   // Docs
@@ -533,6 +535,7 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
     const { data: pagoData } = await supabase.from('pagos').upsert([{
       poliza_id: showPagoModal.polizaId, cuota_num: showPagoModal.cuotaNum,
       fecha: pagoForm.fecha, metodo: pagoForm.metodo, referencia: pagoForm.referencia,
+      ...(pagoForm.monto.trim() ? { monto: parseMonto(pagoForm.monto) } : {}),
     }], { onConflict: 'poliza_id,cuota_num' }).select().single()
     await registrarAudit({ accion: 'crear', tabla: 'pagos', registroId: (pagoData as any)?.id, descripcion: `Pago registrado: cuota ${showPagoModal.cuotaNum} — ${showPagoModal.ramo} — ${nombre}`, datosDespues: pagoData })
     setShowPagoModal(null)
@@ -780,14 +783,14 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
                             <div className={`cuota-num ${pago ? 'paid' : 'pending'}`}
                               style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{n}</div>
                             <div className="cuota-info">
-                              <div className="cuota-title">Cuota {n} — {fechaStr}</div>
+                              <div className="cuota-title">Cuota {n} — {fechaStr}{pago?.monto != null ? ` · ${fmtMonto(pago.monto, pol.moneda)}` : !pago && pol.monto_cuota != null ? ` · ${fmtMonto(pol.monto_cuota, pol.moneda)}` : ''}</div>
                               <div className="cuota-sub">{pago ? `${esControlado ? 'Controlado' : 'Pagado'} ${pago.fecha} · ${pago.metodo}` : 'Pendiente'}</div>
                             </div>
                             {pago ? (
                               <><span className={`cuota-paid-tag`} style={esControlado ? { background: '#DBEAFE', color: '#1E40AF' } : undefined}>{esControlado ? 'Controlado' : 'Pagada'}</span>
                               <button className="btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDeshacer({ polizaId: pol.id, cuotaNum: n })}>Deshacer</button></>
                             ) : (
-                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: cuotaFechaISO(item), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo }) }}>
+                              <button className="btn-primary btn-sm" onClick={() => { setPagoForm(p => ({ fecha: cuotaFechaISO(item), metodo: p.metodo || catalogos.metodos[0] || 'Transferencia', referencia: '', monto: pol.monto_cuota != null ? String(pol.monto_cuota) : '' })); setShowPagoModal({ polizaId: pol.id, cuotaNum: n, ramo: pol.ramo, moneda: pol.moneda, monto_cuota: pol.monto_cuota ?? null }) }}>
                                 + Registrar pago
                               </button>
                             )}
@@ -1185,8 +1188,10 @@ export default function ClienteDetalle({ id, nombre, onBack }: Props) {
               <button onClick={() => setShowPagoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
-              {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}
+              {showPagoModal.ramo} · Cuota {showPagoModal.cuotaNum}{showPagoModal.monto_cuota != null ? <> · <strong style={{ color: 'var(--text-main)' }}>{fmtMonto(showPagoModal.monto_cuota, showPagoModal.moneda)}</strong></> : null}
             </div>
+            <div className="fgroup"><label>Monto cobrado ({showPagoModal.moneda || '$'})</label>
+              <input inputMode="decimal" value={pagoForm.monto} onChange={e => setPagoForm({ ...pagoForm, monto: e.target.value })} placeholder="Opcional — se sugiere el monto de la cuota" /></div>
             <div className="fgroup"><label>Fecha de pago</label><DatePicker value={pagoForm.fecha} onChange={v => setPagoForm({ ...pagoForm, fecha: v })} /></div>
             <div className="fgroup"><label>Método de pago</label>
               <select value={pagoForm.metodo} onChange={e => setPagoForm({ ...pagoForm, metodo: e.target.value })}>
