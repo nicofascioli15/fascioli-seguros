@@ -1,10 +1,11 @@
 // Ficha completa de una obra en PDF (jsPDF + autotable, mismo estilo que el resto de los exports).
 import type { ObraCompleta } from '@/lib/obrasData'
+import { cuentasDe, monedaTexto } from '@/lib/cuentasEmpresa'
 import { formatFecha, formatPeriodo, formatMonto, TIPOS_OBRA, TIPOS_PAGO, textoGarantia, PLAZO_CIERRE_BPS_DIAS, hoyLocal } from '@/lib/obrasConfig'
 
 type Extra = {
   direccion?: string | null
-  empresaDatos?: { rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null } | null
+  empresaDatos?: { rut?: string | null; contacto?: string | null; tel?: string | null; email?: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null; cuentas?: any } | null
   documentos: { nombre: string; tipo: string | null; created_at: string }[]
   comentarios: { fecha: string; texto: string }[]
 }
@@ -122,8 +123,7 @@ export async function imprimirObraPDF(obra: ObraCompleta, extra: Extra) {
     ...(extra.empresaDatos?.rut ? [['RUT empresa', extra.empresaDatos.rut] as [string, string]] : []),
     ...(extra.empresaDatos?.contacto || extra.empresaDatos?.tel || extra.empresaDatos?.email
       ? [['Contacto empresa', [extra.empresaDatos?.contacto, extra.empresaDatos?.tel, extra.empresaDatos?.email].filter(Boolean).join(' · ')] as [string, string]] : []),
-    ...(extra.empresaDatos?.banco || extra.empresaDatos?.nro_cuenta
-      ? [['Cuenta bancaria', [extra.empresaDatos?.banco, extra.empresaDatos?.nro_cuenta, extra.empresaDatos?.titular_cuenta ? `a nombre de ${extra.empresaDatos.titular_cuenta}` : null].filter(Boolean).join(' · ')] as [string, string]] : []),
+    ...cuentasDe(extra.empresaDatos).map((c, i, arr) => [arr.length > 1 ? `Cuenta bancaria ${i + 1}` : 'Cuenta bancaria', [c.banco, monedaTexto(c.moneda), c.nro_cuenta, c.titular ? `a nombre de ${c.titular}` : null].filter(Boolean).join(' · ')] as [string, string]),
     ['Tipo de obra', tipoLabel],
     ['Obra a nombre de', aNombre],
     ['El cierre (F9) lo hace', obra.cierre.responsable === 'empresa' ? 'La empresa' : 'La administración'],
