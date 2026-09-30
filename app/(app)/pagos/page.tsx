@@ -344,19 +344,19 @@ export default function PagosPage() {
       <div className="table-card">
         <table>
           <colgroup>
-            <col style={{ width: 180 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} />
-            <col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} />
-            <col style={{ width: 110 }} /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 44 }} /><col style={{ width: 100 }} />
+            <col style={{ width: 180 }} /><col style={{ width: 110 }} /><col style={{ width: 110 }} />
+            <col style={{ width: 130 }} /><col style={{ width: 70 }} /><col style={{ width: 110 }} />
+            <col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 44 }} /><col style={{ width: 100 }} />
           </colgroup>
           <thead>
             <tr>
               <SortHeader label="Cliente" col="cliente_nombre" sort={sortState} onSort={toggleSort} />
-              <SortHeader label="N° Póliza" col="numero_poliza" sort={sortState} onSort={toggleSort} />
-              <SortHeader label="Ramo" col="ramo" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Compañía" col="compania" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Ramo" col="ramo" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="N° Póliza" col="numero_poliza" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Cuota" col="cuota_num" sort={sortState} onSort={toggleSort} />
-              <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Monto" col="monto" sort={sortState} onSort={toggleSort} />
+              <SortHeader label="Vencimiento" col="vencimiento" sort={sortState} onSort={toggleSort} />
               <SortHeader label="Cobrado" col="pago_fecha" sort={sortState} onSort={toggleSort} />
               <th>Estado</th><th></th><th></th>
             </tr>
@@ -380,15 +380,15 @@ export default function PagosPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover, #F8FAFC)')}
                   onMouseLeave={e => (e.currentTarget.style.background = fondoFila(c, estado))}>
                   <td style={{ fontWeight: 600 }}>{c.cliente_nombre}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
-                  <td><span className="badge badge-neutral">{c.ramo}</span></td>
                   <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.compania}</td>
+                  <td><span className="badge badge-neutral">{c.ramo}</span></td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.numero_poliza}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.cuota_num}</td>
+                  <td style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{c.monto != null ? formatMontoMon(c.monto, c.moneda) : <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}</td>
                   <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                     {formatFecha(c.vencimiento)}
                     {textoDias(c) && <div style={{ fontSize: 11, fontWeight: 700, color: textoDias(c)!.color }}>{textoDias(c)!.txt}</div>}
                   </td>
-                  <td style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{c.monto != null ? formatMontoMon(c.monto, c.moneda) : <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}</td>
                   <td style={{ fontSize: 12 }}>{c.pago_fecha ? formatFecha(c.pago_fecha) + (c.pago_metodo ? ` · ${c.pago_metodo}` : '') : '—'}</td>
                   <td><span className={`badge ${estadoColor[estado]}`}>{estado}</span></td>
                   <td onClick={e => e.stopPropagation()}>
