@@ -180,7 +180,8 @@ export default function PagosPage() {
   }
 
   function abrirCobro(c: Cuota) {
-    setPagoForm({ fecha: c.vencimiento && c.vencimiento <= hoyLocal() ? c.vencimiento : hoyLocal(), metodo: metodoDefault, referencia: '', monto: c.monto_cuota != null ? String(c.monto_cuota) : '' })
+    setPagoForm({ fecha: c.vencimiento || hoyLocal(),  // el cobro se registra en la fecha de vencimiento de la cuota
+      metodo: metodoDefault, referencia: '', monto: c.monto_cuota != null ? String(c.monto_cuota) : '' })
     setShowModal(c)
   }
 
