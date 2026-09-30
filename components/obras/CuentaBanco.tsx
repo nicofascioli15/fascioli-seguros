@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Landmark, Copy, Check } from 'lucide-react'
 import { showToast } from '@/lib/toast'
-import { monedaTexto } from '@/lib/cuentasEmpresa'
+import { textoCuenta } from '@/lib/cuentasEmpresa'
 
 // Banco + número de cuenta de una empresa. "Copiar" copia banco, cuenta y titular (uno por línea) para pegarlo en el home banking o en un mensaje.
 export default function CuentaBanco({ banco, moneda, cuenta, titular, empresa, oscuro }: { banco?: string | null; moneda?: string | null; cuenta?: string | null; titular?: string | null; empresa?: string | null; oscuro?: boolean }) {
@@ -13,12 +13,7 @@ export default function CuentaBanco({ banco, moneda, cuenta, titular, empresa, o
     e.stopPropagation()
     if (!cuenta) return
     try {
-      const texto = [
-        banco && `Banco: ${banco}`,
-        moneda && `Moneda: ${monedaTexto(moneda)}`,
-        `Cuenta: ${cuenta}`,
-        (titular || empresa) && `Titular: ${titular || empresa}`,
-      ].filter(Boolean).join('\n')
+      const texto = textoCuenta({ banco, moneda, nro_cuenta: cuenta, titular }, empresa)
       await navigator.clipboard.writeText(texto)
       setCopiado(true)
       showToast('Datos de la cuenta copiados', 'success')

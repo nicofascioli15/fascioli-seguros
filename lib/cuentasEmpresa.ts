@@ -34,3 +34,19 @@ export function payloadCuentas(cs: CuentaEmpresa[]) {
   const p = limpias[0]
   return { cuentas: limpias, banco: p?.banco || null, nro_cuenta: p?.nro_cuenta || null, titular_cuenta: p?.titular || null }
 }
+
+// Texto que se copia al portapapeles (uno por línea), para pegar en el home banking o en un mensaje.
+export function textoCuenta(c: { banco?: string | null; moneda?: string | null; nro_cuenta?: string | null; titular?: string | null }, empresa?: string | null): string {
+  return [
+    c.banco && `Banco: ${c.banco}`,
+    c.moneda && `Moneda: ${monedaTexto(c.moneda)}`,
+    `Cuenta: ${c.nro_cuenta || ''}`,
+    (c.titular || empresa) && `Titular: ${c.titular || empresa}`,
+  ].filter(Boolean).join('\n')
+}
+
+// Número de WhatsApp de Uruguay a partir de lo que esté cargado (099 123 456 → 59899123456).
+export function numeroWhatsapp(tel: string): string {
+  const n = tel.replace(/\D/g, '')
+  return n.startsWith('598') ? n : `598${n.replace(/^0+/, '')}`
+}

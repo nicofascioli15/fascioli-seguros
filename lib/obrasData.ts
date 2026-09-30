@@ -68,3 +68,34 @@ export async function fetchObrasCompletas(supabase: any, opts: { clienteId?: str
     }
   })
 }
+
+// ── Resumen por empresa (lista de Empresas y ficha de la empresa) ──────────
+export type ResumenEmpresa = {
+  total: number
+  abiertas: number
+  atrasados: number                              // pagos atrasados en sus obras abiertas
+  garantiasVigentes: number
+  saldo: { moneda: 'UYU' | 'USD'; monto: number }[]   // lo que le falta cobrar (obras abiertas)
+  pagado: { moneda: 'UYU' | 'USD'; monto: number }[]
+}
+
+export function mismaEmpresa(a: string | null | undefined, b: string | null | undefined): boolean {
+  return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+export function resumenEmpresa(obras: ObraCompleta[]): ResumenEmpresa {
+  const saldo: Record<string, number> = {}, pagado: Record<string, number> = {}
+  let abiertas = 0, atrasados = 0, garantiasVigentes = 0
+  obras.forEach(o => {
+    const m = o.moneda || 'UYU'
+    pagado[m] = (pagado[m] || 0) + o.rp.totalPagado
+    if (!o.cerrada) {
+      abiertas++
+      atrasados += o.rp.vencidos.length
+      if (o.rp.saldo > 0) saldo[m] = (saldo[m] || 0) + o.rp.saldo
+    }
+    if (o.garantia.estado === 'en_garantia') garantiasVigentes++
+  })
+  const lista = (r: Record<string, number>) => Object.entries(r).filter(([, v]) => v > 0).map(([moneda, monto]) => ({ moneda: moneda as 'UYU' | 'USD', monto }))
+  return { total: obras.length, abiertas, atrasados, garantiasVigentes, saldo: lista(saldo), pagado: lista(pagado) }
+}

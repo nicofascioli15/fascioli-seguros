@@ -2,100 +2,71 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, Loader2, Search, X, Briefcase, Phone, Mail } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Search, Briefcase, ChevronRight, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { fetchObrasCompletas } from '@/lib/obrasData'
+import { fetchObrasCompletas, resumenEmpresa, mismaEmpresa, type ObraCompleta, type ResumenEmpresa } from '@/lib/obrasData'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
-import CuentaBanco from '@/components/obras/CuentaBanco'
-import CuentasEditor from '@/components/obras/CuentasEditor'
-import { cuentasDe, payloadCuentas, type CuentaEmpresa } from '@/lib/cuentasEmpresa'
-import { BANCOS_UY } from '@/lib/obrasConfig'
+import { formatMonto } from '@/lib/obrasConfig'
+import { cuentasDe } from '@/lib/cuentasEmpresa'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import EmpresaModal, { type EmpresaObra } from '@/components/obras/EmpresaModal'
 
-type Empresa = { id: string; nombre: string; rut: string | null; contacto: string | null; tel: string | null; email: string | null; banco?: string | null; nro_cuenta?: string | null; titular_cuenta?: string | null; cuentas?: any }
-const vacia = { nombre: '', rut: '', contacto: '', tel: '', email: '', cuentas: [] as CuentaEmpresa[] }
-
+// Lista de empresas: tarjetas compactas y clickeables. Todo el detalle está en la ficha (/obras/empresas/[id]).
 export default function ObrasEmpresasPage() {
   const supabase = createClient()
   const router = useRouter()
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [conteo, setConteo] = useState<Record<string, { total: number; activas: number }>>({})
+  const [empresas, setEmpresas] = useState<EmpresaObra[]>([])
+  const [obras, setObras] = useState<ObraCompleta[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [editando, setEditando] = useState<Empresa | 'nueva' | null>(null)
-  const [form, setForm] = useState(vacia)
-  const [saving, setSaving] = useState(false)
-  const [confirmEliminar, setConfirmEliminar] = useState<Empresa | null>(null)
+  const [editando, setEditando] = useState<EmpresaObra | 'nueva' | null>(null)
+  const [confirmEliminar, setConfirmEliminar] = useState<EmpresaObra | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => { cargar() }, [])
 
   async function cargar() {
     setLoading(true)
-    const [{ data: emps }, { data: obras }] = await Promise.all([
+    const [{ data: emps }, obs] = await Promise.all([
       supabase.from('obras_empresas').select('*').order('nombre'),
-      fetchObrasCompletas(supabase).then(data => ({ data })),
+      fetchObrasCompletas(supabase),
     ])
-    const c: Record<string, { total: number; activas: number }> = {}
-    ;(obras || []).forEach((o: any) => {
-      const k = (o.empresa || '').toLowerCase()
-      if (!k) return
-      c[k] ||= { total: 0, activas: 0 }
-      c[k].total++
-      if (!o.cerrada) c[k].activas++
-    })
-    setConteo(c)
     setEmpresas(emps || [])
+    setObras(obs)
     setLoading(false)
-  }
-
-  async function guardar() {
-    if (!form.nombre.trim()) { showToast('Poné el nombre de la empresa', 'error'); return }
-    setSaving(true)
-    const payload = { nombre: form.nombre.trim(), rut: form.rut.trim() || null, contacto: form.contacto.trim() || null, tel: form.tel.trim() || null, email: form.email.trim() || null, ...payloadCuentas(form.cuentas) }
-    if (editando === 'nueva') {
-      const { data, error } = await supabase.from('obras_empresas').insert([payload]).select().single()
-      if (error) { setSaving(false); showToast(error.message.includes('unique') || error.message.includes('duplicate') ? 'Ya existe una empresa con ese nombre' : error.message, 'error'); return }
-      await registrarAudit({ accion: 'crear', tabla: 'obras_empresas', registroId: data?.id, descripcion: `Empresa de obras agregada: ${payload.nombre}`, datosDespues: data })
-    } else if (editando) {
-      const { error } = await supabase.from('obras_empresas').update(payload).eq('id', editando.id)
-      if (error) { setSaving(false); showToast(error.message, 'error'); return }
-      // Si cambió el nombre, se actualiza también en las obras que la usan.
-      if (editando.nombre !== payload.nombre) await supabase.from('obras').update({ empresa: payload.nombre }).ilike('empresa', editando.nombre.replace(/[%_\\]/g, m => '\\' + m))
-      await registrarAudit({ accion: 'editar', tabla: 'obras_empresas', registroId: editando.id, descripcion: `Empresa de obras editada: ${payload.nombre}`, datosAntes: editando, datosDespues: payload })
-    }
-    setSaving(false)
-    setEditando(null)
-    cargar()
   }
 
   async function eliminar() {
     if (!confirmEliminar) return
-    setSaving(true)
+    setEliminando(true)
     const { error } = await supabase.from('obras_empresas').delete().eq('id', confirmEliminar.id)
-    if (error) { setSaving(false); showToast(error.message, 'error'); return }
+    if (error) { setEliminando(false); showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'eliminar', tabla: 'obras_empresas', registroId: confirmEliminar.id, descripcion: `Empresa de obras eliminada: ${confirmEliminar.nombre}`, datosAntes: confirmEliminar })
-    setSaving(false)
+    setEliminando(false)
     setConfirmEliminar(null)
     cargar()
   }
 
-  const visibles = empresas.filter(e => !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || (e.contacto || '').toLowerCase().includes(search.toLowerCase()))
+  const q = search.trim().toLowerCase()
+  const visibles = empresas.filter(e => !q || e.nombre.toLowerCase().includes(q) || (e.contacto || '').toLowerCase().includes(q) || (e.rut || '').toLowerCase().includes(q))
+  const resumenes: Record<string, ResumenEmpresa> = {}
+  empresas.forEach(e => { resumenes[e.id] = resumenEmpresa(obras.filter(o => mismaEmpresa(o.empresa, e.nombre))) })
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Empresas</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Contratistas que hacen obras en los edificios</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Contratistas que hacen obras en los edificios · tocá una para ver su ficha</p>
         </div>
-        <button className="btn-primary" onClick={() => { setForm(vacia); setEditando('nueva') }}><Plus size={15} /> Nueva empresa</button>
+        <button className="btn-primary" onClick={() => setEditando('nueva')}><Plus size={15} /> Nueva empresa</button>
       </div>
 
-      <div style={{ position: 'relative', marginBottom: 16, maxWidth: 300 }}>
+      <div style={{ position: 'relative', marginBottom: 16, maxWidth: 320 }}>
         <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-        <input placeholder="Buscar empresa..." value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+        <input placeholder="Buscar empresa, contacto o RUT..." value={search} onChange={e => setSearch(e.target.value)}
+          style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)', boxSizing: 'border-box' }} />
       </div>
 
       {loading ? <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)' }}><Loader2 size={22} className="spin" /></div>
@@ -104,30 +75,48 @@ export default function ObrasEmpresasPage() {
             {empresas.length === 0 ? 'Todavía no hay empresas. También se agregan solas cuando cargás una obra con una empresa nueva.' : 'Sin resultados'}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          <div className="emp-grid">
             {visibles.map(e => {
-              const c = conteo[e.nombre.toLowerCase()] || { total: 0, activas: 0 }
+              const r = resumenes[e.id]
+              const nCuentas = cuentasDe(e).length
               return (
-                <div key={e.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 9, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Briefcase size={17} color="var(--gold)" /></div>
+                <div key={e.id} className="emp-card" role="button" tabIndex={0}
+                  onClick={() => router.push(`/obras/empresas/${e.id}`)}
+                  onKeyDown={ev => { if (ev.key === 'Enter') router.push(`/obras/empresas/${e.id}`) }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="emp-avatar"><Briefcase size={18} color="var(--gold)" /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: 15 }}>{e.nombre}</div>
-                      {e.rut && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>RUT {e.rut}</div>}
+                      <div style={{ fontWeight: 800, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nombre}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {[e.rut && `RUT ${e.rut}`, e.contacto, nCuentas ? `${nCuentas} cuenta${nCuentas > 1 ? 's' : ''}` : null].filter(Boolean).join(' · ') || 'Sin datos de contacto'}
+                      </div>
                     </div>
-                    <button className="btn-outline btn-sm" onClick={() => { setForm({ nombre: e.nombre, rut: e.rut || '', contacto: e.contacto || '', tel: e.tel || '', email: e.email || '', cuentas: cuentasDe(e) }); setEditando(e) }}><Pencil size={12} /></button>
-                    <button className="btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(e)}><Trash2 size={12} /></button>
+                    <div className="emp-acciones" onClick={ev => ev.stopPropagation()}>
+                      <button className="btn-outline btn-sm" title="Editar" onClick={() => setEditando(e)}><Pencil size={12} /></button>
+                      <button className="btn-outline btn-sm" title="Eliminar" style={{ color: 'var(--danger)', borderColor: '#FEE2E2' }} onClick={() => setConfirmEliminar(e)}><Trash2 size={12} /></button>
+                    </div>
+                    <ChevronRight size={18} className="emp-chevron" />
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {e.contacto && <span>{e.contacto}</span>}
-                    {e.tel && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Phone size={12} /> {e.tel}</span>}
-                    {e.email && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Mail size={12} /> {e.email}</span>}
-                    {cuentasDe(e).map((c, i) => <CuentaBanco key={i} banco={c.banco} moneda={c.moneda} cuenta={c.nro_cuenta} titular={c.titular} empresa={e.nombre} />)}
+
+                  <div className="emp-resumen">
+                    <div>
+                      <div className="emp-num">{r.abiertas}</div>
+                      <div className="emp-lbl">abierta{r.abiertas === 1 ? '' : 's'} de {r.total}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                      {r.saldo.length ? (
+                        <>
+                          <div className="emp-lbl">Le debemos</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.saldo.map(s => formatMonto(s.monto, s.moneda)).join(' · ')}</div>
+                        </>
+                      ) : <div className="emp-lbl" style={{ paddingTop: 8 }}>{r.total ? 'Sin saldo pendiente' : 'Sin obras todavía'}</div>}
+                    </div>
                   </div>
-                  <button onClick={() => router.push(`/obras/lista?q=${encodeURIComponent(e.nombre)}`)} disabled={c.total === 0}
-                    style={{ marginTop: 'auto', textAlign: 'left', background: 'var(--bg-card-alt)', border: 'none', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, color: 'var(--text-main)', cursor: c.total ? 'pointer' : 'default', fontFamily: 'inherit' }}>
-                    <strong>{c.activas}</strong> abiertas · {c.total} obra{c.total === 1 ? '' : 's'} en total
-                  </button>
+                  {r.atrasados > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#B91C1C' }}>
+                      <AlertTriangle size={13} /> {r.atrasados} pago{r.atrasados > 1 ? 's' : ''} atrasado{r.atrasados > 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -135,37 +124,34 @@ export default function ObrasEmpresasPage() {
         )}
 
       {editando && (
-        <div className="pago-overlay open" onClick={ev => { if (ev.target === ev.currentTarget && !saving) setEditando(null) }}>
-          <div className="pago-modal" style={{ width: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={ev => ev.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800 }}>{editando === 'nueva' ? 'Nueva empresa' : 'Editar empresa'}</h3>
-              <button onClick={() => setEditando(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
-              <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Nombre *</label><input value={form.nombre} onChange={ev => setForm(f => ({ ...f, nombre: ev.target.value }))} /></div>
-              <div className="fgroup"><label>RUT</label><input value={form.rut} onChange={ev => setForm(f => ({ ...f, rut: ev.target.value }))} /></div>
-              <div className="fgroup"><label>Contacto</label><input value={form.contacto} onChange={ev => setForm(f => ({ ...f, contacto: ev.target.value }))} /></div>
-              <div className="fgroup"><label>Teléfono</label><input value={form.tel} onChange={ev => setForm(f => ({ ...f, tel: ev.target.value }))} /></div>
-              <div className="fgroup"><label>Email</label><input value={form.email} onChange={ev => setForm(f => ({ ...f, email: ev.target.value }))} /></div>
-              <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Cuentas bancarias</label>
-                <CuentasEditor cuentas={form.cuentas} onChange={c => setForm(f => ({ ...f, cuentas: c }))} /></div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <button className="btn-outline" onClick={() => setEditando(null)}>Cancelar</button>
-              <button className="btn-primary" onClick={guardar} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
-            </div>
-          </div>
-        </div>
+        <EmpresaModal empresa={editando === 'nueva' ? null : editando} onClose={() => setEditando(null)}
+          onSaved={({ id }) => { const eraNueva = editando === 'nueva'; setEditando(null); if (eraNueva && id) router.push(`/obras/empresas/${id}`); else cargar() }} />
       )}
 
       <ConfirmDialog
         open={!!confirmEliminar}
         title={`¿Eliminar "${confirmEliminar?.nombre}"?`}
         message="Se quita del catálogo. Las obras que ya la tienen cargada no se modifican."
-        loading={saving}
+        loading={eliminando}
         onConfirm={eliminar}
         onCancel={() => setConfirmEliminar(null)}
       />
+
+      <style>{`
+        .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+        .emp-card { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; cursor: pointer; outline: none;
+          transition: transform .16s, box-shadow .16s, border-color .16s; }
+        .emp-card:hover, .emp-card:focus-visible { transform: translateY(-2px); border-color: var(--gold); box-shadow: 0 12px 26px -14px rgba(15,30,53,.3); }
+        .emp-avatar { width: 40px; height: 40px; border-radius: 11px; background: var(--navy); display: grid; place-items: center; flex-shrink: 0; }
+        .emp-acciones { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+        .emp-card:hover .emp-acciones, .emp-card:focus-within .emp-acciones { opacity: 1; }
+        @media (hover: none) { .emp-acciones { opacity: 1; } }
+        .emp-chevron { color: var(--text-muted); flex-shrink: 0; transition: transform .16s, color .16s; }
+        .emp-card:hover .emp-chevron { color: var(--gold); transform: translateX(2px); }
+        .emp-resumen { display: flex; align-items: flex-end; gap: 12px; background: var(--bg-card-alt); border-radius: 10px; padding: 10px 12px; }
+        .emp-num { font-size: 22px; font-weight: 800; line-height: 1; }
+        .emp-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: 3px; }
+      `}</style>
     </div>
   )
 }

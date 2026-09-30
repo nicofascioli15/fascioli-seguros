@@ -132,7 +132,9 @@ export default function ObraFichaPage() {
           <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{obra.titulo}</div>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: '#B8C5D6' }}>
             <Link href={`/obras/lista?edificio=${obra.cliente_id}`} style={{ color: '#E2C47A', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}><Building2 size={13} /> {obra.edificio}</Link>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>
+            {(empresaDatos as any)?.id
+              ? <Link href={`/obras/empresas/${(empresaDatos as any).id}`} title="Ver ficha de la empresa" style={{ color: 'inherit', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,.3)', textUnderlineOffset: 3 }}><Briefcase size={13} /> {obra.empresa}</Link>
+              : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase size={13} /> {obra.empresa || 'Sin empresa'}</span>}
             {cuentasDe(empresaDatos).map((c, i) => <CuentaBanco key={i} banco={c.banco} moneda={c.moneda} cuenta={c.nro_cuenta} titular={c.titular} empresa={obra.empresa} oscuro />)}
             {(obra.fecha_inicio || obra.fecha_fin_prevista) && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CalendarClock size={13} /> {formatFecha(obra.fecha_inicio)} → {obra.fecha_fin_real ? formatFecha(obra.fecha_fin_real) : `prev. ${formatFecha(obra.fecha_fin_prevista)}`}</span>}
           </div>

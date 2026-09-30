@@ -12,14 +12,15 @@ type Edificio = { id: string; nombre: string; direccion?: string | null }
 
 // Mismo flujo que el resto del sistema (Mantenimiento, Bomberos, Contratos):
 // paso 1 = elegir el edificio con buscador y tarjetas; paso 2 = datos, con el edificio fijo arriba.
-export default function ObraModal({ obra, edificioLocked, onClose, onSaved }: {
+export default function ObraModal({ obra, edificioLocked, empresaInicial, onClose, onSaved }: {
   obra?: Obra | null                                  // si viene, es edición
   edificioLocked?: { id: string; nombre: string } | null
+  empresaInicial?: string                             // viene elegida (desde la ficha de una empresa)
   onClose: () => void
   onSaved: (id: string) => void
 }) {
   const supabase = createClient()
-  const [form, setForm] = useState<ObraFormState>(() => obra ? obraToForm(obra) : { ...emptyObraForm, cliente_id: edificioLocked?.id || '' })
+  const [form, setForm] = useState<ObraFormState>(() => obra ? obraToForm(obra) : { ...emptyObraForm, cliente_id: edificioLocked?.id || '', ...(empresaInicial ? { empresa: empresaInicial } : {}) })
   const [edificios, setEdificios] = useState<Edificio[]>([])
   const [empresas, setEmpresas] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
