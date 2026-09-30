@@ -94,7 +94,7 @@ export const DOCS_TIPOS_OBRAS = [
 ]
 
 // Bancos / billeteras para la cuenta de cada empresa
-export const BANCOS_UY = ['BROU', 'Itaú', 'Santander', 'Scotiabank', 'BBVA', 'Prex', 'Mi Dinero', 'Banque Heritage', 'BTG Pactual', 'Mercado Pago']
+export const BANCOS_UY = ['BROU', 'Itaú', 'Santander', 'Scotiabank', 'BBVA', 'Prex', 'Mi Dinero', 'Banque Heritage', 'BTG Pactual', 'Mercado Pago', 'OCA Blue']
 
 // Días corridos que da BPS para comunicar el fin de la obra.
 export const PLAZO_CIERRE_BPS_DIAS = 30
