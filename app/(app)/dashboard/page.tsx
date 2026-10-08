@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { Bell, AlertTriangle, FileText, Users, CalendarX } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { traerTodo } from '@/lib/traerTodo'
 import { reconciliarControlesMensuales } from '@/lib/controlesMensuales'
 
 function parseFechaCuota(cuotaMes: string | null, n: number): string | null {
@@ -36,10 +37,10 @@ export default function DashboardPage() {
 
   async function fetchStats() {
     await reconciliarControlesMensuales(supabase)
-    const [{ data: polizasData }, { count: siniestros }, { data: pagosData }] = await Promise.all([
-      supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, renovacion_mensual, clientes(nombre, id)'),
+    const [polizasData, { count: siniestros }, pagosData] = await Promise.all([
+      traerTodo<any>(() => supabase.from('polizas').select('id, numero, ramo, vencimiento, cuotas, cuota_mes, renovada, renovacion_mensual, clientes(nombre, id)').order('id')),
       supabase.from('siniestros').select('*', { count: 'exact', head: true }).neq('estado', 'Cerrado'),
-      supabase.from('pagos').select('poliza_id, cuota_num'),
+      traerTodo<any>(() => supabase.from('pagos').select('poliza_id, cuota_num').order('id')),
     ])
     // Las pólizas vencidas (dias < 0) se siguen contando/mostrando hasta que se renueven,
     // pero se cuentan aparte de "vencen en 30 días" para no mezclar lo ya vencido con lo próximo.

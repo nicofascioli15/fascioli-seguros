@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { traerTodo } from '@/lib/traerTodo'
 import { fetchCategorias, calcularAuto, calcularObra, hoyISO } from '@/lib/contratosConfig'
 import { fetchObrasCompletas } from '@/lib/obrasData'
 import { obraActiva } from '@/lib/obrasConfig'
@@ -88,9 +89,9 @@ export default function HubPage() {
       const en30Str = en30.toISOString().slice(0,10)
 
       // Load seguros stats
-      const [{ count: polizas }, { data: pagosData }] = await Promise.all([
+      const [{ count: polizas }, pagosData] = await Promise.all([
         supabase.from('polizas').select('*', { count: 'exact', head: true }),
-        supabase.from('pagos').select('poliza_id, cuota_num'),
+        traerTodo<any>(() => supabase.from('pagos').select('poliza_id, cuota_num').order('id')).catch(() => []),
       ])
       const { count: vencen30 } = await supabase.from('polizas').select('*', { count: 'exact', head: true })
         .gte('vencimiento', hoyStr)

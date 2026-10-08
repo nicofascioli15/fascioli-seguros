@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { Search, CheckCircle, Loader2, X, MessageCircle, RotateCcw, AlertCircle, Clock, Hourglass, ShieldCheck, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { traerTodo } from '@/lib/traerTodo'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import { avisarCuotasCambiaron } from '@/lib/cuotasEvento'
@@ -122,19 +123,21 @@ export default function PagosPage() {
   async function fetchCuotas() {
     setLoading(true)
     // Traer todas las polizas con sus clientes
-    const { data: polizas } = await supabase
-      .from('polizas')
-      .select('*, clientes(nombre, tel)')
-      .order('created_at', { ascending: false })
-
-    if (!polizas) { setLoading(false); return }
-
-    // Traer todos los pagos
-    const polizaIds = polizas.map(p => p.id)
-    const { data: pagos } = await supabase
-      .from('pagos')
-      .select('*')
-      .in('poliza_id', polizaIds)
+    // Se traen TODAS las filas (de a 1000): pagos ya supera el límite de Supabase y si no
+    // algunas cuotas cobradas quedaban afuera y aparecían como vencidas.
+    let polizas: any[] = [], pagos: any[] = []
+    try {
+      ;[polizas, pagos] = await Promise.all([
+        traerTodo(() => supabase.from('polizas').select('*, clientes(nombre, tel)').order('created_at', { ascending: false }).order('id')),
+        traerTodo(() => supabase.from('pagos').select('*').order('id')),
+      ])
+    } catch (e: any) {
+      showToast(`No se pudieron cargar las cuotas: ${e?.message || e}`, 'error')
+      setLoading(false); return
+    }
+    // Índice para no recorrer todos los pagos por cada cuota
+    const pagoPor = new Map<string, any>()
+    pagos.forEach(pg => pagoPor.set(`${pg.poliza_id}-${pg.cuota_num}`, pg))
 
     // Expandir cuotas
     const rows: Cuota[] = []
@@ -142,7 +145,7 @@ export default function PagosPage() {
       const nCuotas = pol.cuotas || 0
       if (nCuotas === 0) continue
       for (let n = 1; n <= nCuotas; n++) {
-        const pago = pagos?.find(pg => pg.poliza_id === pol.id && pg.cuota_num === n)
+        const pago = pagoPor.get(`${pol.id}-${n}`)
         const fechaCuota = getFechaCuota(pol.cuota_mes, n)
         rows.push({
           poliza_id:       pol.id,

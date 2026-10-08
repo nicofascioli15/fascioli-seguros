@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { traerTodo } from '@/lib/traerTodo'
 import { EVENTO_CUOTAS } from '@/lib/cuotasEvento'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { useAuth } from '@/lib/AuthProvider'
@@ -71,9 +72,9 @@ export default function Sidebar() {
       const [hy, hm, hd] = hoyISO.split('-').map(Number)
       const hoy = new Date(hy, hm - 1, hd)
       const limite = new Date(hoy); limite.setDate(limite.getDate() + DIAS_AVISO_CUOTAS)
-      const [{ data: polizas }, { data: pagos }] = await Promise.all([
-        supabase.from('polizas').select('id, cuotas, cuota_mes'),
-        supabase.from('pagos').select('poliza_id, cuota_num'),
+      const [polizas, pagos] = await Promise.all([
+        traerTodo<any>(() => supabase.from('polizas').select('id, cuotas, cuota_mes').order('id')),
+        traerTodo<any>(() => supabase.from('pagos').select('poliza_id, cuota_num').order('id')),
       ])
       if (!polizas) return
       const pagosSet = new Set((pagos || []).map((pg: any) => `${pg.poliza_id}-${pg.cuota_num}`))
@@ -99,7 +100,7 @@ export default function Sidebar() {
 
   async function fetchStorageUsage() {
     try {
-      const { data } = await supabase.from('documentos').select('tamanio_bytes')
+      const data = await traerTodo<any>(() => supabase.from('documentos').select('tamanio_bytes').order('id'))
       if (data) setUsedBytes(data.reduce((s, d) => s + (d.tamanio_bytes || 0), 0))
     } catch {}
   }

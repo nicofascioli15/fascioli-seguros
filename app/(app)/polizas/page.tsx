@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Search, X, Loader2, Paperclip, ArrowLeft, FileText, CreditCard, Bell, Upload, Download, Trash2, Pencil, AlertTriangle, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { traerTodo } from '@/lib/traerTodo'
 import { registrarAudit } from '@/lib/audit'
 import { sanitizeFileName, descargarDocumento } from '@/lib/files'
 import { showToast } from '@/lib/toast'
@@ -286,7 +287,7 @@ export default function PolizasPage() {
   async function fetchPolizas() {
     setLoading(true)
     await reconciliarControlesMensuales(supabase)
-    const { data } = await supabase.from('polizas').select('*, clientes(nombre)').order('created_at', { ascending: false })
+    const data = await traerTodo<any>(() => supabase.from('polizas').select('*, clientes(nombre)').order('created_at', { ascending: false }).order('id')).catch(() => null)
     if (data) {
       const ids = data.map((p: any) => p.id)
       const { data: docs } = await supabase.from('documentos').select('poliza_id').in('poliza_id', ids)
