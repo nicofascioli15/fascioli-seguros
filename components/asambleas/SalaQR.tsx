@@ -31,7 +31,7 @@ export default function SalaQR({ codigo, edificio, fecha }: { codigo: string; ed
     const lado = 360
     doc.addImage(qr, 'PNG', (W - lado) / 2, 150, lado, lado)
     doc.setFontSize(13); doc.setTextColor(15, 30, 53)
-    const pasos = ['1. Registrate en la tablet con la administración (apto, datos y firma).', '2. Escaneá este código con la cámara del celular.', '3. Poné el mismo teléfono que usaste al registrarte.', '4. Cuando se abra cada votación, votás desde el celular.']
+    const pasos = ['1. Escaneá este código con la cámara del celular.', '2. Si sos propietario, registrate ahí mismo: apto, datos y firma.', '   (Si ya te registraste en la tablet, entrá con tu teléfono.)', '3. Si venís con poder de otra unidad, registralo en la tablet.', '4. Cuando se abra cada votación, votás desde el celular.']
     pasos.forEach((p, i) => doc.text(p, 70, 560 + i * 24))
     doc.setFontSize(10); doc.setTextColor(150)
     doc.text(url, W / 2, 680, { align: 'center' })
@@ -46,7 +46,7 @@ export default function SalaQR({ codigo, edificio, fecha }: { codigo: string; ed
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontWeight: 800, fontSize: 15 }}>QR de la sala · votación desde el celular</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>Un solo QR para toda la sesión. Funciona solo mientras la asamblea esté abierta. Para entrar usan el teléfono con el que se registraron en la tablet.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>Un solo QR para toda la sesión, solo mientras la asamblea esté abierta. El propietario presente se registra desde el celular (apto, datos y firma) o entra con el teléfono con el que se registró en la tablet. Sin registrarse no puede votar. Los poderes van por la tablet.</div>
           <div style={{ fontSize: 12.5, marginTop: 4, fontFamily: 'monospace', color: 'var(--gold)', wordBreak: 'break-all' }}>{url}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -61,7 +61,7 @@ export default function SalaQR({ codigo, edificio, fecha }: { codigo: string; ed
           <button onClick={() => setGrande(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'rgba(255,255,255,.1)', border: 'none', color: 'white', borderRadius: 10, padding: 10, cursor: 'pointer' }}><X size={22} /></button>
           <div style={{ fontSize: 'clamp(26px, 4vw, 44px)', fontWeight: 800 }}>Votá desde tu celular</div>
           <img src={qr} alt="QR" style={{ width: 'min(70vh, 80vw)', height: 'min(70vh, 80vw)', background: 'white', borderRadius: 18, padding: 14 }} />
-          <div style={{ fontSize: 'clamp(15px, 2vw, 22px)', color: '#B8C5D6', textAlign: 'center' }}>Escaneá con la cámara y entrá con el teléfono con el que te registraste · {edificio}</div>
+          <div style={{ fontSize: 'clamp(15px, 2vw, 22px)', color: '#B8C5D6', textAlign: 'center' }}>Escaneá con la cámara, registrate y votá desde tu celular · {edificio}</div>
         </div>
       )}
     </>
