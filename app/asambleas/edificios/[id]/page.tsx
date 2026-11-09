@@ -58,7 +58,7 @@ export default function EdificioPadronPage() {
   if (ed === null) return <div style={{ textAlign: 'center', padding: 60 }}><div style={{ fontWeight: 700, marginBottom: 12 }}>No se encontró el edificio</div><Link href="/asambleas/edificios" className="btn-outline">Volver</Link></div>
 
   const q = search.trim().toLowerCase()
-  const visibles = unidades.filter(u => !q || etiquetaUnidad(u).toLowerCase().includes(q) || (u.propietario || '').toLowerCase().includes(q))
+  const visibles = unidades.filter(u => !q || etiquetaUnidad(u).toLowerCase().includes(q))
   const nombreTorre = (c: string) => torres.find(t => t.codigo === c)?.nombre || c
   const sumaCoef = Math.round(unidades.reduce((s, u) => s + (u.coeficiente || 0), 0) * 100) / 100
   const conCoef = unidades.filter(u => u.coeficiente != null).length
@@ -84,7 +84,7 @@ export default function EdificioPadronPage() {
 
       <div style={{ position: 'relative', marginBottom: 12, maxWidth: 320 }}>
         <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-        <input placeholder="Buscar unidad o persona..." value={search} onChange={e => setSearch(e.target.value)}
+        <input placeholder="Buscar unidad..." value={search} onChange={e => setSearch(e.target.value)}
           style={{ width: '100%', padding: '9px 14px 9px 34px', border: '1.5px solid var(--border-soft)', borderRadius: 8, fontSize: 13.5, fontFamily: 'inherit', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)', boxSizing: 'border-box' }} />
       </div>
 
@@ -92,15 +92,12 @@ export default function EdificioPadronPage() {
         {visibles.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{unidades.length ? 'Sin resultados' : 'Este edificio no tiene unidades cargadas. Importalas desde "Edificios y unidades" o agregalas a mano.'}</div> : (
           <div style={{ overflowX: 'auto' }}>
             <table className="pad-tabla">
-              <thead><tr>{torres.length > 0 && <th>Torre</th>}<th>Unidad</th><th>Propietario</th><th>Teléfono</th><th>Email</th><th>Coef.</th><th /></tr></thead>
+              <thead><tr>{torres.length > 0 && <th>Torre</th>}<th>Unidad</th><th>Coef.</th><th /></tr></thead>
               <tbody>
                 {visibles.map(u => (
                   <tr key={u.id}>
                     {torres.length > 0 && <td style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{u.torre ? nombreTorre(u.torre) : '—'}</td>}
                     <td style={{ fontWeight: 800 }}>{u.unidad}</td>
-                    <td style={{ fontWeight: 600 }}>{u.propietario || <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}</td>
-                    <td style={{ fontSize: 12.5 }}>{u.propietario_tel || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                    <td style={{ fontSize: 12.5 }}>{u.propietario_email || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{u.coeficiente != null ? `${u.coeficiente}%` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button className="btn-outline btn-sm" title="Editar" onClick={() => setEditando(u)}><Pencil size={12} /></button>
@@ -130,7 +127,6 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
   const supabase = createClient()
   const [f, setF] = useState({
     torre: unidad?.torre || '', unidad: unidad?.unidad || '',
-    propietario: unidad?.propietario || '', propietario_tel: unidad?.propietario_tel || '', propietario_email: unidad?.propietario_email || '',
     coeficiente: unidad?.coeficiente != null ? String(unidad.coeficiente) : '',
   })
   const [saving, setSaving] = useState(false)
@@ -142,7 +138,7 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
     if (coef != null && (isNaN(coef) || coef < 0)) { showToast('El coeficiente no es válido', 'error'); return }
     setSaving(true)
     const n = (s: string) => s.trim() || null
-    const payload = { edificio_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), propietario: n(f.propietario), propietario_tel: n(f.propietario_tel), propietario_email: n(f.propietario_email), coeficiente: coef }
+    const payload = { edificio_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), coeficiente: coef }
     const { data, error } = unidad
       ? await supabase.from('asam_unidades').update(payload).eq('id', unidad.id).select().single()
       : await supabase.from('asam_unidades').insert([payload]).select().single()
@@ -163,10 +159,6 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
           {torres.length > 0 && <div className="fgroup"><label>Torre</label><select value={f.torre} onChange={e => set({ torre: e.target.value })}><option value="">—</option>{torres.map(t => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}</select></div>}
           <div className="fgroup"><label>Unidad *</label><input value={f.unidad} onChange={e => set({ unidad: e.target.value })} /></div>
           <div className="fgroup"><label>Coeficiente %</label><input inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} placeholder="Ej: 4,25" /></div>
-          <div className="fgroup" style={{ gridColumn: '1 / -1', marginBottom: 0 }}><label style={{ color: 'var(--text-main)' }}>Propietario</label></div>
-          <div className="fgroup"><label>Nombre</label><input value={f.propietario} onChange={e => set({ propietario: e.target.value })} /></div>
-          <div className="fgroup"><label>Teléfono</label><input value={f.propietario_tel} onChange={e => set({ propietario_tel: e.target.value })} /></div>
-          <div className="fgroup"><label>Email</label><input value={f.propietario_email} onChange={e => set({ propietario_email: e.target.value })} /></div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
           <button className="btn-outline" onClick={onClose}>Cancelar</button>

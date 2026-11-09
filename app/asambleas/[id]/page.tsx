@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
+import { ArrowLeft, Check, BookOpen, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -27,6 +27,7 @@ export default function AsambleaFichaPage() {
   const [trabajando, setTrabajando] = useState(false)
   const [editando, setEditando] = useState(false)
   const [imprimiendo, setImprimiendo] = useState(false)
+  const [libro, setLibro] = useState(false)
 
   useEffect(() => { cargar() }, [id])
   async function cargar() { setD(await fetchAsamblea(supabase, id)) }
@@ -70,8 +71,20 @@ export default function AsambleaFichaPage() {
   async function eliminarAsamblea() {
     const { error } = await supabase.from('asambleas').delete().eq('id', a.id)
     if (error) { showToast(error.message, 'error'); return }
+    const firmas = Array.from(new Set(d!.unidades.map(u => u.firma_path).filter(Boolean) as string[]))
+    if (firmas.length) await supabase.storage.from('documentos').remove(firmas)
     await registrarAudit({ accion: 'eliminar', tabla: 'asambleas', registroId: a.id, descripcion: `Asamblea eliminada — ${etiqueta}`, datosAntes: a })
     router.push('/asambleas')
+  }
+
+  async function imprimirLibro() {
+    setLibro(true)
+    try {
+      const { imprimirLibroAsistencia } = await import('@/lib/libroAsistenciaPdf')
+      const fresco = await fetchAsamblea(supabase, a.id)
+      if (fresco) await imprimirLibroAsistencia(supabase, fresco)
+    } catch (e: any) { showToast(`No se pudo generar el libro: ${e?.message || e}`, 'error') }
+    setLibro(false)
   }
 
   async function imprimir() {
@@ -101,6 +114,7 @@ export default function AsambleaFichaPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={imprimir} disabled={imprimiendo}>{imprimiendo ? <Loader2 size={13} className="spin" /> : <Printer size={13} />} Acta PDF</button>
+          <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={imprimirLibro} disabled={libro}>{libro ? <Loader2 size={13} className="spin" /> : <BookOpen size={13} />} Libro de asistencia</button>
           {!cerrada && <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditando(true)}><Pencil size={13} /> Datos</button>}
           {cerrada
             ? <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setConfirm({ titulo: '¿Reabrir la asamblea?', mensaje: 'Se van a poder volver a acreditar unidades y votar.', label: 'Reabrir', tono: 'neutral', accion: () => cambiarEstadoAsamblea('abierta') })}><Unlock size={13} /> Reabrir</button>
@@ -203,7 +217,6 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
     setF(x => ({
       ...x, unidad: v,
       ...(p && !editId ? {
-        propietario: x.propietario && !padron.some(pp => pp.propietario === x.propietario) ? x.propietario : (p.propietario || ''),
         coeficiente: x.coeficiente || (p.coeficiente != null ? String(p.coeficiente) : ''),
       } : {}),
     }))
@@ -221,7 +234,8 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
     const coef = f.coeficiente.trim() ? parseFloat(f.coeficiente.replace(',', '.')) : null
     if (usaCoef && (coef == null || isNaN(coef) || coef <= 0)) { showToast('Esta asamblea cuenta por coeficiente: poné el coeficiente de la unidad', 'error'); return }
     setSaving(true)
-    const payload = { unidad, propietario: f.propietario.trim() || null, coeficiente: coef, por_poder: f.por_poder, apoderado: f.por_poder ? f.apoderado.trim() : null }
+    // Por poder solo interesa la unidad y quién firma y vota por ella (no el nombre del propietario).
+    const payload = { unidad, propietario: f.por_poder ? null : (f.propietario.trim() || null), coeficiente: coef, por_poder: f.por_poder, apoderado: f.por_poder ? f.apoderado.trim() : null }
     if (editId) {
       const antes = d.unidades.find(u => u.id === editId)
       const { error } = await supabase.from('asamblea_unidades').update(payload).eq('id', editId)
@@ -259,6 +273,8 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
       accion: async () => {
         const { error } = await supabase.from('asamblea_unidades').delete().eq('id', u.id)
         if (error) { showToast(error.message, 'error'); return }
+        // La firma se borra del almacenamiento si ninguna otra unidad la usa (poderes comparten firma)
+        if (u.firma_path && !d.unidades.some(x => x.id !== u.id && x.firma_path === u.firma_path)) await supabase.storage.from('documentos').remove([u.firma_path])
         await registrarAudit({ accion: 'eliminar', tabla: 'asamblea_unidades', registroId: u.id, descripcion: `Unidad ${u.unidad} quitada de la asamblea — ${etiqueta}`, datosAntes: u })
         onChange()
       },
@@ -303,7 +319,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
                   onChange={e => { if (e.target.value === '__otra') { setManual(true); cambiarUnidad(''); setTimeout(() => refUnidad.current?.focus(), 30) } else cambiarUnidad(e.target.value) }}>
                   <option value="">— Elegí la unidad —</option>
                   {padron.filter(p => p.torre === torreSel && (!acreditadas.has(p.label.toLowerCase()) || p.label === f.unidad)).map(p => (
-                    <option key={p.label} value={p.label}>{p.num}{p.propietario ? ` — ${p.propietario}` : ''}</option>
+                    <option key={p.label} value={p.label}>{p.num}</option>
                   ))}
                   <option value="__otra">✎ Otra unidad (no está en la lista)</option>
                 </select>
@@ -314,7 +330,9 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
                 {padron.length > 0 && <button type="button" onClick={() => { setManual(false); cambiarUnidad('') }} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '3px 0 0', fontFamily: 'inherit' }}>← Elegir de la lista</button>}
               </div>
             )}
-            <div className="fgroup" style={{ margin: 0 }}><label>Propietario{f.por_poder ? '' : ' (presente) *'}</label><input style={inp} value={f.propietario} onChange={e => set({ propietario: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>
+            {!f.por_poder
+              ? <div className="fgroup" style={{ margin: 0 }}><label>Propietario presente *</label><input style={inp} value={f.propietario} onChange={e => set({ propietario: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>
+              : <div className="fgroup" style={{ margin: 0 }}><label>Firma y vota (trae el poder) *</label><input style={inp} value={f.apoderado} onChange={e => set({ apoderado: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>}
             {usaCoef && <div className="fgroup" style={{ margin: 0 }}><label>Coeficiente % *</label><input style={inp} inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 4,25" /></div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
@@ -322,11 +340,6 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
               <input type="checkbox" checked={f.por_poder} onChange={e => set({ por_poder: e.target.checked })} style={{ width: 18, height: 18, accentColor: '#C9A84C' }} />
               <FileSignature size={15} /> Viene por poder
             </label>
-            {f.por_poder && (
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <input style={inp} value={f.apoderado} onChange={e => set({ apoderado: e.target.value })} onKeyDown={onEnter} placeholder="¿Quién la representa? (el que trae el poder) *" list="asam-nombres" />
-              </div>
-            )}
             <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
               {editId && <button className="btn-outline" onClick={() => { setEditId(null); setF(vacio) }}>Cancelar</button>}
               <button className="btn-primary" onClick={guardar} disabled={saving}>{saving ? <Loader2 size={14} className="spin" /> : editId ? 'Guardar' : <><Plus size={14} /> Acreditar</>}</button>
@@ -335,7 +348,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
           <datalist id="asam-nombres">{nombres.map(n => <option key={n} value={n} />)}</datalist>
           {f.unidad.trim() && padron.length > 0 && (delPadron || manual) && (
             delPadron
-              ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Del padrón: propietario <strong style={{ color: 'var(--text-main)' }}>{delPadron.propietario || 'sin nombre cargado'}</strong>{delPadron.coeficiente != null ? <> · coeficiente {delPadron.coeficiente}%</> : null}</div>
+              ? (delPadron.coeficiente != null ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Coeficiente según el padrón: {delPadron.coeficiente}%</div> : null)
               : <div style={{ fontSize: 12, color: '#B45309', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} /> La unidad {f.unidad.trim()} no está en el padrón del edificio. Revisá el número antes de acreditarla.</div>
           )}
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Tip: Enter acredita y vuelve a "Unidad". Si alguien trae varios poderes, el nombre del apoderado queda cargado para la siguiente.</div>
@@ -348,15 +361,15 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="asam-tabla">
-              <thead><tr><th>Unidad</th><th>Propietario</th>{usaCoef && <th>Coef.</th>}<th>Asistencia</th><th>Vota</th><th /></tr></thead>
+              <thead><tr><th>Unidad</th><th>Firma y vota</th>{usaCoef && <th>Coef.</th>}<th>Asistencia</th><th>Firma</th><th /></tr></thead>
               <tbody>
                 {d.unidades.map(u => (
                   <tr key={u.id}>
                     <td style={{ fontWeight: 800 }}>{u.unidad}</td>
-                    <td>{u.propietario || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                    <td><div style={{ fontWeight: 600 }}>{votante(u)}</div>{(u.por_poder ? u.apoderado_tel : u.propietario_tel) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{u.por_poder ? u.apoderado_tel : u.propietario_tel}</div>}</td>
                     {usaCoef && <td style={{ fontVariantNumeric: 'tabular-nums' }}>{u.coeficiente != null ? `${u.coeficiente}%` : <span style={{ color: 'var(--danger)' }}>falta</span>}</td>}
                     <td>{u.por_poder ? <span className="badge badge-gold"><FileSignature size={11} /> Por poder</span> : <span className="badge badge-success">Presente</span>}</td>
-                    <td><div style={{ fontWeight: 600 }}>{votante(u)}</div>{(u.por_poder ? u.apoderado_tel : u.propietario_tel) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{u.por_poder ? u.apoderado_tel : u.propietario_tel}</div>}</td>
+                    <td>{u.firma_path ? <span className="badge badge-success"><Check size={11} /> Firmó</span> : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin firma</span>}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!cerrada && <>
                         <button className="btn-outline btn-sm" title="Editar" onClick={() => editar(u)}><Pencil size={12} /></button>

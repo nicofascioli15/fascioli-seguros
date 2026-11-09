@@ -78,7 +78,6 @@ export default function ImportarPadron({ onClose, onDone }: { onClose: () => voi
       // Unidades: no toca el coeficiente que ya esté cargado
       const filasU = unidades.filter(u => idDe.has(u.edificio)).map(u => ({
         edificio_id: idDe.get(u.edificio)!, torre: u.torre, unidad: u.unidad,
-        propietario: u.propietario || null, propietario_tel: u.propietario_tel || null, propietario_email: u.propietario_email || null,
       }))
       for (let i = 0; i < filasU.length; i += 500) {
         setTrabajando(`Cargando unidades... ${Math.min(i + 500, filasU.length)} de ${filasU.length}`)
@@ -107,7 +106,7 @@ export default function ImportarPadron({ onClose, onDone }: { onClose: () => voi
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5 }}>
           Los archivos que exporta el sistema de gastos comunes (separados por punto y coma). Podés subir uno solo o los tres.
           Son solo para Asambleas: no tocan los edificios de Seguros, Mantenimiento, Obras ni Contratos. No se borra nada y el coeficiente cargado a mano se mantiene.
-          De los aptos se toman solo los propietarios.
+          De los aptos se toman solo los números de unidad (no los nombres: se registran en la asamblea).
         </div>
 
         {hecho ? (

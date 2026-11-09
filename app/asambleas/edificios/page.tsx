@@ -9,7 +9,7 @@ import { traerTodo } from '@/lib/traerTodo'
 import ImportarPadron from '@/components/asambleas/ImportarPadron'
 import EdificioAsambleaModal from '@/components/asambleas/EdificioAsambleaModal'
 
-type Fila = { id: string; nombre: string; direccion: string | null; codigo: string | null; unidades: number; conDatos: number }
+type Fila = { id: string; nombre: string; direccion: string | null; codigo: string | null; unidades: number }
 
 export default function EdificiosPadronPage() {
   const supabase = createClient()
@@ -28,11 +28,11 @@ export default function EdificiosPadronPage() {
     try {
       const [eds, us] = await Promise.all([
         traerTodo<any>(() => supabase.from('asam_edificios').select('id, nombre, direccion, codigo').order('id')),
-        traerTodo<any>(() => supabase.from('asam_unidades').select('edificio_id, propietario').order('id')),
+        traerTodo<any>(() => supabase.from('asam_unidades').select('edificio_id').order('id')),
       ])
       const c: Record<string, { n: number; d: number }> = {}
-      us.forEach(u => { c[u.edificio_id] ||= { n: 0, d: 0 }; c[u.edificio_id].n++; if (u.propietario) c[u.edificio_id].d++ })
-      setFilas(eds.map(e => ({ ...e, unidades: c[e.id]?.n || 0, conDatos: c[e.id]?.d || 0 }))
+      us.forEach(u => { c[u.edificio_id] ||= { n: 0, d: 0 }; c[u.edificio_id].n++ })
+      setFilas(eds.map(e => ({ ...e, unidades: c[e.id]?.n || 0 }))
         .sort((a, b) => (a.codigo || 'ZZZ').localeCompare(b.codigo || 'ZZZ', 'es', { numeric: true }) || a.nombre.localeCompare(b.nombre)))
     } catch (e: any) {
       showToast(`No se pudo cargar el padrón: ${e?.message || e}. ¿Está corrido el SQL de edificios y unidades?`, 'error')
@@ -78,7 +78,7 @@ export default function EdificiosPadronPage() {
                   <div style={{ fontWeight: 800, fontSize: 14.5 }}>{f.nombre}</div>
                   {f.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{f.direccion}</div>}
                   <div style={{ fontSize: 12, marginTop: 3, color: f.unidades ? 'var(--text-main)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Users size={12} /> {f.unidades ? <><strong>{f.unidades}</strong> unidades · {f.conDatos} con propietario</> : 'Sin unidades cargadas'}
+                    <Users size={12} /> {f.unidades ? <><strong>{f.unidades}</strong> unidades</> : 'Sin unidades cargadas'}
                   </div>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />

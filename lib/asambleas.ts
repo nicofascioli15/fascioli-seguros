@@ -33,6 +33,7 @@ export type UnidadAsamblea = {
   apoderado: string | null
   propietario_tel?: string | null
   apoderado_tel?: string | null
+  firma_path?: string | null
   created_at: string
 }
 

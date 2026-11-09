@@ -66,8 +66,8 @@ export async function imprimirActaPDF(d: AsambleaCompleta) {
     ...(usaCoef ? [['Coeficiente presente', `${q.coef}%${a.total_coeficiente ? ` de ${a.total_coeficiente}%` : ''}`] as [string, string]] : []),
     ...(a.notas ? [['Notas', a.notas] as [string, string]] : []),
   ])
-  tabla(['Unidad', 'Propietario', ...(usaCoef ? ['Coef.'] : []), 'Asistencia', 'Votó'],
-    d.unidades.map(u => [u.unidad, u.propietario || '-', ...(usaCoef ? [u.coeficiente != null ? `${u.coeficiente}%` : '-'] : []), u.por_poder ? 'Por poder' : 'Presente', votante(u)]),
+  tabla(['Unidad', 'Firma y vota', ...(usaCoef ? ['Coef.'] : []), 'Asistencia'],
+    d.unidades.map(u => [u.unidad, votante(u), ...(usaCoef ? [u.coeficiente != null ? `${u.coeficiente}%` : '-'] : []), u.por_poder ? 'Por poder' : 'Propietario presente']),
     { columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' } } })
 
   d.mociones.forEach((m, i) => {
