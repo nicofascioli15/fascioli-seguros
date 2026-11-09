@@ -16,7 +16,9 @@ export async function fetchAsamblea(supabase: any, id: string): Promise<Asamblea
   const { data: a, error } = await supabase.from('asambleas').select('*, asam_edificios(nombre, direccion)').eq('id', id).maybeSingle()
   if (error || !a) return null
   const [{ data: us }, { data: ms }] = await Promise.all([
-    supabase.from('asamblea_unidades').select('*').eq('asamblea_id', id),
+    // Sin la imagen de la firma (pesa): se trae aparte solo para el libro de asistencia
+    supabase.from('asamblea_unidades').select('id, asamblea_id, unidad, propietario, coeficiente, por_poder, apoderado, propietario_tel, apoderado_tel, firma_path, firmo, created_at').eq('asamblea_id', id)
+      .then(async (r: any) => r.error ? await supabase.from('asamblea_unidades').select('*').eq('asamblea_id', id) : r),
     supabase.from('asamblea_mociones').select('*').eq('asamblea_id', id).order('orden').order('created_at'),
   ])
   const ids = (ms || []).map((m: any) => m.id)

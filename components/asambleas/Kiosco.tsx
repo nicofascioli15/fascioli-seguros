@@ -1,4 +1,6 @@
 'use client'
+import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react'
+import type { Voto } from '@/lib/asambleas'
 // Pantalla completa para usar en la tablet que se pasa de mano en mano (votación y acreditación).
 
 export function Pantalla({ children }: { children: React.ReactNode }) {
@@ -31,3 +33,26 @@ export function Pantalla({ children }: { children: React.ReactNode }) {
   )
 }
 
+
+export function BotonesVoto({ valor, onVoto, grande }: { valor?: Voto; onVoto: (v: Voto) => void; grande?: boolean }) {
+  const ops: { v: Voto; label: string; icon: any; bg: string; borde: string }[] = [
+    { v: 'si', label: 'A favor', icon: ThumbsUp, bg: '#16A34A', borde: '#4ADE80' },
+    { v: 'no', label: 'En contra', icon: ThumbsDown, bg: '#DC2626', borde: '#F87171' },
+    { v: 'abstencion', label: 'Abstención', icon: MinusCircle, bg: '#475569', borde: '#94A3B8' },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 10 }}>
+      {ops.map(o => {
+        const sel = valor === o.v
+        const Icon = o.icon
+        return (
+          <button key={o.v} className="kz-voto" onClick={() => onVoto(o.v)}
+            style={{ background: sel ? o.bg : 'rgba(255,255,255,.06)', borderColor: sel ? o.borde : 'rgba(255,255,255,.12)', opacity: valor && !sel ? .55 : 1, padding: grande ? '26px 10px' : '16px 8px', fontSize: grande ? 21 : 17, boxShadow: sel ? `0 0 0 4px ${o.borde}33` : 'none' }}>
+            <Icon size={grande ? 34 : 24} />
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

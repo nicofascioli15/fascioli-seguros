@@ -24,7 +24,9 @@ export async function imprimirLibroAsistencia(supabase: any, d: AsambleaCompleta
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36
   const a = d.asamblea
 
-  // Firmas (las que se repiten por poderes se bajan una sola vez)
+  // Firmas: las de la tablet están guardadas en la base; las viejas, en el almacenamiento
+  const { data: conFirma } = await supabase.from('asamblea_unidades').select('id, firma_data').eq('asamblea_id', a.id).not('firma_data', 'is', null)
+  const firmaDe = new Map<string, string>((conFirma || []).map((x: any) => [x.id, x.firma_data]))
   const paths = Array.from(new Set(d.unidades.map(u => u.firma_path).filter(Boolean) as string[]))
   const imgs = new Map<string, string | null>()
   await Promise.all(paths.map(async p => imgs.set(p, await firmaDataUrl(supabase, p))))
@@ -67,7 +69,7 @@ export async function imprimirLibroAsistencia(supabase: any, d: AsambleaCompleta
     didDrawCell: (data: any) => {
       if (data.section !== 'body' || data.column.index !== 4) return
       const u = d.unidades[data.row.index]
-      const img = u?.firma_path ? imgs.get(u.firma_path) : null
+      const img = (u && firmaDe.get(u.id)) || (u?.firma_path ? imgs.get(u.firma_path) : null)
       if (img) {
         // La firma se guarda apaisada: se ajusta al alto de la celda manteniendo proporción
         const props = doc.getImageProperties(img)

@@ -22,6 +22,10 @@ export default async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // La tablet de las asambleas (/t/CODIGO) funciona sin usuario: solo puede acreditar y votar
+  // en esa asamblea, a través de funciones de la base que controlan el código.
+  if (request.nextUrl.pathname.startsWith('/t/')) return response
+
   // Redirect to login if not authenticated (except login page)
   if (!user && !request.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/login', request.url))

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, BookOpen, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
+import { ArrowLeft, Check, BookOpen, Copy, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -131,6 +131,8 @@ export default function AsambleaFichaPage() {
         {usaCoef && <Kpi label="Coeficiente presente" valor={`${q.coef}%`} sub={q.pctCoef != null ? `${Math.round(q.pctCoef * 100)}% del total (${a.total_coeficiente}%)` : ''} />}
         <Kpi label="Mociones" valor={String(d.mociones.length)} sub={`${d.mociones.filter(m => m.estado === 'cerrada').length} votadas`} />
       </div>
+
+      {!cerrada && <TabletLink codigo={a.codigo_tablet} hayVotando={hayVotando} />}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
@@ -286,16 +288,6 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {!cerrada && padron.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--navy)', color: 'white', borderRadius: 14, padding: '14px 18px', flexWrap: 'wrap' }}>
-          <Tablet size={26} color="#E2C47A" />
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Autorregistro en la tablet</div>
-            <div style={{ fontSize: 12.5, color: '#B8C5D6' }}>Cada persona toca su apartamento, pone nombre, apellido y teléfono, y marca si viene con poder. La tablet se va pasando.</div>
-          </div>
-          <Link href={`/asambleas/${d.asamblea.id}/acreditar`} className="btn-primary" style={{ textDecoration: 'none' }}><Tablet size={14} /> Abrir en la tablet</Link>
-        </div>
-      )}
       {!cerrada && padronCargado && padron.length === 0 && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg-card-alt)', borderRadius: 12, padding: '11px 14px', fontSize: 13, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
@@ -369,7 +361,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
                     <td><div style={{ fontWeight: 600 }}>{votante(u)}</div>{(u.por_poder ? u.apoderado_tel : u.propietario_tel) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{u.por_poder ? u.apoderado_tel : u.propietario_tel}</div>}</td>
                     {usaCoef && <td style={{ fontVariantNumeric: 'tabular-nums' }}>{u.coeficiente != null ? `${u.coeficiente}%` : <span style={{ color: 'var(--danger)' }}>falta</span>}</td>}
                     <td>{u.por_poder ? <span className="badge badge-gold"><FileSignature size={11} /> Por poder</span> : <span className="badge badge-success">Presente</span>}</td>
-                    <td>{u.firma_path ? <span className="badge badge-success"><Check size={11} /> Firmó</span> : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin firma</span>}</td>
+                    <td>{(u.firmo || u.firma_path) ? <span className="badge badge-success"><Check size={11} /> Firmó</span> : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin firma</span>}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!cerrada && <>
                         <button className="btn-outline btn-sm" title="Editar" onClick={() => editar(u)}><Pencil size={12} /></button>
@@ -413,12 +405,15 @@ function Mociones({ d, cerrada, onChange, etiqueta, pedirConfirm, irAAcreditar }
 
   async function abrirVotacion(m: Mocion) {
     if (d.unidades.length === 0) { showToast('Primero acreditá las unidades presentes', 'error'); irAAcreditar(); return }
+    const otra = d.mociones.find(x => x.estado === 'votando' && x.id !== m.id)
+    if (otra) { showToast(`Primero cerrá la votación de "${otra.titulo}"`, 'error'); return }
     if (m.estado !== 'votando') {
       const { error } = await supabase.from('asamblea_mociones').update({ estado: 'votando', aprobada: null, resultado: null }).eq('id', m.id)
       if (error) { showToast(error.message, 'error'); return }
       await registrarAudit({ accion: 'editar', tabla: 'asamblea_mociones', registroId: m.id, descripcion: `Votación abierta: "${m.titulo}" — ${etiqueta}`, datosAntes: { estado: m.estado }, datosDespues: { estado: 'votando' } })
     }
-    router.push(`/asambleas/${d.asamblea.id}/votar/${m.id}`)
+    showToast('Votación abierta: la tablet pasa sola a la pantalla de votar', 'success')
+    onChange()
   }
 
   function cerrar(m: Mocion, sinVotar: number) {
@@ -532,9 +527,9 @@ function Mociones({ d, cerrada, onChange, etiqueta, pedirConfirm, irAAcreditar }
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              {!cerrada && m.estado === 'pendiente' && <button className="btn-primary btn-sm" onClick={() => abrirVotacion(m)}><Tablet size={13} /> Votar en la tablet</button>}
+              {!cerrada && m.estado === 'pendiente' && <button className="btn-primary btn-sm" onClick={() => abrirVotacion(m)}><Vote size={13} /> Abrir votación</button>}
               {!cerrada && m.estado === 'votando' && <>
-                <button className="btn-primary btn-sm" onClick={() => abrirVotacion(m)}><Tablet size={13} /> Seguir votando en la tablet</button>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--gold)' }}><Tablet size={13} /> Votando en la tablet...</span>
                 <button className="btn-outline btn-sm" onClick={() => cerrar(m, total - emitidos)}><Lock size={13} /> Cerrar votación</button>
               </>}
               {!cerrada && m.estado === 'cerrada' && <button className="btn-outline btn-sm" onClick={() => abrirVotacion(m)}><Unlock size={13} /> Reabrir votación</button>}
@@ -616,6 +611,36 @@ function EditarDatos({ d, onClose, onSaved }: { d: AsambleaCompleta; onClose: ()
           <button className="btn-outline" onClick={onClose}>Cancelar</button>
           <button className="btn-primary" onClick={guardar} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Link de la tablet: entra sin usuario y solo sirve para esta asamblea.
+function TabletLink({ codigo, hayVotando }: { codigo?: string | null; hayVotando: boolean }) {
+  const [copiado, setCopiado] = useState(false)
+  if (!codigo) return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, marginBottom: 14 }}>
+      <AlertTriangle size={16} /> Falta correr el SQL de la tablet (schema_asambleas_v4_tablet.sql) para tener el link sin usuario.
+    </div>
+  )
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/t/${codigo}` : `/t/${codigo}`
+  async function copiar() {
+    try { await navigator.clipboard.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 1600) } catch { showToast('No se pudo copiar', 'error') }
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--navy)', color: 'white', borderRadius: 14, padding: '14px 18px', flexWrap: 'wrap', marginBottom: 14 }}>
+      <Tablet size={26} color="#E2C47A" />
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontWeight: 800, fontSize: 15 }}>Tablet sin usuario {hayVotando ? '· mostrando la votación' : '· acreditación'}</div>
+        <div style={{ fontSize: 12.5, color: '#B8C5D6', marginTop: 2 }}>
+          Abrí este link en la tablet (no pide usuario y solo sirve para esta asamblea). Cuando abrís una votación acá, la tablet cambia sola.
+        </div>
+        <div style={{ fontSize: 13.5, marginTop: 6, fontFamily: 'monospace', color: '#E2C47A', wordBreak: 'break-all' }}>{url}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={copiar}>{copiado ? <Check size={13} /> : <Copy size={13} />} {copiado ? 'Copiado' : 'Copiar link'}</button>
+        <a href={url} target="_blank" rel="noreferrer" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}><Tablet size={13} /> Abrir</a>
       </div>
     </div>
   )

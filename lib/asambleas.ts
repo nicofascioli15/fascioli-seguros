@@ -20,6 +20,7 @@ export type Asamblea = {
   lugar: string | null
   notas: string | null
   estado: 'abierta' | 'cerrada'
+  codigo_tablet?: string | null
   created_at: string
 }
 
@@ -34,6 +35,7 @@ export type UnidadAsamblea = {
   propietario_tel?: string | null
   apoderado_tel?: string | null
   firma_path?: string | null
+  firmo?: boolean
   created_at: string
 }
 
