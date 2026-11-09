@@ -1,5 +1,5 @@
 'use client'
-import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, MinusCircle, CheckCircle2, XCircle } from 'lucide-react'
 import type { Voto } from '@/lib/asambleas'
 // Pantalla completa para usar en la tablet que se pasa de mano en mano (votación y acreditación).
 
@@ -53,6 +53,50 @@ export function BotonesVoto({ valor, onVoto, grande }: { valor?: Voto; onVoto: (
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// Resultado de una moción cerrada: a favor / en contra / abstenciones, claro y grande.
+export type ResultadoMocion = {
+  id: string; orden: number; titulo: string; descripcion: string | null; estado: 'pendiente' | 'votando' | 'cerrada'; aprobada: boolean | null
+  si: number; no: number; abstencion: number; si_coef: number; no_coef: number; abstencion_coef: number; acreditadas: number
+}
+
+export function ResultadoCard({ r, conCoef, grande }: { r: ResultadoMocion; conCoef?: boolean; grande?: boolean }) {
+  const total = r.si + r.no + r.abstencion
+  const filas = [
+    { label: 'A favor', n: r.si, c: r.si_coef, color: '#22C55E' },
+    { label: 'En contra', n: r.no, c: r.no_coef, color: '#EF4444' },
+    { label: 'Abstención', n: r.abstencion, c: r.abstencion_coef, color: '#94A3B8' },
+  ]
+  const fmt = (x: number) => Math.round(Number(x) * 100) / 100
+  return (
+    <div style={{ background: 'rgba(255,255,255,.05)', border: `1.5px solid ${r.aprobada ? 'rgba(74,222,128,.45)' : 'rgba(248,113,113,.45)'}`, borderRadius: 16, padding: grande ? 22 : 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, color: '#E2C47A', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>Moción {r.orden}</div>
+          <div style={{ fontSize: grande ? 22 : 17, fontWeight: 800, marginTop: 2 }}>{r.titulo}</div>
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: grande ? 17 : 14, padding: '6px 12px', borderRadius: 999, flexShrink: 0,
+          background: r.aprobada ? 'rgba(22,163,74,.2)' : 'rgba(220,38,38,.2)', color: r.aprobada ? '#4ADE80' : '#F87171' }}>
+          {r.aprobada ? <CheckCircle2 size={grande ? 20 : 16} /> : <XCircle size={grande ? 20 : 16} />} {r.aprobada ? 'APROBADA' : 'RECHAZADA'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {filas.map(f => (
+          <div key={f.label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: grande ? 17 : 15, fontWeight: 700, marginBottom: 5 }}>
+              <span>{f.label}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{f.n} {f.n === 1 ? 'unidad' : 'unidades'}{conCoef ? ` · ${fmt(f.c)}%` : ''}</span>
+            </div>
+            <div style={{ height: grande ? 14 : 10, borderRadius: 8, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${total ? (f.n / total) * 100 : 0}%`, background: f.color, borderRadius: 8, transition: 'width .5s' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 13, color: '#8A9BB5', marginTop: 12 }}>Votaron {total} de {r.acreditadas} unidades presentes</div>
     </div>
   )
 }

@@ -21,6 +21,7 @@ export type Asamblea = {
   notas: string | null
   estado: 'abierta' | 'cerrada'
   codigo_tablet?: string | null
+  codigo_sala?: string | null
   created_at: string
 }
 

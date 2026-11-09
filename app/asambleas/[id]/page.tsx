@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import SalaQR from '@/components/asambleas/SalaQR'
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
 import { traerPadron } from '@/lib/padronImport'
 import {
@@ -133,6 +134,12 @@ export default function AsambleaFichaPage() {
       </div>
 
       {!cerrada && <TabletLink codigo={a.codigo_tablet} hayVotando={hayVotando} />}
+      {!cerrada && a.codigo_sala && <SalaQR codigo={a.codigo_sala} edificio={d.edificio} fecha={a.fecha} />}
+      {!cerrada && a.codigo_tablet && !a.codigo_sala && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, marginBottom: 14 }}>
+          <AlertTriangle size={16} /> Falta correr el SQL del celular (schema_asambleas_v5_celular.sql) para tener el QR de la sala.
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>

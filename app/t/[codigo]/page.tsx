@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, ArrowLeft, Check, Search, FileSignature, Home, X, PenLine, User, Vote, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
-import { Pantalla, BotonesVoto } from '@/components/asambleas/Kiosco'
+import { Pantalla, BotonesVoto, ResultadoCard, type ResultadoMocion } from '@/components/asambleas/Kiosco'
 import FirmaPad, { type FirmaPadRef } from '@/components/asambleas/FirmaPad'
 import { agruparPorVotante, claveVotante, votoLabel, mayoriaLabel, type Voto, type UnidadAsamblea } from '@/lib/asambleas'
 
@@ -20,9 +20,10 @@ type Estado = {
   asamblea: { id: string; edificio: string; fecha: string; tipo: string; estado: 'abierta' | 'cerrada'; modo_conteo: string; total_unidades: number | null }
   padron: { torre: string; unidad: string; coeficiente: number | null }[]
   torres: { codigo: string; nombre: string | null }[]
-  acreditadas: { id: string; unidad: string; propietario: string | null; por_poder: boolean; apoderado: string | null; coeficiente: number | null; tel: string | null }[]
+  acreditadas: { id: string; unidad: string; propietario: string | null; por_poder: boolean; apoderado: string | null; coeficiente: number | null; tel?: string | null }[]
   votando: { id: string; titulo: string; descripcion: string | null; mayoria: any; base: any } | null
   votadas: string[]
+  resultados?: ResultadoMocion[]
 }
 type Persona = { nombre: string; apellido: string; tel: string; firma?: string | null }
 
@@ -105,6 +106,7 @@ function Acreditacion({ e, codigo, recargar }: { e: Estado; codigo: string; reca
   const [guardando, setGuardando] = useState(false)
   const [ultimo, setUltimo] = useState<{ unidad: string; persona: Persona } | null>(null)
   const pad = useRef<FirmaPadRef>(null)
+  const [ocultoResultado, setOcultoResultado] = useState<string | null>(null)
 
   const acreditadas = new Set(e.acreditadas.map(u => u.unidad.toLowerCase()))
   const personas = useMemo(() => {
@@ -113,7 +115,7 @@ function Acreditacion({ e, codigo, recargar }: { e: Estado; codigo: string; reca
       const nombre = (u.por_poder ? u.apoderado : u.propietario) || ''
       if (!nombre.trim()) return
       const k = nombre.trim().toLowerCase()
-      if (!m.has(k)) m.set(k, { ...separar(nombre), tel: u.tel || '', unidades: [] })
+      if (!m.has(k)) m.set(k, { ...separar(nombre), tel: '', unidades: [] })
       m.get(k)!.unidades.push(u.unidad)
     })
     return Array.from(m.values())
@@ -165,6 +167,17 @@ function Acreditacion({ e, codigo, recargar }: { e: Estado; codigo: string; reca
         </button>
         <button className="kz-confirmar" style={{ marginTop: 0, fontSize: 19 }} onClick={terminar}><Check size={22} strokeWidth={3} /> Listo, paso la tablet</button>
       </div>
+      {(e.resultados || []).some(r => r.estado !== 'cerrada') && (
+        <div style={{ maxWidth: 560, margin: '26px auto 0', textAlign: 'left' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#8A9BB5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Se va a votar</div>
+          {(e.resultados || []).filter(r => r.estado !== 'cerrada').sort((x, y) => x.orden - y.orden).map(r => (
+            <div key={r.id} style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: '10px 14px', marginBottom: 6 }}>
+              <span style={{ color: '#8A9BB5', fontWeight: 700, marginRight: 8 }}>{r.orden}.</span><span style={{ fontWeight: 700 }}>{r.titulo}</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 14, color: '#B8C5D6', marginTop: 10 }}>Podés votar en esta tablet o desde tu celular con el QR de la sala.</div>
+        </div>
+      )}
     </Centro>
   )
 
@@ -183,10 +196,10 @@ function Acreditacion({ e, codigo, recargar }: { e: Estado; codigo: string; reca
         <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>{modo === 'poder' ? 'Tus datos (firmás y votás por esta unidad)' : 'Tus datos'}</div>
         {modo === 'poder' && personas.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 14, color: '#B8C5D6', marginBottom: 8 }}>¿Ya te registraste? Tocá tu nombre y se copian tus datos:</div>
+            <div style={{ fontSize: 14, color: '#B8C5D6', marginBottom: 8 }}>¿Ya te registraste? Tocá tu nombre (después poné tu teléfono):</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {personas.map(p => (
-                <button key={completo(p) + p.unidades.join()} className="kz-chip" onClick={() => setYo({ nombre: p.nombre, apellido: p.apellido, tel: p.tel })}>
+                <button key={completo(p) + p.unidades.join()} className="kz-chip" onClick={() => setYo(y => ({ nombre: p.nombre, apellido: p.apellido, tel: y.tel }))}>
                   {completo(p)} <span style={{ opacity: .7, fontWeight: 600 }}>({p.unidades.join(', ')})</span>
                 </button>
               ))}
@@ -215,9 +228,16 @@ function Acreditacion({ e, codigo, recargar }: { e: Estado; codigo: string; reca
     </div>
   )
 
+  const ultimaCerrada = [...(e.resultados || [])].filter(r => r.estado === 'cerrada').sort((x, y) => y.orden - x.orden)[0]
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '22px 20px 30px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        {ultimaCerrada && ocultoResultado !== ultimaCerrada.id && !preset && (
+          <div style={{ maxWidth: 720, margin: '0 auto 22px' }}>
+            <ResultadoCard r={ultimaCerrada} conCoef={e.asamblea.modo_conteo !== 'unidad'} grande />
+            <div style={{ textAlign: 'center', marginTop: 10 }}><button className="kz-mini" style={{ margin: '0 auto' }} onClick={() => setOcultoResultado(ultimaCerrada.id)}><X size={14} /> Ocultar resultado</button></div>
+          </div>
+        )}
         {preset ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(226,196,122,.12)', border: '1px solid rgba(226,196,122,.4)', borderRadius: 14, padding: '12px 16px', marginBottom: 18, flexWrap: 'wrap' }}>
             <FileSignature size={22} color="#E2C47A" />
