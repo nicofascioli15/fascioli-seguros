@@ -174,17 +174,31 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   const [f, setF] = useState(vacio)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const refUnidad = useRef<HTMLInputElement>(null)
+  const refUnidad = useRef<any>(null)
   const set = (c: Partial<typeof f>) => setF(x => ({ ...x, ...c }))
 
   // Padrón del edificio (Edificios y unidades): sugiere las unidades y completa propietario y coeficiente.
-  type Padron = { label: string; propietario: string | null; coeficiente: number | null }
+  type Padron = { label: string; torre: string; num: string; propietario: string | null; coeficiente: number | null }
   const [padron, setPadron] = useState<Padron[]>([])
+  const [torresPadron, setTorresPadron] = useState<{ codigo: string; nombre: string | null }[]>([])
+  const [torreSel, setTorreSel] = useState('')
+  const [manual, setManual] = useState(false)          // "otra unidad": se escribe a mano
   useEffect(() => {
-    supabase.from('edificio_unidades').select('torre, unidad, propietario, coeficiente').eq('cliente_id', d.asamblea.cliente_id)
-      .then(({ data }: any) => setPadron((data || []).map((u: any) => ({ label: etiquetaUnidad(u), propietario: u.propietario, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
-        .sort((a: Padron, b: Padron) => a.label.localeCompare(b.label, 'es', { numeric: true }))))
+    Promise.all([
+      supabase.from('edificio_unidades').select('torre, unidad, propietario, coeficiente').eq('cliente_id', d.asamblea.cliente_id),
+      supabase.from('edificio_torres').select('codigo, nombre').eq('cliente_id', d.asamblea.cliente_id).order('codigo'),
+    ]).then(([{ data }, { data: ts }]: any) => {
+      const lista: Padron[] = (data || []).map((u: any) => ({ label: etiquetaUnidad(u), torre: u.torre || '', num: u.unidad, propietario: u.propietario, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
+        .sort((a: Padron, b: Padron) => a.torre.localeCompare(b.torre) || a.num.localeCompare(b.num, 'es', { numeric: true }))
+      setPadron(lista)
+      // Torres que realmente tienen unidades (con su nombre si está cargado)
+      const codigos = Array.from(new Set(lista.map(u => u.torre))).filter(Boolean)
+      setTorresPadron(codigos.map(c => ({ codigo: c, nombre: (ts || []).find((t: any) => t.codigo === c)?.nombre || null })))
+      if (codigos.length && !lista.some(u => !u.torre)) setTorreSel(codigos[0])
+    })
   }, [d.asamblea.cliente_id])
+  const hayTorres = torresPadron.length > 0
+  const usarLista = padron.length > 0 && !manual
   const enPadron = (txt: string) => padron.find(p => p.label.toLowerCase() === txt.trim().toLowerCase())
   const delPadron = enPadron(f.unidad)
   const acreditadas = new Set(d.unidades.map(u => u.unidad.toLowerCase()))
@@ -229,6 +243,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
     // Si viene alguien con varios poderes, se mantiene el apoderado para cargar la siguiente más rápido.
     setF(f.por_poder ? { ...vacio, por_poder: true, apoderado: f.apoderado } : vacio)
     setEditId(null)
+    setManual(false)
     onChange()
     setTimeout(() => refUnidad.current?.focus(), 50)
   }
@@ -236,6 +251,8 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   function editar(u: UnidadAsamblea) {
     setEditId(u.id)
     setF({ unidad: u.unidad, propietario: u.propietario || '', coeficiente: u.coeficiente != null ? String(u.coeficiente) : '', por_poder: u.por_poder, apoderado: u.apoderado || '' })
+    const p = enPadron(u.unidad)
+    if (p) { setTorreSel(p.torre); setManual(false) } else if (padron.length) setManual(true)
     refUnidad.current?.focus()
   }
 
@@ -261,8 +278,31 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
       {!cerrada && (
         <div style={{ background: 'var(--bg-card)', border: `1.5px solid ${editId ? 'var(--gold)' : 'var(--border-soft)'}`, borderRadius: 14, padding: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{editId ? 'Editar unidad' : 'Acreditar unidad'}</div>
-          <div className="acred-grid" style={{ gridTemplateColumns: usaCoef ? '110px 1.4fr 120px' : '110px 1.4fr' }}>
-            <div className="fgroup" style={{ margin: 0 }}><label>Unidad *</label><input ref={refUnidad} style={inp} value={f.unidad} onChange={e => cambiarUnidad(e.target.value)} onKeyDown={onEnter} placeholder="Ej: 302" list="asam-padron" autoFocus /></div>
+          <div className="acred-grid" style={{ gridTemplateColumns: [usarLista && hayTorres ? 'minmax(150px, 1fr)' : null, usarLista ? 'minmax(190px, 1.2fr)' : '110px', '1.4fr', usaCoef ? '120px' : null].filter(Boolean).join(' ') }}>
+            {usarLista && hayTorres && (
+              <div className="fgroup" style={{ margin: 0 }}><label>Torre *</label>
+                <select style={inp} value={torreSel} onChange={e => { setTorreSel(e.target.value); cambiarUnidad('') }}>
+                  {padron.some(u => !u.torre) && <option value="">Sin torre</option>}
+                  {torresPadron.map(t => <option key={t.codigo} value={t.codigo}>{t.nombre ? `${t.nombre} (${t.codigo})` : t.codigo}</option>)}
+                </select></div>
+            )}
+            {usarLista ? (
+              <div className="fgroup" style={{ margin: 0 }}><label>Unidad *</label>
+                <select ref={refUnidad} style={inp} value={f.unidad} autoFocus
+                  onChange={e => { if (e.target.value === '__otra') { setManual(true); cambiarUnidad(''); setTimeout(() => refUnidad.current?.focus(), 30) } else cambiarUnidad(e.target.value) }}>
+                  <option value="">— Elegí la unidad —</option>
+                  {padron.filter(p => p.torre === torreSel && (!acreditadas.has(p.label.toLowerCase()) || p.label === f.unidad)).map(p => (
+                    <option key={p.label} value={p.label}>{p.num}{p.propietario ? ` — ${p.propietario}` : ''}</option>
+                  ))}
+                  <option value="__otra">✎ Otra unidad (no está en la lista)</option>
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{padron.filter(p => p.torre === torreSel && !acreditadas.has(p.label.toLowerCase())).length} sin acreditar</div>
+              </div>
+            ) : (
+              <div className="fgroup" style={{ margin: 0 }}><label>Unidad *</label><input ref={refUnidad} style={inp} value={f.unidad} onChange={e => cambiarUnidad(e.target.value)} onKeyDown={onEnter} placeholder="Ej: 302" autoFocus />
+                {padron.length > 0 && <button type="button" onClick={() => { setManual(false); cambiarUnidad('') }} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '3px 0 0', fontFamily: 'inherit' }}>← Elegir de la lista</button>}
+              </div>
+            )}
             <div className="fgroup" style={{ margin: 0 }}><label>Propietario{f.por_poder ? '' : ' (presente) *'}</label><input style={inp} value={f.propietario} onChange={e => set({ propietario: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>
             {usaCoef && <div className="fgroup" style={{ margin: 0 }}><label>Coeficiente % *</label><input style={inp} inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 4,25" /></div>}
           </div>
@@ -282,8 +322,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
             </div>
           </div>
           <datalist id="asam-nombres">{nombres.map(n => <option key={n} value={n} />)}</datalist>
-          <datalist id="asam-padron">{padron.filter(p => !acreditadas.has(p.label.toLowerCase())).map(p => <option key={p.label} value={p.label}>{p.propietario || ''}</option>)}</datalist>
-          {f.unidad.trim() && padron.length > 0 && (
+          {f.unidad.trim() && padron.length > 0 && (delPadron || manual) && (
             delPadron
               ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Del padrón: propietario <strong style={{ color: 'var(--text-main)' }}>{delPadron.propietario || 'sin nombre cargado'}</strong>{delPadron.coeficiente != null ? <> · coeficiente {delPadron.coeficiente}%</> : null}</div>
               : <div style={{ fontSize: 12, color: '#B45309', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} /> La unidad {f.unidad.trim()} no está en el padrón del edificio. Revisá el número antes de acreditarla.</div>
@@ -320,7 +359,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
           </div>
         )}
       </div>
-      <style>{`.acred-grid { display: grid; gap: 10px; } @media (max-width: 640px) { .acred-grid { grid-template-columns: 1fr 1fr !important; } .acred-grid > div:nth-child(2) { grid-column: 1 / -1; grid-row: 2; } }`}</style>
+      <style>{`.acred-grid { display: grid; gap: 10px; } @media (max-width: 640px) { .acred-grid { grid-template-columns: 1fr 1fr !important; } .acred-grid > div { grid-column: 1 / -1; } }`}</style>
     </div>
   )
 }
