@@ -42,6 +42,7 @@ const tablaLabel: Record<string, string> = {
   mant_documentos: 'Documento (Mant.)', mant_reclamos: 'Reclamo', mant_comentarios: 'Comentario (Mant.)', mant_empresas: 'Empresa (Mant.)',
   obras: 'Obra', obras_pagos: 'Pago de obra', obras_leyes: 'Leyes sociales (obra)', obras_documentos: 'Documento (obra)',
   obras_comentarios: 'Comentario (obra)', obras_empresas: 'Empresa (obras)',
+  asambleas: 'Asamblea', asamblea_unidades: 'Unidad (asamblea)', asamblea_mociones: 'Moción (asamblea)', asamblea_votos: 'Voto (asamblea)',
 }
 
 function formatFecha(iso: string) {

@@ -47,6 +47,13 @@ function IconFile() {
     </svg>
   )
 }
+function IconVote() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 12 2 2 4-4"/><path d="M5 7c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v12H5V7Z"/><path d="M22 19H2"/>
+    </svg>
+  )
+}
 function IconHardHat() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -76,6 +83,7 @@ export default function HubPage() {
   const [mantStats, setMantStats] = useState({ edificios: 0, vencen30: 0, vencidos: 0 })
   const [contratosStats, setContratosStats] = useState({ contratos: 0, vencidos: 0, autoRenovados: 0 })
   const [obrasStats, setObrasStats] = useState({ enCurso: 0, atrasados: 0, alertas: 0 })
+  const [asamStats, setAsamStats] = useState({ abiertas: 0, votando: 0, esteAnio: 0 })
 
   useEffect(() => {
     async function init() {
@@ -159,6 +167,18 @@ export default function HubPage() {
         alertas: obrasVivas.filter(o => !o.cerrada && (o.cierre.pendiente || o.rl.alerta === 'excedido')).length,
       })
 
+      // Asambleas (si el SQL todavía no se corrió, quedan en 0)
+      const anio = new Date().getFullYear()
+      const [{ data: asams }, { count: votando }] = await Promise.all([
+        supabase.from('asambleas').select('estado, fecha'),
+        supabase.from('asamblea_mociones').select('id', { count: 'exact', head: true }).eq('estado', 'votando'),
+      ])
+      setAsamStats({
+        abiertas: (asams || []).filter((x: any) => x.estado === 'abierta').length,
+        votando: votando || 0,
+        esteAnio: (asams || []).filter((x: any) => (x.fecha || '').startsWith(String(anio))).length,
+      })
+
       setLoading(false)
     }
     init()
@@ -212,9 +232,19 @@ export default function HubPage() {
         { label: 'Alertas', value: obrasStats.alertas, tone: tono(obrasStats.alertas, 'warn') },
       ],
     },
+    {
+      id: 'asambleas', label: 'Asambleas', atajo: '5',
+      description: 'Acreditación de unidades, poderes y votación electrónica con tablet',
+      route: '/asambleas', ready: true, accent: '#5B8DEF', icon: <IconVote />,
+      stats: [
+        { label: 'Abiertas', value: asamStats.abiertas },
+        { label: 'Votando ahora', value: asamStats.votando, tone: tono(asamStats.votando, 'warn') },
+        { label: `En ${new Date().getFullYear()}`, value: asamStats.esteAnio },
+      ],
+    },
   ]
 
-  // Atajos de teclado: 1-4 abren cada módulo.
+  // Atajos de teclado: 1-5 abren cada módulo.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -276,7 +306,7 @@ export default function HubPage() {
           ))}
         </div>
         <div className="hub-foot">
-          Fascioli Administraciones · Sistema interno de gestión <span className="hub-foot-keys">Atajos: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span>
+          Fascioli Administraciones · Sistema interno de gestión <span className="hub-foot-keys">Atajos: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd></span>
         </div>
       </main>
     </div>
@@ -350,6 +380,13 @@ const HUB_CSS = `
 .hub-main { position: relative; z-index: 3; max-width: 1120px; margin: -84px auto 0; padding: 0 clamp(16px, 4vw, 32px) 48px; }
 .hub-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(14px, 2.2vw, 20px); }
 @media (max-width: 760px) { .hub-cards { grid-template-columns: 1fr; } .hub-username { display: none; } }
+/* Si queda un módulo solo en la última fila, ocupa todo el ancho en formato apaisado */
+@media (min-width: 761px) {
+  .hub-cards > .hub-card:last-child:nth-child(odd) { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: clamp(18px, 3vw, 32px); }
+  .hub-cards > .hub-card:last-child:nth-child(odd) .hub-card-head { flex: 1.3; min-width: 0; }
+  .hub-cards > .hub-card:last-child:nth-child(odd) .hub-stats { flex: 1; min-width: 300px; }
+  .hub-cards > .hub-card:last-child:nth-child(odd) .hub-cta { flex: 0 0 auto; gap: 12px; }
+}
 
 .hub-card { all: unset; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 22px; cursor: pointer;
   background: rgba(255,255,255,.92); backdrop-filter: blur(14px); border: 1px solid #E3E8F0; border-radius: 22px; padding: clamp(20px, 3vw, 28px);
