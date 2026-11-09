@@ -275,9 +275,19 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {!cerrada && padron.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--navy)', color: 'white', borderRadius: 14, padding: '14px 18px', flexWrap: 'wrap' }}>
+          <Tablet size={26} color="#E2C47A" />
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>Autorregistro en la tablet</div>
+            <div style={{ fontSize: 12.5, color: '#B8C5D6' }}>Cada persona toca su apartamento, pone nombre, apellido y teléfono, y marca si viene con poder. La tablet se va pasando.</div>
+          </div>
+          <Link href={`/asambleas/${d.asamblea.id}/acreditar`} className="btn-primary" style={{ textDecoration: 'none' }}><Tablet size={14} /> Abrir en la tablet</Link>
+        </div>
+      )}
       {!cerrada && (
         <div style={{ background: 'var(--bg-card)', border: `1.5px solid ${editId ? 'var(--gold)' : 'var(--border-soft)'}`, borderRadius: 14, padding: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{editId ? 'Editar unidad' : 'Acreditar unidad'}</div>
+          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{editId ? 'Editar unidad' : padron.length ? 'Acreditar desde la computadora' : 'Acreditar unidad'}</div>
           <div className="acred-grid" style={{ gridTemplateColumns: [usarLista && hayTorres ? 'minmax(150px, 1fr)' : null, usarLista ? 'minmax(190px, 1.2fr)' : '110px', '1.4fr', usaCoef ? '120px' : null].filter(Boolean).join(' ') }}>
             {usarLista && hayTorres && (
               <div className="fgroup" style={{ margin: 0 }}><label>Torre *</label>
@@ -345,7 +355,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
                     <td>{u.propietario || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     {usaCoef && <td style={{ fontVariantNumeric: 'tabular-nums' }}>{u.coeficiente != null ? `${u.coeficiente}%` : <span style={{ color: 'var(--danger)' }}>falta</span>}</td>}
                     <td>{u.por_poder ? <span className="badge badge-gold"><FileSignature size={11} /> Por poder</span> : <span className="badge badge-success">Presente</span>}</td>
-                    <td style={{ fontWeight: 600 }}>{votante(u)}</td>
+                    <td><div style={{ fontWeight: 600 }}>{votante(u)}</div>{(u.por_poder ? u.apoderado_tel : u.propietario_tel) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{u.por_poder ? u.apoderado_tel : u.propietario_tel}</div>}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!cerrada && <>
                         <button className="btn-outline btn-sm" title="Editar" onClick={() => editar(u)}><Pencil size={12} /></button>

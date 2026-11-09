@@ -31,6 +31,8 @@ export type UnidadAsamblea = {
   coeficiente: number | null
   por_poder: boolean
   apoderado: string | null
+  propietario_tel?: string | null
+  apoderado_tel?: string | null
   created_at: string
 }
 
