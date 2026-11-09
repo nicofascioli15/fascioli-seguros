@@ -107,9 +107,8 @@ export default function ImportarPadron({ onClose, onDone }: { onClose: () => voi
 
       // 3) Unidades (no toca el coeficiente que ya esté cargado)
       const filasU = unidades.filter(u => idDe.has(u.edificio)).map(u => ({
-        cliente_id: idDe.get(u.edificio)!, torre: u.torre, unidad: u.unidad, ocupa: u.ocupa,
+        cliente_id: idDe.get(u.edificio)!, torre: u.torre, unidad: u.unidad,
         propietario: u.propietario || null, propietario_tel: u.propietario_tel || null, propietario_email: u.propietario_email || null,
-        inquilino: u.inquilino || null, inquilino_tel: u.inquilino_tel || null, inquilino_email: u.inquilino_email || null,
       }))
       for (let i = 0; i < filasU.length; i += 500) {
         setTrabajando(`Cargando unidades... ${Math.min(i + 500, filasU.length)} de ${filasU.length}`)
@@ -142,7 +141,7 @@ export default function ImportarPadron({ onClose, onDone }: { onClose: () => voi
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5 }}>
           Los archivos que exporta el sistema de gastos comunes (separados por punto y coma). Podés subir uno solo o los tres.
-          No se borra nada: lo nuevo se crea y lo que ya existe se actualiza. El coeficiente que hayas cargado a mano se mantiene.
+          No se borra nada: lo nuevo se crea y lo que ya existe se actualiza. El coeficiente que hayas cargado a mano se mantiene. De los aptos se toman solo los propietarios: los inquilinos no se cargan porque no votan en la asamblea.
         </div>
 
         {hecho ? (

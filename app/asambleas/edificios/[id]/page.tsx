@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Search, Plus, Pencil, Trash2, X, Home, KeyRound } from 'lucide-react'
+import { ArrowLeft, Loader2, Search, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -11,9 +11,8 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { etiquetaUnidad } from '@/lib/padronImport'
 
 type Unidad = {
-  id: string; cliente_id: string; torre: string; unidad: string; ocupa: 'propietario' | 'inquilino'
-  propietario: string | null; propietario_tel: string | null; propietario_email: string | null
-  inquilino: string | null; inquilino_tel: string | null; inquilino_email: string | null; coeficiente: number | null
+  id: string; cliente_id: string; torre: string; unidad: string
+  propietario: string | null; propietario_tel: string | null; propietario_email: string | null; coeficiente: number | null
 }
 type Torre = { id: string; codigo: string; nombre: string | null }
 
@@ -55,7 +54,7 @@ export default function EdificioPadronPage() {
   if (ed === null) return <div style={{ textAlign: 'center', padding: 60 }}><div style={{ fontWeight: 700, marginBottom: 12 }}>No se encontró el edificio</div><Link href="/asambleas/edificios" className="btn-outline">Volver</Link></div>
 
   const q = search.trim().toLowerCase()
-  const visibles = unidades.filter(u => !q || etiquetaUnidad(u).toLowerCase().includes(q) || (u.propietario || '').toLowerCase().includes(q) || (u.inquilino || '').toLowerCase().includes(q))
+  const visibles = unidades.filter(u => !q || etiquetaUnidad(u).toLowerCase().includes(q) || (u.propietario || '').toLowerCase().includes(q))
   const nombreTorre = (c: string) => torres.find(t => t.codigo === c)?.nombre || c
   const sumaCoef = Math.round(unidades.reduce((s, u) => s + (u.coeficiente || 0), 0) * 100) / 100
   const conCoef = unidades.filter(u => u.coeficiente != null).length
@@ -88,15 +87,15 @@ export default function EdificioPadronPage() {
         {visibles.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{unidades.length ? 'Sin resultados' : 'Este edificio no tiene unidades cargadas. Importalas desde "Edificios y unidades" o agregalas a mano.'}</div> : (
           <div style={{ overflowX: 'auto' }}>
             <table className="pad-tabla">
-              <thead><tr>{torres.length > 0 && <th>Torre</th>}<th>Unidad</th><th>Propietario</th><th>Inquilino</th><th>Vive</th><th>Coef.</th><th /></tr></thead>
+              <thead><tr>{torres.length > 0 && <th>Torre</th>}<th>Unidad</th><th>Propietario</th><th>Teléfono</th><th>Email</th><th>Coef.</th><th /></tr></thead>
               <tbody>
                 {visibles.map(u => (
                   <tr key={u.id}>
                     {torres.length > 0 && <td style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{u.torre ? nombreTorre(u.torre) : '—'}</td>}
                     <td style={{ fontWeight: 800 }}>{u.unidad}</td>
-                    <td><Persona n={u.propietario} t={u.propietario_tel} e={u.propietario_email} /></td>
-                    <td><Persona n={u.inquilino} t={u.inquilino_tel} e={u.inquilino_email} /></td>
-                    <td>{u.ocupa === 'inquilino' ? <span className="badge badge-blue"><KeyRound size={11} /> Inquilino</span> : <span className="badge badge-neutral"><Home size={11} /> Propietario</span>}</td>
+                    <td style={{ fontWeight: 600 }}>{u.propietario || <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>—</span>}</td>
+                    <td style={{ fontSize: 12.5 }}>{u.propietario_tel || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                    <td style={{ fontSize: 12.5 }}>{u.propietario_email || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{u.coeficiente != null ? `${u.coeficiente}%` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button className="btn-outline btn-sm" title="Editar" onClick={() => setEditando(u)}><Pencil size={12} /></button>
@@ -121,22 +120,11 @@ export default function EdificioPadronPage() {
   )
 }
 
-function Persona({ n, t, e }: { n: string | null; t: string | null; e: string | null }) {
-  if (!n && !t && !e) return <span style={{ color: 'var(--text-muted)' }}>—</span>
-  return (
-    <div style={{ minWidth: 0 }}>
-      {n && <div style={{ fontWeight: 600 }}>{n}</div>}
-      {(t || e) && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{[t, e].filter(Boolean).join(' · ')}</div>}
-    </div>
-  )
-}
-
 function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }: { clienteId: string; edificio: string; unidad: Unidad | null; torres: Torre[]; onClose: () => void; onSaved: () => void }) {
   const supabase = createClient()
   const [f, setF] = useState({
-    torre: unidad?.torre || '', unidad: unidad?.unidad || '', ocupa: unidad?.ocupa || 'propietario',
+    torre: unidad?.torre || '', unidad: unidad?.unidad || '',
     propietario: unidad?.propietario || '', propietario_tel: unidad?.propietario_tel || '', propietario_email: unidad?.propietario_email || '',
-    inquilino: unidad?.inquilino || '', inquilino_tel: unidad?.inquilino_tel || '', inquilino_email: unidad?.inquilino_email || '',
     coeficiente: unidad?.coeficiente != null ? String(unidad.coeficiente) : '',
   })
   const [saving, setSaving] = useState(false)
@@ -148,7 +136,7 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
     if (coef != null && (isNaN(coef) || coef < 0)) { showToast('El coeficiente no es válido', 'error'); return }
     setSaving(true)
     const n = (s: string) => s.trim() || null
-    const payload = { cliente_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), ocupa: f.ocupa, propietario: n(f.propietario), propietario_tel: n(f.propietario_tel), propietario_email: n(f.propietario_email), inquilino: n(f.inquilino), inquilino_tel: n(f.inquilino_tel), inquilino_email: n(f.inquilino_email), coeficiente: coef }
+    const payload = { cliente_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), propietario: n(f.propietario), propietario_tel: n(f.propietario_tel), propietario_email: n(f.propietario_email), coeficiente: coef }
     const { data, error } = unidad
       ? await supabase.from('edificio_unidades').update(payload).eq('id', unidad.id).select().single()
       : await supabase.from('edificio_unidades').insert([payload]).select().single()
@@ -169,15 +157,10 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
           {torres.length > 0 && <div className="fgroup"><label>Torre</label><select value={f.torre} onChange={e => set({ torre: e.target.value })}><option value="">—</option>{torres.map(t => <option key={t.codigo} value={t.codigo}>{t.codigo} · {t.nombre}</option>)}</select></div>}
           <div className="fgroup"><label>Unidad *</label><input value={f.unidad} onChange={e => set({ unidad: e.target.value })} /></div>
           <div className="fgroup"><label>Coeficiente %</label><input inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} placeholder="Ej: 4,25" /></div>
-          <div className="fgroup"><label>¿Quién vive?</label><select value={f.ocupa} onChange={e => set({ ocupa: e.target.value as any })}><option value="propietario">Propietario</option><option value="inquilino">Inquilino</option></select></div>
           <div className="fgroup" style={{ gridColumn: '1 / -1', marginBottom: 0 }}><label style={{ color: 'var(--text-main)' }}>Propietario</label></div>
           <div className="fgroup"><label>Nombre</label><input value={f.propietario} onChange={e => set({ propietario: e.target.value })} /></div>
           <div className="fgroup"><label>Teléfono</label><input value={f.propietario_tel} onChange={e => set({ propietario_tel: e.target.value })} /></div>
           <div className="fgroup"><label>Email</label><input value={f.propietario_email} onChange={e => set({ propietario_email: e.target.value })} /></div>
-          <div className="fgroup" style={{ gridColumn: '1 / -1', marginBottom: 0 }}><label style={{ color: 'var(--text-main)' }}>Inquilino</label></div>
-          <div className="fgroup"><label>Nombre</label><input value={f.inquilino} onChange={e => set({ inquilino: e.target.value })} /></div>
-          <div className="fgroup"><label>Teléfono</label><input value={f.inquilino_tel} onChange={e => set({ inquilino_tel: e.target.value })} /></div>
-          <div className="fgroup"><label>Email</label><input value={f.inquilino_email} onChange={e => set({ inquilino_email: e.target.value })} /></div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
           <button className="btn-outline" onClick={onClose}>Cancelar</button>

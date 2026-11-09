@@ -178,11 +178,11 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   const set = (c: Partial<typeof f>) => setF(x => ({ ...x, ...c }))
 
   // Padrón del edificio (Edificios y unidades): sugiere las unidades y completa propietario y coeficiente.
-  type Padron = { label: string; propietario: string | null; inquilino: string | null; coeficiente: number | null }
+  type Padron = { label: string; propietario: string | null; coeficiente: number | null }
   const [padron, setPadron] = useState<Padron[]>([])
   useEffect(() => {
-    supabase.from('edificio_unidades').select('torre, unidad, propietario, inquilino, coeficiente').eq('cliente_id', d.asamblea.cliente_id)
-      .then(({ data }: any) => setPadron((data || []).map((u: any) => ({ label: etiquetaUnidad(u), propietario: u.propietario, inquilino: u.inquilino, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
+    supabase.from('edificio_unidades').select('torre, unidad, propietario, coeficiente').eq('cliente_id', d.asamblea.cliente_id)
+      .then(({ data }: any) => setPadron((data || []).map((u: any) => ({ label: etiquetaUnidad(u), propietario: u.propietario, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
         .sort((a: Padron, b: Padron) => a.label.localeCompare(b.label, 'es', { numeric: true }))))
   }, [d.asamblea.cliente_id])
   const enPadron = (txt: string) => padron.find(p => p.label.toLowerCase() === txt.trim().toLowerCase())
@@ -285,7 +285,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
           <datalist id="asam-padron">{padron.filter(p => !acreditadas.has(p.label.toLowerCase())).map(p => <option key={p.label} value={p.label}>{p.propietario || ''}</option>)}</datalist>
           {f.unidad.trim() && padron.length > 0 && (
             delPadron
-              ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Del padrón: propietario <strong style={{ color: 'var(--text-main)' }}>{delPadron.propietario || 'sin nombre cargado'}</strong>{delPadron.inquilino ? <> · inquilino {delPadron.inquilino}</> : null}{delPadron.coeficiente != null ? <> · coeficiente {delPadron.coeficiente}%</> : null}</div>
+              ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Del padrón: propietario <strong style={{ color: 'var(--text-main)' }}>{delPadron.propietario || 'sin nombre cargado'}</strong>{delPadron.coeficiente != null ? <> · coeficiente {delPadron.coeficiente}%</> : null}</div>
               : <div style={{ fontSize: 12, color: '#B45309', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} /> La unidad {f.unidad.trim()} no está en el padrón del edificio. Revisá el número antes de acreditarla.</div>
           )}
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Tip: Enter acredita y vuelve a "Unidad". Si alguien trae varios poderes, el nombre del apoderado queda cargado para la siguiente.</div>

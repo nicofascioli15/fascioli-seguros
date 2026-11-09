@@ -3,13 +3,13 @@
 //   torres:    CODIGO_EDIF;CODIGO_TORRE;NOMBRE          (NINGUNA / vacío = el edificio no tiene torres)
 //   unidades:  CODIGO_EDIF;TORRE;UNIDAD;TIPO;NOMBRE;TEL;EMAIL
 //              TIPO: A = propietario que vive en la unidad · P = propietario · I = inquilino
+// Los inquilinos (I) NO se importan: en la asamblea votan los propietarios (el inquilino solo puede ir con poder).
 
 export type EdificioArchivo = { codigo: string; nombre: string; direccion: string }
 export type TorreArchivo = { edificio: string; codigo: string; nombre: string }
 export type UnidadArchivo = {
-  edificio: string; torre: string; unidad: string; ocupa: 'propietario' | 'inquilino'
+  edificio: string; torre: string; unidad: string
   propietario: string; propietario_tel: string; propietario_email: string
-  inquilino: string; inquilino_tel: string; inquilino_email: string
 }
 
 // Los archivos vienen en Latin-1 / Windows-1252 (tildes y Ñ). Si ya vinieran en UTF-8 también funciona.
@@ -65,22 +65,14 @@ export function parseUnidades(texto: string): UnidadArchivo[] {
     const tipo = limpio(c[3]).toUpperCase()
     if (!edificio || !unidad) return
     const k = `${edificio}|${torre}|${unidad}`
-    if (!m.has(k)) m.set(k, { edificio, torre, unidad, ocupa: 'propietario', propietario: '', propietario_tel: '', propietario_email: '', inquilino: '', inquilino_tel: '', inquilino_email: '' })
+    // La unidad se crea igual aunque solo venga el renglón del inquilino, pero sin sus datos.
+    if (!m.has(k)) m.set(k, { edificio, torre, unidad, propietario: '', propietario_tel: '', propietario_email: '' })
+    if (tipo === 'I') return
     const u = m.get(k)!
     const p = persona(c.slice(4))
-    if (tipo === 'I') {
-      u.inquilino = p.nombre; u.inquilino_tel = p.tel; u.inquilino_email = p.email
-    } else {
-      u.propietario = p.nombre || u.propietario; u.propietario_tel = p.tel || u.propietario_tel; u.propietario_email = p.email || u.propietario_email
-    }
+    u.propietario = p.nombre || u.propietario; u.propietario_tel = p.tel || u.propietario_tel; u.propietario_email = p.email || u.propietario_email
   })
-  // El archivo trae siempre el renglón "I" (aunque esté vacío): solo hay inquilino si tiene nombre
-  // y no es la misma persona que el propietario.
-  return Array.from(m.values()).map(u => {
-    const mismo = u.inquilino && u.propietario && u.inquilino.toLowerCase() === u.propietario.toLowerCase()
-    if (!u.inquilino || mismo) return { ...u, ocupa: 'propietario' as const, inquilino: '', inquilino_tel: '', inquilino_email: '' }
-    return { ...u, ocupa: 'inquilino' as const }
-  })
+  return Array.from(m.values())
 }
 
 // Para encontrar el edificio ya cargado aunque el nombre esté escrito distinto

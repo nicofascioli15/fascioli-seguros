@@ -1,5 +1,6 @@
 -- ============================================================================
--- Padrón de edificios: código de edificio, torres y unidades (con propietario / inquilino)
+-- Padrón de edificios: código de edificio, torres y unidades con su propietario
+-- (los inquilinos no se cargan: no votan en asamblea; si van, es con poder del propietario)
 -- Se carga desde la web: Asambleas → Edificios y unidades → Importar archivos
 -- ============================================================================
 
@@ -23,13 +24,9 @@ create table if not exists edificio_unidades (
   cliente_id          uuid not null references mant_clientes(id) on delete cascade,
   torre               text not null default '',       -- código de torre ('' si el edificio no tiene)
   unidad              text not null,                   -- ej: "101"
-  ocupa               text not null default 'propietario' check (ocupa in ('propietario','inquilino')),
   propietario         text,
   propietario_tel     text,
   propietario_email   text,
-  inquilino           text,
-  inquilino_tel       text,
-  inquilino_email     text,
   coeficiente         numeric,                         -- % de propiedad (para asambleas por coeficiente)
   created_at          timestamp with time zone default now(),
   unique (cliente_id, torre, unidad)
