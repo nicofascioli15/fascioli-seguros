@@ -9,6 +9,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
+import { etiquetaUnidad } from '@/lib/padronImport'
 import {
   MAYORIAS, BASES, MODOS_CONTEO, VOTOS, calcularResultado, quorum, votante, mayoriaLabel, baseLabel, formatFechaAsamblea,
   type Mayoria, type BaseMayoria, type Mocion, type UnidadAsamblea, type ModoConteo,
@@ -175,6 +176,29 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   const [saving, setSaving] = useState(false)
   const refUnidad = useRef<HTMLInputElement>(null)
   const set = (c: Partial<typeof f>) => setF(x => ({ ...x, ...c }))
+
+  // Padrón del edificio (Edificios y unidades): sugiere las unidades y completa propietario y coeficiente.
+  type Padron = { label: string; propietario: string | null; inquilino: string | null; coeficiente: number | null }
+  const [padron, setPadron] = useState<Padron[]>([])
+  useEffect(() => {
+    supabase.from('edificio_unidades').select('torre, unidad, propietario, inquilino, coeficiente').eq('cliente_id', d.asamblea.cliente_id)
+      .then(({ data }: any) => setPadron((data || []).map((u: any) => ({ label: etiquetaUnidad(u), propietario: u.propietario, inquilino: u.inquilino, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
+        .sort((a: Padron, b: Padron) => a.label.localeCompare(b.label, 'es', { numeric: true }))))
+  }, [d.asamblea.cliente_id])
+  const enPadron = (txt: string) => padron.find(p => p.label.toLowerCase() === txt.trim().toLowerCase())
+  const delPadron = enPadron(f.unidad)
+  const acreditadas = new Set(d.unidades.map(u => u.unidad.toLowerCase()))
+
+  function cambiarUnidad(v: string) {
+    const p = enPadron(v)
+    setF(x => ({
+      ...x, unidad: v,
+      ...(p && !editId ? {
+        propietario: x.propietario && !padron.some(pp => pp.propietario === x.propietario) ? x.propietario : (p.propietario || ''),
+        coeficiente: x.coeficiente || (p.coeficiente != null ? String(p.coeficiente) : ''),
+      } : {}),
+    }))
+  }
   const conVotos = new Set(d.votos.map(v => v.unidad_id))
 
   // Nombres ya cargados, para sugerir el apoderado (una persona con varios poderes).
@@ -238,7 +262,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
         <div style={{ background: 'var(--bg-card)', border: `1.5px solid ${editId ? 'var(--gold)' : 'var(--border-soft)'}`, borderRadius: 14, padding: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>{editId ? 'Editar unidad' : 'Acreditar unidad'}</div>
           <div className="acred-grid" style={{ gridTemplateColumns: usaCoef ? '110px 1.4fr 120px' : '110px 1.4fr' }}>
-            <div className="fgroup" style={{ margin: 0 }}><label>Unidad *</label><input ref={refUnidad} style={inp} value={f.unidad} onChange={e => set({ unidad: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 302" autoFocus /></div>
+            <div className="fgroup" style={{ margin: 0 }}><label>Unidad *</label><input ref={refUnidad} style={inp} value={f.unidad} onChange={e => cambiarUnidad(e.target.value)} onKeyDown={onEnter} placeholder="Ej: 302" list="asam-padron" autoFocus /></div>
             <div className="fgroup" style={{ margin: 0 }}><label>Propietario{f.por_poder ? '' : ' (presente) *'}</label><input style={inp} value={f.propietario} onChange={e => set({ propietario: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>
             {usaCoef && <div className="fgroup" style={{ margin: 0 }}><label>Coeficiente % *</label><input style={inp} inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 4,25" /></div>}
           </div>
@@ -258,6 +282,12 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
             </div>
           </div>
           <datalist id="asam-nombres">{nombres.map(n => <option key={n} value={n} />)}</datalist>
+          <datalist id="asam-padron">{padron.filter(p => !acreditadas.has(p.label.toLowerCase())).map(p => <option key={p.label} value={p.label}>{p.propietario || ''}</option>)}</datalist>
+          {f.unidad.trim() && padron.length > 0 && (
+            delPadron
+              ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Del padrón: propietario <strong style={{ color: 'var(--text-main)' }}>{delPadron.propietario || 'sin nombre cargado'}</strong>{delPadron.inquilino ? <> · inquilino {delPadron.inquilino}</> : null}{delPadron.coeficiente != null ? <> · coeficiente {delPadron.coeficiente}%</> : null}</div>
+              : <div style={{ fontSize: 12, color: '#B45309', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} /> La unidad {f.unidad.trim()} no está en el padrón del edificio. Revisá el número antes de acreditarla.</div>
+          )}
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Tip: Enter acredita y vuelve a "Unidad". Si alguien trae varios poderes, el nombre del apoderado queda cargado para la siguiente.</div>
         </div>
       )}

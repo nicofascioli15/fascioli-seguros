@@ -105,6 +105,16 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
     supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre').then(({ data }) => setEdificios(data || []))
   }, [])
 
+  // Si el edificio tiene el padrón cargado, se completa solo la cantidad de unidades.
+  async function elegir(e: Edificio) {
+    setElegido(e)
+    const { data } = await supabase.from('edificio_unidades').select('coeficiente').eq('cliente_id', e.id)
+    if (data && data.length) {
+      const suma = Math.round(data.reduce((s: number, u: any) => s + Number(u.coeficiente || 0), 0) * 100) / 100
+      setForm(f => ({ ...f, total_unidades: String(data.length), ...(suma > 0 ? { total_coeficiente: String(suma) } : {}) }))
+    }
+  }
+
   async function crear() {
     if (!elegido) return
     setSaving(true)
@@ -146,7 +156,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
             </div>
             <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {filtrados.map(e => (
-                <div key={e.id} onClick={() => setElegido(e)} className="asam-ed">
+                <div key={e.id} onClick={() => elegir(e)} className="asam-ed">
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'grid', placeItems: 'center', fontWeight: 800, color: 'var(--gold)', flexShrink: 0 }}>{e.nombre.trim()[0]?.toUpperCase()}</div>
                   <div><div style={{ fontWeight: 700, fontSize: 14 }}>{e.nombre}</div>{e.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.direccion}</div>}</div>
                 </div>
