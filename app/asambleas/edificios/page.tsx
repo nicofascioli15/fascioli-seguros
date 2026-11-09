@@ -2,11 +2,12 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, Search, Building2, ChevronRight, Users } from 'lucide-react'
+import { Upload, Loader2, Search, Building2, ChevronRight, Users, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { traerTodo } from '@/lib/traerTodo'
 import ImportarPadron from '@/components/asambleas/ImportarPadron'
+import EdificioAsambleaModal from '@/components/asambleas/EdificioAsambleaModal'
 
 type Fila = { id: string; nombre: string; direccion: string | null; codigo: string | null; unidades: number; conDatos: number }
 
@@ -18,6 +19,7 @@ export default function EdificiosPadronPage() {
   const [search, setSearch] = useState('')
   const [importando, setImportando] = useState(false)
   const [soloConUnidades, setSoloConUnidades] = useState(false)
+  const [nuevo, setNuevo] = useState(false)
 
   useEffect(() => { cargar() }, [])
 
@@ -25,11 +27,11 @@ export default function EdificiosPadronPage() {
     setLoading(true)
     try {
       const [eds, us] = await Promise.all([
-        traerTodo<any>(() => supabase.from('mant_clientes').select('id, nombre, direccion, codigo').order('id')),
-        traerTodo<any>(() => supabase.from('edificio_unidades').select('cliente_id, propietario').order('id')),
+        traerTodo<any>(() => supabase.from('asam_edificios').select('id, nombre, direccion, codigo').order('id')),
+        traerTodo<any>(() => supabase.from('asam_unidades').select('edificio_id, propietario').order('id')),
       ])
       const c: Record<string, { n: number; d: number }> = {}
-      us.forEach(u => { c[u.cliente_id] ||= { n: 0, d: 0 }; c[u.cliente_id].n++; if (u.propietario) c[u.cliente_id].d++ })
+      us.forEach(u => { c[u.edificio_id] ||= { n: 0, d: 0 }; c[u.edificio_id].n++; if (u.propietario) c[u.edificio_id].d++ })
       setFilas(eds.map(e => ({ ...e, unidades: c[e.id]?.n || 0, conDatos: c[e.id]?.d || 0 }))
         .sort((a, b) => (a.codigo || 'ZZZ').localeCompare(b.codigo || 'ZZZ', 'es', { numeric: true }) || a.nombre.localeCompare(b.nombre)))
     } catch (e: any) {
@@ -47,9 +49,12 @@ export default function EdificiosPadronPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Edificios y unidades</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{filas.length} edificios · {totalU} unidades cargadas · se usan para acreditar en las asambleas</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{filas.length} edificios · {totalU} unidades · son solo de Asambleas (no se mezclan con Seguros, Mantenimiento, Obras ni Contratos)</p>
         </div>
-        <button className="btn-primary" onClick={() => setImportando(true)}><Upload size={15} /> Importar archivos</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-outline" onClick={() => setNuevo(true)}><Plus size={15} /> Nuevo edificio</button>
+          <button className="btn-primary" onClick={() => setImportando(true)}><Upload size={15} /> Importar archivos</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -83,6 +88,7 @@ export default function EdificiosPadronPage() {
         )}
 
       {importando && <ImportarPadron onClose={() => setImportando(false)} onDone={cargar} />}
+      {nuevo && <EdificioAsambleaModal edificio={null} onClose={() => setNuevo(false)} onSaved={id => { setNuevo(false); if (id) router.push(`/asambleas/edificios/${id}`); else cargar() }} />}
       <style>{`.pad-card { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: border-color .15s, transform .15s; } .pad-card:hover { border-color: var(--gold); transform: translateY(-1px); }`}</style>
     </div>
   )

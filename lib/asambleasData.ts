@@ -13,7 +13,7 @@ export type AsambleaCompleta = {
 
 // Trae una asamblea con todo lo que cuelga de ella.
 export async function fetchAsamblea(supabase: any, id: string): Promise<AsambleaCompleta | null> {
-  const { data: a, error } = await supabase.from('asambleas').select('*, mant_clientes(nombre, direccion)').eq('id', id).maybeSingle()
+  const { data: a, error } = await supabase.from('asambleas').select('*, asam_edificios(nombre, direccion)').eq('id', id).maybeSingle()
   if (error || !a) return null
   const [{ data: us }, { data: ms }] = await Promise.all([
     supabase.from('asamblea_unidades').select('*').eq('asamblea_id', id),
@@ -21,11 +21,11 @@ export async function fetchAsamblea(supabase: any, id: string): Promise<Asamblea
   ])
   const ids = (ms || []).map((m: any) => m.id)
   const vs = ids.length ? await traerTodo(() => supabase.from('asamblea_votos').select('*').in('mocion_id', ids).order('id')).catch(() => []) : []
-  const { mant_clientes, ...asamblea } = a
+  const { asam_edificios, ...asamblea } = a
   return {
     asamblea: { ...asamblea, total_coeficiente: asamblea.total_coeficiente != null ? Number(asamblea.total_coeficiente) : null },
-    edificio: mant_clientes?.nombre || 'Sin edificio',
-    direccion: mant_clientes?.direccion || null,
+    edificio: asam_edificios?.nombre || 'Sin edificio',
+    direccion: asam_edificios?.direccion || null,
     unidades: (us || []).map((u: any) => ({ ...u, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null })).sort(ordenUnidad),
     mociones: ms || [],
     votos: vs || [],

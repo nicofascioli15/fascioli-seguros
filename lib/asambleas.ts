@@ -10,7 +10,7 @@ export type EstadoMocion = 'pendiente' | 'votando' | 'cerrada'
 
 export type Asamblea = {
   id: string
-  cliente_id: string
+  edificio_id: string | null
   fecha: string
   tipo: 'Ordinaria' | 'Extraordinaria'
   convocatoria: 'Primera' | 'Segunda'

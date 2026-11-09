@@ -183,27 +183,15 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   const [torresPadron, setTorresPadron] = useState<{ codigo: string; nombre: string | null }[]>([])
   const [torreSel, setTorreSel] = useState('')
   const [manual, setManual] = useState(false)          // "otra unidad": se escribe a mano
-  const [padronDe, setPadronDe] = useState<{ id: string; nombre: string; codigo: string | null } | null>(null)
   const [padronCargado, setPadronCargado] = useState(false)
   useEffect(() => {
-    traerPadron(supabase, d.asamblea.cliente_id).then(p => {
+    traerPadron(supabase, d.asamblea.edificio_id).then(p => {
       setPadron(p.unidades)
       setTorresPadron(p.torres)
-      setPadronDe(p.desde)
       setPadronCargado(true)
       if (p.torres.length && !p.unidades.some(u => !u.torre)) setTorreSel(p.torres[0].codigo)
     }).catch(() => setPadronCargado(true))
-  }, [d.asamblea.cliente_id])
-
-  // Pasa la asamblea al edificio que tiene las unidades (cuando el mismo edificio quedó cargado dos veces)
-  async function pasarAlEdificioConUnidades() {
-    if (!padronDe) return
-    const { error } = await supabase.from('asambleas').update({ cliente_id: padronDe.id }).eq('id', d.asamblea.id)
-    if (error) { showToast(error.message, 'error'); return }
-    await registrarAudit({ accion: 'editar', tabla: 'asambleas', registroId: d.asamblea.id, descripcion: `Asamblea pasada al edificio ${padronDe.nombre} (${padronDe.codigo || 's/código'}) — ${etiqueta}`, datosAntes: { cliente_id: d.asamblea.cliente_id }, datosDespues: { cliente_id: padronDe.id } })
-    showToast('Listo: la asamblea quedó en el edificio con las unidades', 'success')
-    onChange()
-  }
+  }, [d.asamblea.edificio_id])
   const hayTorres = torresPadron.length > 0
   const usarLista = padron.length > 0 && !manual
   const enPadron = (txt: string) => padron.find(p => p.label.toLowerCase() === txt.trim().toLowerCase())
@@ -292,17 +280,10 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
           <Link href={`/asambleas/${d.asamblea.id}/acreditar`} className="btn-primary" style={{ textDecoration: 'none' }}><Tablet size={14} /> Abrir en la tablet</Link>
         </div>
       )}
-      {padronDe && (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, flexWrap: 'wrap' }}>
-          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1, minWidth: 240 }}>Este edificio parece estar cargado dos veces. Las unidades se toman de <strong>{padronDe.nombre}{padronDe.codigo ? ` (${padronDe.codigo})` : ''}</strong>, que es el que tiene el padrón.</span>
-          {!cerrada && <button className="btn-outline btn-sm" onClick={pasarAlEdificioConUnidades}>Pasar la asamblea a ese edificio</button>}
-        </div>
-      )}
       {!cerrada && padronCargado && padron.length === 0 && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg-card-alt)', borderRadius: 12, padding: '11px 14px', fontSize: 13, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1, minWidth: 240 }}>Este edificio no tiene unidades cargadas, por eso no aparece la lista ni el autorregistro en la tablet. Importalas en <Link href="/asambleas/edificios" style={{ color: 'var(--gold)', fontWeight: 700 }}>Edificios y unidades</Link> (o revisá que la asamblea esté en el edificio correcto).</span>
+          <span style={{ flex: 1, minWidth: 240 }}>{d.asamblea.edificio_id ? <>Este edificio no tiene unidades cargadas, por eso no aparece la lista ni el autorregistro en la tablet. Cargalas en <Link href={`/asambleas/edificios/${d.asamblea.edificio_id}`} style={{ color: 'var(--gold)', fontWeight: 700 }}>la ficha del edificio</Link>.</> : <>Esta asamblea no tiene edificio asignado (era de antes del cambio). Creala de nuevo eligiendo el edificio.</>}</span>
         </div>
       )}
       {!cerrada && (

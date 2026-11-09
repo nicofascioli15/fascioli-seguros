@@ -27,11 +27,11 @@ export default function AsambleasPage() {
   async function cargar() {
     setLoading(true)
     const { data, error } = await supabase.from('asambleas')
-      .select('*, mant_clientes(nombre), asamblea_unidades(count), asamblea_mociones(count)')
+      .select('*, asam_edificios(nombre), asamblea_unidades(count), asamblea_mociones(count)')
       .order('fecha', { ascending: false }).order('created_at', { ascending: false })
     if (error) { showToast(`No se pudieron cargar las asambleas: ${error.message}`, 'error'); setLoading(false); return }
     setFilas((data || []).map((a: any) => ({
-      ...a, edificio: a.mant_clientes?.nombre || 'Sin edificio',
+      ...a, edificio: a.asam_edificios?.nombre || 'Sin edificio',
       n_unidades: a.asamblea_unidades?.[0]?.count ?? 0, n_mociones: a.asamblea_mociones?.[0]?.count ?? 0,
     })))
     setLoading(false)
@@ -105,11 +105,11 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
   useEffect(() => {
     // Se muestra el código y cuántas unidades tiene cada edificio, para elegir el que tiene el padrón cargado.
     Promise.all([
-      traerTodo<any>(() => supabase.from('mant_clientes').select('id, nombre, direccion, codigo').order('nombre').order('id')),
-      traerTodo<any>(() => supabase.from('edificio_unidades').select('cliente_id').order('id')).catch(() => []),
+      traerTodo<any>(() => supabase.from('asam_edificios').select('id, nombre, direccion, codigo').order('nombre').order('id')),
+      traerTodo<any>(() => supabase.from('asam_unidades').select('edificio_id').order('id')).catch(() => []),
     ]).then(([eds, us]) => {
       const n: Record<string, number> = {}
-      us.forEach((u: any) => { n[u.cliente_id] = (n[u.cliente_id] || 0) + 1 })
+      us.forEach((u: any) => { n[u.edificio_id] = (n[u.edificio_id] || 0) + 1 })
       setEdificios(eds.map((e: any) => ({ ...e, unidades: n[e.id] || 0 })))
     })
   }, [])
@@ -117,7 +117,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
   // Si el edificio tiene el padrón cargado, se completa solo la cantidad de unidades.
   async function elegir(e: Edificio) {
     setElegido(e)
-    const { data } = await supabase.from('edificio_unidades').select('coeficiente').eq('cliente_id', e.id)
+    const { data } = await supabase.from('asam_unidades').select('coeficiente').eq('edificio_id', e.id)
     if (data && data.length) {
       const suma = Math.round(data.reduce((s: number, u: any) => s + Number(u.coeficiente || 0), 0) * 100) / 100
       setForm(f => ({ ...f, total_unidades: String(data.length), ...(suma > 0 ? { total_coeficiente: String(suma) } : {}) }))
@@ -128,7 +128,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
     if (!elegido) return
     setSaving(true)
     const payload = {
-      cliente_id: elegido.id, fecha: form.fecha || hoyLocal(), tipo: form.tipo, convocatoria: form.convocatoria, modo_conteo: form.modo_conteo,
+      edificio_id: elegido.id, fecha: form.fecha || hoyLocal(), tipo: form.tipo, convocatoria: form.convocatoria, modo_conteo: form.modo_conteo,
       total_unidades: parseInt(form.total_unidades) || null,
       total_coeficiente: form.modo_conteo === 'unidad' ? 100 : (parseFloat(form.total_coeficiente.replace(',', '.')) || 100),
       lugar: form.lugar.trim() || null,
@@ -174,7 +174,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
                   </div>
                 </div>
               ))}
-              {filtrados.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Sin edificios</div>}
+              {filtrados.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Sin edificios. Los edificios de Asambleas se cargan en <a href="/asambleas/edificios" style={{ color: 'var(--gold)', fontWeight: 700 }}>Edificios y unidades</a>.</div>}
             </div>
             <style>{`.asam-ed { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 9px; border: 1.5px solid var(--border-soft); cursor: pointer; background: var(--bg-card); } .asam-ed:hover { border-color: var(--gold); background: var(--gold-pale); }`}</style>
           </>

@@ -87,36 +87,18 @@ export function etiquetaUnidad(u: { torre?: string | null; unidad: string }): st
   return u.torre ? `${u.torre}-${u.unidad}` : u.unidad
 }
 
-// ── Padrón de un edificio ──────────────────────────────────────────────────
+// ── Padrón de un edificio de Asambleas (tablas propias: asam_edificios / asam_torres / asam_unidades) ──
 export type UnidadPadron = { label: string; torre: string; num: string; propietario: string | null; tel: string | null; coeficiente: number | null }
-export type PadronEdificio = {
-  unidades: UnidadPadron[]
-  torres: { codigo: string; nombre: string | null }[]
-  // Si el edificio de la asamblea no tiene unidades pero hay otro con el mismo nombre que sí
-  // (el mismo edificio cargado dos veces), se usan las de ese y se avisa.
-  desde: { id: string; nombre: string; codigo: string | null } | null
-}
+export type PadronEdificio = { unidades: UnidadPadron[]; torres: { codigo: string; nombre: string | null }[] }
 
-export async function traerPadron(supabase: any, clienteId: string): Promise<PadronEdificio> {
-  async function de(id: string) {
-    const [{ data: us }, { data: ts }] = await Promise.all([
-      supabase.from('edificio_unidades').select('torre, unidad, propietario, propietario_tel, coeficiente').eq('cliente_id', id),
-      supabase.from('edificio_torres').select('codigo, nombre').eq('cliente_id', id),
-    ])
-    const unidades: UnidadPadron[] = (us || []).map((u: any) => ({ label: etiquetaUnidad(u), torre: u.torre || '', num: u.unidad, propietario: u.propietario, tel: u.propietario_tel, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
-      .sort((a: UnidadPadron, b: UnidadPadron) => a.torre.localeCompare(b.torre) || a.num.localeCompare(b.num, 'es', { numeric: true }))
-    const cods = Array.from(new Set(unidades.map(u => u.torre))).filter(Boolean)
-    return { unidades, torres: cods.map(c => ({ codigo: c, nombre: (ts || []).find((t: any) => t.codigo === c)?.nombre || null })) }
-  }
-  const propio = await de(clienteId)
-  if (propio.unidades.length) return { ...propio, desde: null }
-  // Buscar un "gemelo" con el mismo nombre que sí tenga unidades
-  const { data: yo } = await supabase.from('mant_clientes').select('nombre').eq('id', clienteId).maybeSingle()
-  const clave = normalizarNombre(yo?.nombre || '')
-  if (!clave) return { ...propio, desde: null }
-  const { data: conCodigo } = await supabase.from('mant_clientes').select('id, nombre, codigo').not('codigo', 'is', null).neq('id', clienteId)
-  const gemelo = (conCodigo || []).find((e: any) => normalizarNombre(e.nombre) === clave)
-  if (!gemelo) return { ...propio, desde: null }
-  const otro = await de(gemelo.id)
-  return otro.unidades.length ? { ...otro, desde: gemelo } : { ...propio, desde: null }
+export async function traerPadron(supabase: any, edificioId: string | null): Promise<PadronEdificio> {
+  if (!edificioId) return { unidades: [], torres: [] }
+  const [{ data: us }, { data: ts }] = await Promise.all([
+    supabase.from('asam_unidades').select('torre, unidad, propietario, propietario_tel, coeficiente').eq('edificio_id', edificioId),
+    supabase.from('asam_torres').select('codigo, nombre').eq('edificio_id', edificioId),
+  ])
+  const unidades: UnidadPadron[] = (us || []).map((u: any) => ({ label: etiquetaUnidad(u), torre: u.torre || '', num: u.unidad, propietario: u.propietario, tel: u.propietario_tel, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
+    .sort((a: UnidadPadron, b: UnidadPadron) => a.torre.localeCompare(b.torre) || a.num.localeCompare(b.num, 'es', { numeric: true }))
+  const cods = Array.from(new Set(unidades.map(u => u.torre))).filter(Boolean)
+  return { unidades, torres: cods.map(c => ({ codigo: c, nombre: (ts || []).find((t: any) => t.codigo === c)?.nombre || null })) }
 }

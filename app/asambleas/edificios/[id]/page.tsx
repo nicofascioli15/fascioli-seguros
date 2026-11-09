@@ -8,10 +8,12 @@ import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import EdificioAsambleaModal from '@/components/asambleas/EdificioAsambleaModal'
+import { useRouter } from 'next/navigation'
 import { etiquetaUnidad } from '@/lib/padronImport'
 
 type Unidad = {
-  id: string; cliente_id: string; torre: string; unidad: string
+  id: string; edificio_id: string; torre: string; unidad: string
   propietario: string | null; propietario_tel: string | null; propietario_email: string | null; coeficiente: number | null
 }
 type Torre = { id: string; codigo: string; nombre: string | null }
@@ -26,13 +28,15 @@ export default function EdificioPadronPage() {
   const [editando, setEditando] = useState<Unidad | 'nueva' | null>(null)
   const [borrar, setBorrar] = useState<Unidad | null>(null)
   const [borrando, setBorrando] = useState(false)
+  const [editEd, setEditEd] = useState(false)
+  const router = useRouter()
 
   useEffect(() => { cargar() }, [id])
   async function cargar() {
     const [{ data: e }, { data: us }, { data: ts }] = await Promise.all([
-      supabase.from('mant_clientes').select('nombre, direccion, codigo').eq('id', id).maybeSingle(),
-      supabase.from('edificio_unidades').select('*').eq('cliente_id', id),
-      supabase.from('edificio_torres').select('*').eq('cliente_id', id).order('codigo'),
+      supabase.from('asam_edificios').select('nombre, direccion, codigo').eq('id', id).maybeSingle(),
+      supabase.from('asam_unidades').select('*').eq('edificio_id', id),
+      supabase.from('asam_torres').select('*').eq('edificio_id', id).order('codigo'),
     ])
     setEd(e || null)
     setUnidades(((us || []) as Unidad[]).map(u => ({ ...u, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
@@ -43,10 +47,10 @@ export default function EdificioPadronPage() {
   async function eliminar() {
     if (!borrar) return
     setBorrando(true)
-    const { error } = await supabase.from('edificio_unidades').delete().eq('id', borrar.id)
+    const { error } = await supabase.from('asam_unidades').delete().eq('id', borrar.id)
     setBorrando(false)
     if (error) { showToast(error.message, 'error'); return }
-    await registrarAudit({ accion: 'eliminar', tabla: 'edificio_unidades', registroId: borrar.id, descripcion: `Unidad ${etiquetaUnidad(borrar)} eliminada del padrón — ${ed?.nombre}`, datosAntes: borrar })
+    await registrarAudit({ accion: 'eliminar', tabla: 'asam_unidades', registroId: borrar.id, descripcion: `Unidad ${etiquetaUnidad(borrar)} eliminada del padrón — ${ed?.nombre}`, datosAntes: borrar })
     setBorrar(null); cargar()
   }
 
@@ -69,6 +73,7 @@ export default function EdificioPadronPage() {
           <div style={{ fontSize: 13, color: '#B8C5D6', marginTop: 4 }}>{ed.direccion || 'Sin dirección'} · {unidades.length} unidades{conCoef ? ` · coeficientes ${conCoef}/${unidades.length} (suman ${sumaCoef}%)` : ''}</div>
         </div>
         <button className="btn-outline btn-sm" style={{ background: 'rgba(226,196,122,.15)', color: '#E2C47A', borderColor: 'rgba(226,196,122,.4)' }} onClick={() => setEditando('nueva')}><Plus size={13} /> Agregar unidad</button>
+        <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditEd(true)}><Pencil size={13} /> Editar edificio</button>
       </div>
 
       {torres.length > 0 && (
@@ -109,6 +114,7 @@ export default function EdificioPadronPage() {
         )}
       </div>
 
+      {editEd && <EdificioAsambleaModal edificio={{ id, ...ed }} onClose={() => setEditEd(false)} onSaved={() => { setEditEd(false); cargar() }} onDeleted={() => router.push('/asambleas/edificios')} />}
       {editando && <EditarUnidad clienteId={id} edificio={ed.nombre} unidad={editando === 'nueva' ? null : editando} torres={torres} onClose={() => setEditando(null)} onSaved={() => { setEditando(null); cargar() }} />}
       <ConfirmDialog open={!!borrar} title={`¿Eliminar la unidad ${borrar ? etiquetaUnidad(borrar) : ''}?`} message="Se saca del padrón del edificio. Las asambleas ya hechas no cambian." loading={borrando} onConfirm={eliminar} onCancel={() => setBorrar(null)} />
       <style>{`
@@ -136,13 +142,13 @@ function EditarUnidad({ clienteId, edificio, unidad, torres, onClose, onSaved }:
     if (coef != null && (isNaN(coef) || coef < 0)) { showToast('El coeficiente no es válido', 'error'); return }
     setSaving(true)
     const n = (s: string) => s.trim() || null
-    const payload = { cliente_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), propietario: n(f.propietario), propietario_tel: n(f.propietario_tel), propietario_email: n(f.propietario_email), coeficiente: coef }
+    const payload = { edificio_id: clienteId, torre: f.torre.trim().toUpperCase(), unidad: f.unidad.trim(), propietario: n(f.propietario), propietario_tel: n(f.propietario_tel), propietario_email: n(f.propietario_email), coeficiente: coef }
     const { data, error } = unidad
-      ? await supabase.from('edificio_unidades').update(payload).eq('id', unidad.id).select().single()
-      : await supabase.from('edificio_unidades').insert([payload]).select().single()
+      ? await supabase.from('asam_unidades').update(payload).eq('id', unidad.id).select().single()
+      : await supabase.from('asam_unidades').insert([payload]).select().single()
     setSaving(false)
     if (error) { showToast(error.message.includes('duplicate') ? 'Esa unidad ya existe en el edificio' : error.message, 'error'); return }
-    await registrarAudit({ accion: unidad ? 'editar' : 'crear', tabla: 'edificio_unidades', registroId: data?.id, descripcion: `Unidad ${etiquetaUnidad(payload)} ${unidad ? 'editada' : 'agregada'} en el padrón — ${edificio}`, datosAntes: unidad, datosDespues: payload })
+    await registrarAudit({ accion: unidad ? 'editar' : 'crear', tabla: 'asam_unidades', registroId: data?.id, descripcion: `Unidad ${etiquetaUnidad(payload)} ${unidad ? 'editada' : 'agregada'} en el padrón — ${edificio}`, datosAntes: unidad, datosDespues: payload })
     onSaved()
   }
 

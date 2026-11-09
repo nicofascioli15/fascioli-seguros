@@ -47,7 +47,7 @@ export default function AcreditarTabletPage() {
     const a = await fetchAsamblea(supabase, id)
     setD(a)
     if (!a) return
-    const p = await traerPadron(supabase, a.asamblea.cliente_id).catch(() => ({ unidades: [], torres: [], desde: null }))
+    const p = await traerPadron(supabase, a.asamblea.edificio_id).catch(() => ({ unidades: [], torres: [] }))
     const lista: Padron[] = p.unidades
     setPadron(lista)
     setTorres(p.torres)
