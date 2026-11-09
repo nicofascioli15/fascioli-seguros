@@ -8,7 +8,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import { Pantalla } from '@/components/asambleas/Kiosco'
 import { fetchAsamblea, type AsambleaCompleta } from '@/lib/asambleasData'
-import { etiquetaUnidad } from '@/lib/padronImport'
+import { traerPadron } from '@/lib/padronImport'
 
 type Padron = { label: string; torre: string; num: string; propietario: string | null; tel: string | null; coeficiente: number | null }
 type Persona = { nombre: string; apellido: string; tel: string }
@@ -47,15 +47,11 @@ export default function AcreditarTabletPage() {
     const a = await fetchAsamblea(supabase, id)
     setD(a)
     if (!a) return
-    const [{ data: us }, { data: ts }] = await Promise.all([
-      supabase.from('edificio_unidades').select('torre, unidad, propietario, propietario_tel, coeficiente').eq('cliente_id', a.asamblea.cliente_id),
-      supabase.from('edificio_torres').select('codigo, nombre').eq('cliente_id', a.asamblea.cliente_id),
-    ])
-    const lista: Padron[] = (us || []).map((u: any) => ({ label: etiquetaUnidad(u), torre: u.torre || '', num: u.unidad, propietario: u.propietario, tel: u.propietario_tel, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
-      .sort((x: Padron, y: Padron) => x.torre.localeCompare(y.torre) || x.num.localeCompare(y.num, 'es', { numeric: true }))
+    const p = await traerPadron(supabase, a.asamblea.cliente_id).catch(() => ({ unidades: [], torres: [], desde: null }))
+    const lista: Padron[] = p.unidades
     setPadron(lista)
-    const cods = Array.from(new Set(lista.map(u => u.torre))).filter(Boolean)
-    setTorres(cods.map(c => ({ codigo: c, nombre: (ts || []).find((t: any) => t.codigo === c)?.nombre || null })))
+    setTorres(p.torres)
+    const cods = p.torres.map(t => t.codigo)
     if (cods.length && !lista.some(u => !u.torre)) setTorreSel(t => t || cods[0])
   }
 

@@ -8,9 +8,10 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
 import { hoyLocal } from '@/lib/obrasConfig'
+import { traerTodo } from '@/lib/traerTodo'
 import { MODOS_CONTEO, formatFechaAsamblea, type Asamblea, type ModoConteo } from '@/lib/asambleas'
 
-type Edificio = { id: string; nombre: string; direccion?: string | null }
+type Edificio = { id: string; nombre: string; direccion?: string | null; codigo?: string | null; unidades?: number }
 type Fila = Asamblea & { edificio: string; n_unidades: number; n_mociones: number }
 
 export default function AsambleasPage() {
@@ -102,7 +103,15 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
   const [form, setForm] = useState({ fecha: hoyLocal(), tipo: 'Ordinaria', convocatoria: 'Primera', modo_conteo: 'unidad' as ModoConteo, total_unidades: '', total_coeficiente: '100', lugar: '' })
 
   useEffect(() => {
-    supabase.from('mant_clientes').select('id, nombre, direccion').order('nombre').then(({ data }) => setEdificios(data || []))
+    // Se muestra el código y cuántas unidades tiene cada edificio, para elegir el que tiene el padrón cargado.
+    Promise.all([
+      traerTodo<any>(() => supabase.from('mant_clientes').select('id, nombre, direccion, codigo').order('nombre').order('id')),
+      traerTodo<any>(() => supabase.from('edificio_unidades').select('cliente_id').order('id')).catch(() => []),
+    ]).then(([eds, us]) => {
+      const n: Record<string, number> = {}
+      us.forEach((u: any) => { n[u.cliente_id] = (n[u.cliente_id] || 0) + 1 })
+      setEdificios(eds.map((e: any) => ({ ...e, unidades: n[e.id] || 0 })))
+    })
   }, [])
 
   // Si el edificio tiene el padrón cargado, se completa solo la cantidad de unidades.
@@ -132,7 +141,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
   }
 
   const qq = busqueda.toLowerCase()
-  const filtrados = edificios.filter(e => e.nombre.toLowerCase().includes(qq) || (e.direccion || '').toLowerCase().includes(qq))
+  const filtrados = edificios.filter(e => e.nombre.toLowerCase().includes(qq) || (e.direccion || '').toLowerCase().includes(qq) || (e.codigo || '').toLowerCase().includes(qq))
   const set = (c: Partial<typeof form>) => setForm(f => ({ ...f, ...c }))
 
   return (
@@ -158,7 +167,11 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
               {filtrados.map(e => (
                 <div key={e.id} onClick={() => elegir(e)} className="asam-ed">
                   <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--navy)', display: 'grid', placeItems: 'center', fontWeight: 800, color: 'var(--gold)', flexShrink: 0 }}>{e.nombre.trim()[0]?.toUpperCase()}</div>
-                  <div><div style={{ fontWeight: 700, fontSize: 14 }}>{e.nombre}</div>{e.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.direccion}</div>}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 14 }}>{e.nombre}</div>{e.direccion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.direccion}</div>}</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {e.codigo && <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--gold)' }}>{e.codigo}</div>}
+                    <div style={{ fontSize: 11.5, color: e.unidades ? '#15803D' : 'var(--text-muted)', fontWeight: e.unidades ? 700 : 400 }}>{e.unidades ? `${e.unidades} unidades` : 'sin unidades'}</div>
+                  </div>
                 </div>
               ))}
               {filtrados.length === 0 && <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>Sin edificios</div>}

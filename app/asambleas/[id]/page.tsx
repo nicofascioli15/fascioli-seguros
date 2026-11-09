@@ -9,7 +9,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
-import { etiquetaUnidad } from '@/lib/padronImport'
+import { traerPadron } from '@/lib/padronImport'
 import {
   MAYORIAS, BASES, MODOS_CONTEO, VOTOS, calcularResultado, quorum, votante, mayoriaLabel, baseLabel, formatFechaAsamblea,
   type Mayoria, type BaseMayoria, type Mocion, type UnidadAsamblea, type ModoConteo,
@@ -183,20 +183,27 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
   const [torresPadron, setTorresPadron] = useState<{ codigo: string; nombre: string | null }[]>([])
   const [torreSel, setTorreSel] = useState('')
   const [manual, setManual] = useState(false)          // "otra unidad": se escribe a mano
+  const [padronDe, setPadronDe] = useState<{ id: string; nombre: string; codigo: string | null } | null>(null)
+  const [padronCargado, setPadronCargado] = useState(false)
   useEffect(() => {
-    Promise.all([
-      supabase.from('edificio_unidades').select('torre, unidad, propietario, coeficiente').eq('cliente_id', d.asamblea.cliente_id),
-      supabase.from('edificio_torres').select('codigo, nombre').eq('cliente_id', d.asamblea.cliente_id).order('codigo'),
-    ]).then(([{ data }, { data: ts }]: any) => {
-      const lista: Padron[] = (data || []).map((u: any) => ({ label: etiquetaUnidad(u), torre: u.torre || '', num: u.unidad, propietario: u.propietario, coeficiente: u.coeficiente != null ? Number(u.coeficiente) : null }))
-        .sort((a: Padron, b: Padron) => a.torre.localeCompare(b.torre) || a.num.localeCompare(b.num, 'es', { numeric: true }))
-      setPadron(lista)
-      // Torres que realmente tienen unidades (con su nombre si está cargado)
-      const codigos = Array.from(new Set(lista.map(u => u.torre))).filter(Boolean)
-      setTorresPadron(codigos.map(c => ({ codigo: c, nombre: (ts || []).find((t: any) => t.codigo === c)?.nombre || null })))
-      if (codigos.length && !lista.some(u => !u.torre)) setTorreSel(codigos[0])
-    })
+    traerPadron(supabase, d.asamblea.cliente_id).then(p => {
+      setPadron(p.unidades)
+      setTorresPadron(p.torres)
+      setPadronDe(p.desde)
+      setPadronCargado(true)
+      if (p.torres.length && !p.unidades.some(u => !u.torre)) setTorreSel(p.torres[0].codigo)
+    }).catch(() => setPadronCargado(true))
   }, [d.asamblea.cliente_id])
+
+  // Pasa la asamblea al edificio que tiene las unidades (cuando el mismo edificio quedó cargado dos veces)
+  async function pasarAlEdificioConUnidades() {
+    if (!padronDe) return
+    const { error } = await supabase.from('asambleas').update({ cliente_id: padronDe.id }).eq('id', d.asamblea.id)
+    if (error) { showToast(error.message, 'error'); return }
+    await registrarAudit({ accion: 'editar', tabla: 'asambleas', registroId: d.asamblea.id, descripcion: `Asamblea pasada al edificio ${padronDe.nombre} (${padronDe.codigo || 's/código'}) — ${etiqueta}`, datosAntes: { cliente_id: d.asamblea.cliente_id }, datosDespues: { cliente_id: padronDe.id } })
+    showToast('Listo: la asamblea quedó en el edificio con las unidades', 'success')
+    onChange()
+  }
   const hayTorres = torresPadron.length > 0
   const usarLista = padron.length > 0 && !manual
   const enPadron = (txt: string) => padron.find(p => p.label.toLowerCase() === txt.trim().toLowerCase())
@@ -283,6 +290,19 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
             <div style={{ fontSize: 12.5, color: '#B8C5D6' }}>Cada persona toca su apartamento, pone nombre, apellido y teléfono, y marca si viene con poder. La tablet se va pasando.</div>
           </div>
           <Link href={`/asambleas/${d.asamblea.id}/acreditar`} className="btn-primary" style={{ textDecoration: 'none' }}><Tablet size={14} /> Abrir en la tablet</Link>
+        </div>
+      )}
+      {padronDe && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, flexWrap: 'wrap' }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, minWidth: 240 }}>Este edificio parece estar cargado dos veces. Las unidades se toman de <strong>{padronDe.nombre}{padronDe.codigo ? ` (${padronDe.codigo})` : ''}</strong>, que es el que tiene el padrón.</span>
+          {!cerrada && <button className="btn-outline btn-sm" onClick={pasarAlEdificioConUnidades}>Pasar la asamblea a ese edificio</button>}
+        </div>
+      )}
+      {!cerrada && padronCargado && padron.length === 0 && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg-card-alt)', borderRadius: 12, padding: '11px 14px', fontSize: 13, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, minWidth: 240 }}>Este edificio no tiene unidades cargadas, por eso no aparece la lista ni el autorregistro en la tablet. Importalas en <Link href="/asambleas/edificios" style={{ color: 'var(--gold)', fontWeight: 700 }}>Edificios y unidades</Link> (o revisá que la asamblea esté en el edificio correcto).</span>
         </div>
       )}
       {!cerrada && (
