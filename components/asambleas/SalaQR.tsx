@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { QrCode, Maximize2, Download, X, Copy, Check } from 'lucide-react'
+import { QrCode, Maximize2, Download, X, Copy, Check, ExternalLink } from 'lucide-react'
 import { showToast } from '@/lib/toast'
 
 // QR de la sala: los propietarios lo escanean para votar desde el celular. Vive mientras la asamblea esté abierta.
@@ -31,7 +31,7 @@ export default function SalaQR({ codigo, edificio, fecha }: { codigo: string; ed
     const lado = 360
     doc.addImage(qr, 'PNG', (W - lado) / 2, 150, lado, lado)
     doc.setFontSize(13); doc.setTextColor(15, 30, 53)
-    const pasos = ['1. Escaneá este código con la cámara del celular.', '2. Si sos propietario, registrate ahí mismo: apto, datos y firma.', '   (Si ya te registraste en la tablet, entrá con tu teléfono.)', '3. Si venís con poder de otra unidad, registralo en la tablet.', '4. Cuando se abra cada votación, votás desde el celular.']
+    const pasos = ['1. Escaneá este código con la cámara del celular.', '2. Registrate: elegí tu unidad, poné tus datos y firmá con el dedo.', '3. Si venís con poder de otra unidad, registrala también ("Traigo poder").', '4. Cuando se abra cada votación, votás desde el celular.', '5. Al cerrar cada votación vas a ver el resultado.']
     pasos.forEach((p, i) => doc.text(p, 70, 560 + i * 24))
     doc.setFontSize(10); doc.setTextColor(150)
     doc.text(url, W / 2, 680, { align: 'center' })
@@ -45,14 +45,15 @@ export default function SalaQR({ codigo, edificio, fecha }: { codigo: string; ed
           {qr ? <img src={qr} alt="QR" style={{ width: '100%', height: '100%' }} /> : <QrCode size={30} color="#94A3B8" />}
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontWeight: 800, fontSize: 15 }}>QR de la sala · votación desde el celular</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>Un solo QR para toda la sesión, solo mientras la asamblea esté abierta. El propietario presente se registra desde el celular (apto, datos y firma) o entra con el teléfono con el que se registró en la tablet. Sin registrarse no puede votar. Los poderes van por la tablet.</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>Link de la asamblea · un solo QR para todo</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>Sirve para registrarse (propietario o con poder, con firma), ver las mociones, votar y ver los resultados. En el celular de cada uno o en la tablet que pasan de mano en mano (con "Salir" queda libre para el siguiente). Funciona solo mientras la asamblea esté abierta.</div>
           <div style={{ fontSize: 12.5, marginTop: 4, fontFamily: 'monospace', color: 'var(--gold)', wordBreak: 'break-all' }}>{url}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn-primary btn-sm" onClick={() => setGrande(true)} disabled={!qr}><Maximize2 size={13} /> Proyectar</button>
           <button className="btn-outline btn-sm" onClick={pdf} disabled={!qr}><Download size={13} /> PDF para imprimir</button>
-          <button className="btn-outline btn-sm" onClick={copiar}>{copiado ? <Check size={13} /> : <Copy size={13} />} {copiado ? 'Copiado' : 'Link'}</button>
+          <a href={url} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none' }}><ExternalLink size={13} /> Abrir</a>
+          <button className="btn-outline btn-sm" onClick={copiar}>{copiado ? <Check size={13} /> : <Copy size={13} />} {copiado ? 'Copiado' : 'Copiar link'}</button>
         </div>
       </div>
 

@@ -133,11 +133,10 @@ export default function AsambleaFichaPage() {
         <Kpi label="Mociones" valor={String(d.mociones.length)} sub={`${d.mociones.filter(m => m.estado === 'cerrada').length} votadas`} />
       </div>
 
-      {!cerrada && <TabletLink codigo={a.codigo_tablet} hayVotando={hayVotando} />}
       {!cerrada && a.codigo_sala && <SalaQR codigo={a.codigo_sala} edificio={d.edificio} fecha={a.fecha} />}
-      {!cerrada && a.codigo_tablet && !a.codigo_sala && (
+      {!cerrada && !a.codigo_sala && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, marginBottom: 14 }}>
-          <AlertTriangle size={16} /> Falta correr el SQL del celular (schema_asambleas_v5_celular.sql) para tener el QR de la sala.
+          <AlertTriangle size={16} /> Falta correr el SQL del link de la asamblea (schema_asambleas_v4_tablet, v5_celular, v6 y v7) para tener el QR.
         </div>
       )}
 
@@ -618,36 +617,6 @@ function EditarDatos({ d, onClose, onSaved }: { d: AsambleaCompleta; onClose: ()
           <button className="btn-outline" onClick={onClose}>Cancelar</button>
           <button className="btn-primary" onClick={guardar} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// Link de la tablet: entra sin usuario y solo sirve para esta asamblea.
-function TabletLink({ codigo, hayVotando }: { codigo?: string | null; hayVotando: boolean }) {
-  const [copiado, setCopiado] = useState(false)
-  if (!codigo) return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#FEF3C7', color: '#92400E', borderRadius: 12, padding: '11px 14px', fontSize: 13, marginBottom: 14 }}>
-      <AlertTriangle size={16} /> Falta correr el SQL de la tablet (schema_asambleas_v4_tablet.sql) para tener el link sin usuario.
-    </div>
-  )
-  const url = typeof window !== 'undefined' ? `${window.location.origin}/t/${codigo}` : `/t/${codigo}`
-  async function copiar() {
-    try { await navigator.clipboard.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 1600) } catch { showToast('No se pudo copiar', 'error') }
-  }
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--navy)', color: 'white', borderRadius: 14, padding: '14px 18px', flexWrap: 'wrap', marginBottom: 14 }}>
-      <Tablet size={26} color="#E2C47A" />
-      <div style={{ flex: 1, minWidth: 240 }}>
-        <div style={{ fontWeight: 800, fontSize: 15 }}>Tablet sin usuario {hayVotando ? '· mostrando la votación' : '· acreditación'}</div>
-        <div style={{ fontSize: 12.5, color: '#B8C5D6', marginTop: 2 }}>
-          Abrí este link en la tablet (no pide usuario y solo sirve para esta asamblea). Cuando abrís una votación acá, la tablet cambia sola.
-        </div>
-        <div style={{ fontSize: 13.5, marginTop: 6, fontFamily: 'monospace', color: '#E2C47A', wordBreak: 'break-all' }}>{url}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={copiar}>{copiado ? <Check size={13} /> : <Copy size={13} />} {copiado ? 'Copiado' : 'Copiar link'}</button>
-        <a href={url} target="_blank" rel="noreferrer" className="btn-primary btn-sm" style={{ textDecoration: 'none' }}><Tablet size={13} /> Abrir</a>
       </div>
     </div>
   )

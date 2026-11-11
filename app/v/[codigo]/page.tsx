@@ -44,6 +44,10 @@ export default function VotoCelularPage() {
   const [eleccion, setEleccion] = useState<Record<string, Voto>>({})
   const [guardando, setGuardando] = useState(false)
   const [vista, setVista] = useState<'inicio' | 'telefono' | 'registro'>('inicio')
+  const [modoRegistro, setModoRegistro] = useState<'propietario' | 'poder'>('propietario')
+  // Datos de quien está usando el dispositivo (para registrar poderes sin volver a escribir ni firmar)
+  const [persona, setPersona] = useState<{ nombre: string; apellido: string; tel: string; firma: string | null } | null>(null)
+  const [recien, setRecien] = useState<string | null>(null)   // unidad recién registrada
 
   useEffect(() => { setDisp(dispositivo()) }, [])
 
@@ -80,10 +84,13 @@ export default function VotoCelularPage() {
     await cargar()
   }
 
+  // Terminar: el dispositivo queda libre para la siguiente persona (tablet que se pasa de mano en mano)
   function salir() {
     try { localStorage.removeItem(CLAVE) } catch {}
+    setPersona(null); setRecien(null); setVista('inicio'); setTel(''); setEleccion({})
     const d = dispositivo(); setDisp(d); setE(undefined); cargar(d)
   }
+  function registrar(modo: 'propietario' | 'poder') { setModoRegistro(modo); setRecien(null); setVista('registro') }
 
   if (e === undefined) return <Pantalla><Centro><Loader2 size={34} className="spin" /></Centro></Pantalla>
   if (e === null) return <Pantalla><Centro><div style={{ fontSize: 22, fontWeight: 800 }}>Código de asamblea no válido</div><div style={{ fontSize: 16, color: '#B8C5D6', marginTop: 8 }}>Volvé a escanear el QR de la sala.</div></Centro></Pantalla>
@@ -110,21 +117,38 @@ export default function VotoCelularPage() {
           <div style={{ fontSize: 11, color: '#E2C47A', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>Asamblea</div>
           <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.asamblea.edificio}</div>
         </div>
-        {e.mis_unidades.length > 0 && <button className="kz-mini" style={{ padding: '7px 10px', fontSize: 12.5 }} onClick={salir} title="Desvincular este celular"><LogOut size={13} /></button>}
+        {e.mis_unidades.length > 0 && <button className="kz-mini" style={{ padding: '7px 10px', fontSize: 12.5 }} onClick={salir}><LogOut size={13} /> Salir</button>}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 16px 40px' }}>
         <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Sin registrar: no puede votar. Entra con el teléfono (si se registró en la tablet) o se registra acá como propietario */}
-          {e.asamblea.estado === 'abierta' && e.mis_unidades.length === 0 && (
-            vista === 'registro' ? (
-              <RegistroCelular e={e} codigo={codigo} disp={disp} onVolver={() => setVista('inicio')} onListo={() => { setVista('inicio'); cargar() }} />
-            ) : vista === 'telefono' ? (
+          {/* Registro (propietario o con poder): desde acá mismo, en el celular o en la tablet */}
+          {vista === 'registro' && (
+            <RegistroCelular e={e} codigo={codigo} disp={disp} modoInicial={modoRegistro} preset={persona}
+              onVolver={() => setVista('inicio')}
+              onListo={(p, unidad) => { setPersona(p); setRecien(unidad); setVista('inicio'); cargar() }} />
+          )}
+
+          {/* Recién registrado: ofrecer cargar poderes con los mismos datos y firma */}
+          {vista !== 'registro' && recien && (
+            <div style={{ background: 'rgba(22,163,74,.12)', border: '1px solid rgba(74,222,128,.4)', borderRadius: 16, padding: 18, textAlign: 'center' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#16A34A', display: 'grid', placeItems: 'center', margin: '0 auto 12px' }}><Check size={36} strokeWidth={3} /></div>
+              <div style={{ fontSize: 21, fontWeight: 800 }}>¡Unidad {recien} registrada!</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                <button className="kz-opcion" onClick={() => registrar('poder')}><FileSignature size={20} /> Traigo poder de otra unidad</button>
+                <button className="kz-opcion sel" onClick={() => setRecien(null)}><Check size={20} /> Listo</button>
+              </div>
+            </div>
+          )}
+
+          {/* Sin registrar: no puede votar */}
+          {vista !== 'registro' && e.mis_unidades.length === 0 && (
+            vista === 'telefono' ? (
               <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 18 }}>
                 <button className="kz-mini" onClick={() => setVista('inicio')} style={{ marginBottom: 12 }}><ArrowLeft size={14} /> Volver</button>
                 <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Ya me registré</div>
-                <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 14 }}>Poné el teléfono que usaste al registrarte (en la tablet o en este celular). Vas a poder votar por tu unidad y por las que traés con poder.</div>
+                <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 14 }}>Poné el teléfono que usaste al registrarte. Vas a poder votar por tu unidad y por las que traés con poder.</div>
                 <label className="kz-label">Tu teléfono</label>
                 <div style={{ position: 'relative' }}>
                   <Phone size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#8A9BB5' }} />
@@ -137,19 +161,24 @@ export default function VotoCelularPage() {
                 <div style={{ fontSize: 21, fontWeight: 800, marginBottom: 6 }}>Bienvenido a la asamblea</div>
                 <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 16 }}>Para votar tenés que estar registrado.</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <button className="kz-opcion" style={{ justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => setVista('registro')}>
-                    <UserPlus size={24} /> <span>Registrarme ahora<br /><span style={{ fontSize: 13, fontWeight: 600, color: '#B8C5D6' }}>Soy el propietario y estoy presente</span></span>
+                  <button className="kz-opcion" style={{ justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => registrar('propietario')}>
+                    <Home size={24} /> <span>Soy propietario<br /><span style={{ fontSize: 13, fontWeight: 600, color: '#B8C5D6' }}>Registrarme por mi unidad</span></span>
+                  </button>
+                  <button className="kz-opcion" style={{ justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => registrar('poder')}>
+                    <FileSignature size={24} /> <span>Vengo con poder<br /><span style={{ fontSize: 13, fontWeight: 600, color: '#B8C5D6' }}>Represento a otra unidad</span></span>
                   </button>
                   <button className="kz-opcion" style={{ justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => setVista('telefono')}>
-                    <Phone size={24} /> <span>Ya me registré<br /><span style={{ fontSize: 13, fontWeight: 600, color: '#B8C5D6' }}>En la tablet o en otro celular</span></span>
+                    <Phone size={24} /> <span>Ya me registré<br /><span style={{ fontSize: 13, fontWeight: 600, color: '#B8C5D6' }}>Entrar con mi teléfono</span></span>
                   </button>
                 </div>
-                <div style={{ fontSize: 13, color: '#8A9BB5', marginTop: 14, textAlign: 'center' }}>¿Venís con poder de otro propietario? Registralo en la tablet con la administración.</div>
               </div>
             )
           )}
 
           {/* Mis unidades */}
+          {e.mis_unidades.length > 0 && vista !== 'registro' && !recien && (
+            <button className="kz-mini" style={{ alignSelf: 'flex-start' }} onClick={() => registrar('poder')}><FileSignature size={14} /> Agregar unidad que traigo con poder</button>
+          )}
           {e.mis_unidades.length > 0 && (
             <div style={{ fontSize: 14, color: '#B8C5D6' }}>
               {nombre ? <><strong style={{ color: 'white' }}>{nombre}</strong> · </> : null}
@@ -228,15 +257,21 @@ function Centro({ children }: { children: React.ReactNode }) {
   return <div style={{ flex: 1, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 30 }}><div style={{ width: '100%' }}>{children}</div></div>
 }
 
-// Registro desde el celular: solo propietario presente (los poderes van por la tablet)
-function RegistroCelular({ e, codigo, disp, onVolver, onListo }: { e: Estado; codigo: string; disp: string; onVolver: () => void; onListo: () => void }) {
+// Registro (propietario presente o con poder). El que trae poderes reusa sus datos y su firma.
+function RegistroCelular({ e, codigo, disp, modoInicial, preset, onVolver, onListo }: {
+  e: Estado; codigo: string; disp: string; modoInicial: 'propietario' | 'poder'
+  preset: { nombre: string; apellido: string; tel: string; firma: string | null } | null
+  onVolver: () => void; onListo: (p: { nombre: string; apellido: string; tel: string; firma: string | null }, unidad: string) => void
+}) {
   const supabase = createClient()
   const padron = useMemo(() => [...(e.padron || [])].sort((a, b) => a.torre.localeCompare(b.torre) || a.unidad.localeCompare(b.unidad, 'es', { numeric: true })), [e.padron])
   const torres = useMemo(() => Array.from(new Set(padron.map(p => p.torre))).filter(Boolean).sort().map(c => ({ codigo: c, nombre: (e.torres || []).find(t => t.codigo === c)?.nombre || null })), [padron, e.torres])
   const registradas = new Set((e.registradas || []).map(x => x.toLowerCase()))
+  const [modo, setModo] = useState<'propietario' | 'poder'>(modoInicial)
   const [torre, setTorre] = useState(() => (torres.length && !padron.some(p => !p.torre) ? torres[0].codigo : ''))
   const [unidad, setUnidad] = useState('')
-  const [f, setF] = useState({ nombre: '', apellido: '', tel: '' })
+  const [f, setF] = useState({ nombre: preset?.nombre || '', apellido: preset?.apellido || '', tel: preset?.tel || '' })
+  const [firmaReuso, setFirmaReuso] = useState<string | null>(preset?.firma || null)
   const [tieneFirma, setTieneFirma] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const pad = useRef<FirmaPadRef>(null)
@@ -245,27 +280,32 @@ function RegistroCelular({ e, codigo, disp, onVolver, onListo }: { e: Estado; co
   const sel = { fontSize: 18, padding: '14px 14px' } as React.CSSProperties
 
   async function registrar() {
-    if (!unidad) { showToast('Elegí tu unidad', 'error'); return }
+    if (!unidad) { showToast('Elegí la unidad', 'error'); return }
     if (!f.nombre.trim() || !f.apellido.trim()) { showToast('Poné nombre y apellido', 'error'); return }
     if (f.tel.replace(/\D/g, '').length < 6) { showToast('Poné tu teléfono', 'error'); return }
-    if (pad.current?.vacia() ?? true) { showToast('Falta la firma', 'error'); return }
+    if (!firmaReuso && (pad.current?.vacia() ?? true)) { showToast('Falta la firma', 'error'); return }
     setGuardando(true)
-    const blob = await pad.current!.png()
-    const firma = blob ? await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(blob) }) : null
-    const { data, error } = await supabase.rpc('asam_cel_acreditar', { p_codigo: codigo, p_torre: torre, p_unidad: unidad, p_nombre: `${f.nombre.trim()} ${f.apellido.trim()}`, p_tel: f.tel.trim(), p_firma: firma, p_dispositivo: disp })
+    let firma = firmaReuso
+    if (!firma) {
+      const blob = await pad.current!.png()
+      firma = blob ? await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(blob) }) : null
+    }
+    const { data, error } = await supabase.rpc('asam_cel_acreditar', { p_codigo: codigo, p_torre: torre, p_unidad: unidad, p_nombre: `${f.nombre.trim()} ${f.apellido.trim()}`, p_tel: f.tel.trim(), p_firma: firma, p_dispositivo: disp, p_por_poder: modo === 'poder' })
     setGuardando(false)
     if (error || data?.error) { showToast(data?.error || error?.message || 'No se pudo registrar', 'error'); return }
-    showToast(`¡Unidad ${data.unidad} registrada!`, 'success')
-    onListo()
+    onListo({ ...f, firma }, data.unidad)
   }
 
-  if (!padron.length) return <div style={{ textAlign: 'center', fontSize: 16, color: '#B8C5D6', padding: 20 }}>Este edificio no tiene las unidades cargadas. Registrate en la tablet con la administración.<div style={{ marginTop: 12 }}><button className="kz-mini" style={{ margin: '0 auto' }} onClick={onVolver}><ArrowLeft size={14} /> Volver</button></div></div>
+  if (!padron.length) return <div style={{ textAlign: 'center', fontSize: 16, color: '#B8C5D6', padding: 20 }}>Este edificio no tiene las unidades cargadas. Avisale a la administración.<div style={{ marginTop: 12 }}><button className="kz-mini" style={{ margin: '0 auto' }} onClick={onVolver}><ArrowLeft size={14} /> Volver</button></div></div>
 
   return (
     <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 18 }}>
       <button className="kz-mini" onClick={onVolver} style={{ marginBottom: 12 }}><ArrowLeft size={14} /> Volver</button>
-      <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}><Home size={20} color="#E2C47A" /> Registrarme como propietario</div>
-      <div style={{ fontSize: 14, color: '#B8C5D6', marginBottom: 16 }}>Si venís con poder de otra unidad, eso se registra en la tablet con la administración.</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button className={`kz-opcion ${modo === 'propietario' ? 'sel' : ''}`} style={{ padding: 12, fontSize: 15 }} onClick={() => setModo('propietario')}><Home size={18} /> Soy propietario</button>
+        <button className={`kz-opcion ${modo === 'poder' ? 'sel' : ''}`} style={{ padding: 12, fontSize: 15 }} onClick={() => setModo('poder')}><FileSignature size={18} /> Con poder</button>
+      </div>
+      <div style={{ fontSize: 14, color: '#B8C5D6', marginBottom: 14 }}>{modo === 'poder' ? 'Elegí la unidad de la que traés el poder. Firmás y votás vos por esa unidad.' : 'Elegí tu unidad.'}</div>
       <div style={{ display: 'grid', gridTemplateColumns: torres.length ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 12 }}>
         {torres.length > 0 && (
           <div><label className="kz-label">Torre</label>
@@ -274,12 +314,13 @@ function RegistroCelular({ e, codigo, disp, onVolver, onListo }: { e: Estado; co
               {torres.map(t => <option key={t.codigo} value={t.codigo}>{t.nombre || t.codigo}</option>)}
             </select></div>
         )}
-        <div><label className="kz-label">Tu unidad</label>
+        <div><label className="kz-label">Unidad</label>
           <select className="kz-input" style={sel} value={unidad} onChange={ev => setUnidad(ev.target.value)}>
             <option value="">Elegí…</option>
             {opciones.map(p => <option key={etiqueta(p)} value={p.unidad}>{p.unidad}</option>)}
           </select></div>
       </div>
+      <div style={{ fontSize: 14, fontWeight: 800, margin: '4px 0 8px' }}>{modo === 'poder' ? 'Tus datos (quien trae el poder)' : 'Tus datos'}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div><label className="kz-label">Nombre</label><input className="kz-input" value={f.nombre} onChange={ev => setF(x => ({ ...x, nombre: ev.target.value }))} autoComplete="given-name" /></div>
         <div><label className="kz-label">Apellido</label><input className="kz-input" value={f.apellido} onChange={ev => setF(x => ({ ...x, apellido: ev.target.value }))} autoComplete="family-name" /></div>
@@ -287,9 +328,15 @@ function RegistroCelular({ e, codigo, disp, onVolver, onListo }: { e: Estado; co
       </div>
       <div style={{ marginTop: 16 }}>
         <label className="kz-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><PenLine size={14} /> Firma</label>
-        <FirmaPad ref={pad} onCambio={setTieneFirma} alto={180} />
+        {firmaReuso ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(22,163,74,.12)', border: '1px solid rgba(74,222,128,.35)', borderRadius: 14, padding: '12px 14px', flexWrap: 'wrap' }}>
+            <Check size={20} color="#4ADE80" />
+            <div style={{ flex: 1, fontSize: 15 }}>Se usa la misma firma que ya hiciste</div>
+            <button className="kz-mini" onClick={() => { setFirmaReuso(null); setTieneFirma(false) }}><PenLine size={13} /> Firmar de nuevo</button>
+          </div>
+        ) : <FirmaPad ref={pad} onCambio={setTieneFirma} alto={180} />}
       </div>
-      <button className="kz-confirmar" onClick={registrar} disabled={guardando || !unidad || !f.nombre.trim() || !f.apellido.trim() || !f.tel.trim() || !tieneFirma}>
+      <button className="kz-confirmar" onClick={registrar} disabled={guardando || !unidad || !f.nombre.trim() || !f.apellido.trim() || !f.tel.trim() || (!firmaReuso && !tieneFirma)}>
         {guardando ? <Loader2 size={22} className="spin" /> : <><Check size={24} strokeWidth={3} /> Registrarme</>}
       </button>
     </div>
