@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp, Check, X, User, Home, Search, PenLine, UserCheck, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp, Check, X, User, Home, Search, PenLine, UserCheck, Plus, Pencil, Trash2, QrCode } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -30,6 +30,7 @@ export default function SalaControlPage() {
   const [votarPor, setVotarPor] = useState<UnidadAsamblea | null>(null)   // unidad tocada en la sala para votar en esta tablet
   const [seccion, setSeccion] = useState<'registro' | 'votacion'>('registro')
   const [editMocion, setEditMocion] = useState<Mocion | 'nueva' | null>(null)
+  const [verQR, setVerQR] = useState(false)
 
   async function cargar() { setD(await fetchAsamblea(supabase, id)) }
   useEffect(() => { cargar() }, [id])
@@ -97,6 +98,7 @@ export default function SalaControlPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: '#B8C5D6' }}>
           <Users size={17} /> <strong style={{ color: 'white', fontSize: 20 }}>{d.unidades.length}</strong>{a.total_unidades ? ` / ${a.total_unidades}` : ''} unidades presentes
         </div>
+        {a.codigo_sala && a.estado === 'abierta' && <button className="kz-mini" style={{ background: 'rgba(226,196,122,.16)', color: '#E2C47A', borderColor: 'rgba(226,196,122,.45)' }} onClick={() => setVerQR(true)}><QrCode size={16} /> Mostrar QR</button>}
       </div>
 
       {/* Secciones: todo se maneja desde acá (registro y votaciones) */}
@@ -158,6 +160,7 @@ export default function SalaControlPage() {
         </div>
       </div>
 
+      {verQR && a.codigo_sala && <QRGrande codigo={a.codigo_sala} edificio={d.edificio} onCerrar={() => setVerQR(false)} />}
       {editMocion && <MocionSala d={d} mocion={editMocion === 'nueva' ? null : editMocion} etiqueta={etiqueta} onCerrar={() => setEditMocion(null)} onListo={async () => { setEditMocion(null); await cargar() }} />}
 
       {votarPor && votando && (
@@ -567,6 +570,24 @@ function MocionSala({ d, mocion, etiqueta, onCerrar, onListo }: { d: AsambleaCom
         )}
         <button className="kz-confirmar" onClick={guardar} disabled={guardando || !f.titulo.trim()}>{guardando ? <Loader2 size={24} className="spin" /> : <><Check size={26} strokeWidth={3} /> {mocion ? 'Guardar cambios' : 'Agregar moción'}</>}</button>
       </div>
+    </div>
+  )
+}
+
+// QR de la sala a pantalla completa, para que lo escaneen desde la tablet
+function QRGrande({ codigo, edificio, onCerrar }: { codigo: string; edificio: string; onCerrar: () => void }) {
+  const [qr, setQr] = useState<string | null>(null)
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/v/${codigo}` : `/v/${codigo}`
+  useEffect(() => {
+    import('qrcode').then(Q => Q.toDataURL(url, { width: 900, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0F1E35', light: '#FFFFFF' } })).then(setQr).catch(() => setQr(null))
+  }, [url])
+  return (
+    <div onClick={onCerrar} style={{ position: 'fixed', inset: 0, zIndex: 346, background: '#0F1E35', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 }}>
+      <button onClick={onCerrar} className="kz-mini" style={{ position: 'absolute', top: 18, right: 18 }}><X size={18} /> Cerrar</button>
+      <div style={{ fontSize: 'clamp(24px, 4vw, 40px)', fontWeight: 800, textAlign: 'center' }}>Registrate y votá desde tu celular</div>
+      {qr ? <img src={qr} alt="QR" style={{ width: 'min(68vh, 82vw)', height: 'min(68vh, 82vw)', background: 'white', borderRadius: 18, padding: 14 }} /> : <Loader2 size={40} className="spin" />}
+      <div style={{ fontSize: 'clamp(15px, 2vw, 20px)', color: '#B8C5D6', textAlign: 'center' }}>Escaneá con la cámara · Asamblea {edificio}</div>
+      <div style={{ fontSize: 14, color: '#8A9BB5' }}>Tocá en cualquier lado para volver</div>
     </div>
   )
 }
