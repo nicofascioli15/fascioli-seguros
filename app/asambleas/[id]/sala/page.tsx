@@ -214,7 +214,7 @@ function Votacion({ m, d, votoDe, conCoef, ocultar, sinVotarPrimero, setOcultar,
         {!ocultar && <span style={{ fontSize: 14, fontWeight: 700, color: r.aprobada ? '#4ADE80' : '#F87171', marginLeft: 'auto' }}>Por ahora: {r.aprobada ? 'se aprueba' : 'no alcanza'}</span>}
       </div>
 
-      <div style={{ fontSize: 14, color: '#B8C5D6' }}>¿Alguien no tiene celular? <strong style={{ color: 'white' }}>Tocá su unidad</strong> y que vote en esta tablet.</div>
+      <div style={{ fontSize: 14, color: '#B8C5D6' }}><strong style={{ color: 'white' }}>Tocá una unidad para votar en esta tablet.</strong> Se puede ir pasando la tablet de mano en mano, además de votar desde el celular.</div>
 
       {/* Tarjeta por unidad */}
       <div className="sala-grid">
