@@ -2,14 +2,14 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp } from 'lucide-react'
+import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp, Check, X, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { Pantalla, ResultadoCard, type ResultadoMocion } from '@/components/asambleas/Kiosco'
+import { Pantalla, ResultadoCard, BotonesVoto, type ResultadoMocion } from '@/components/asambleas/Kiosco'
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
-import { calcularResultado, votante, mayoriaLabel, ordenUnidad, type Mocion } from '@/lib/asambleas'
+import { calcularResultado, votante, claveVotante, votoLabel, mayoriaLabel, ordenUnidad, type Mocion, type Voto, type UnidadAsamblea } from '@/lib/asambleas'
 
 // ============================================================================
 // MODO SALA (administración, pensado para tablet): control en vivo de la votación.
@@ -25,6 +25,7 @@ export default function SalaControlPage() {
   const [sinVotarPrimero, setSinVotarPrimero] = useState(true)
   const [confirm, setConfirm] = useState<null | { titulo: string; mensaje: string; label: string; accion: () => Promise<void> }>(null)
   const [trabajando, setTrabajando] = useState(false)
+  const [votarPor, setVotarPor] = useState<UnidadAsamblea | null>(null)   // unidad tocada en la sala para votar en esta tablet
 
   async function cargar() { setD(await fetchAsamblea(supabase, id)) }
   useEffect(() => { cargar() }, [id])
@@ -88,7 +89,7 @@ export default function SalaControlPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 40px' }}>
         <div style={{ maxWidth: 1300, margin: '0 auto' }}>
           {votando ? (
-            <Votacion m={votando} d={d} votoDe={votoDe} conCoef={conCoef} ocultar={ocultarVotos} sinVotarPrimero={sinVotarPrimero}
+            <Votacion m={votando} d={d} votoDe={votoDe} conCoef={conCoef} ocultar={ocultarVotos} sinVotarPrimero={sinVotarPrimero} onVotarUnidad={u => setVotarPor(u)}
               setOcultar={setOcultarVotos} setSinVotarPrimero={setSinVotarPrimero}
               onCerrar={() => {
                 const faltan = d.unidades.filter(u => !votoDe.has(u.id)).length
@@ -129,10 +130,15 @@ export default function SalaControlPage() {
         </div>
       </div>
 
+      {votarPor && votando && (
+        <VotarEnSala m={votando} d={d} unidad={votarPor} votoDe={votoDe} etiqueta={etiqueta}
+          onCerrar={() => setVotarPor(null)} onListo={async () => { setVotarPor(null); await cargar() }} />
+      )}
+
       <ConfirmDialog open={!!confirm} title={confirm?.titulo || ''} message={confirm?.mensaje} confirmLabel={confirm?.label} tone="neutral" loading={trabajando} onConfirm={ejecutar} onCancel={() => setConfirm(null)} />
       <style>{`
         .sala-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-        .sala-card { border-radius: 14px; padding: 12px 12px 11px; border: 2px solid; min-height: 92px; display: flex; flex-direction: column; justify-content: space-between; transition: background .3s, border-color .3s; }
+        .sala-card { all: unset; box-sizing: border-box; cursor: pointer; text-align: left; color: white; border-style: solid; border-radius: 14px; padding: 12px 12px 11px; border: 2px solid; min-height: 92px; display: flex; flex-direction: column; justify-content: space-between; transition: background .3s, border-color .3s; }
         @keyframes salaPulso { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.0) } 50% { box-shadow: 0 0 0 4px rgba(245,158,11,.25) } }
       `}</style>
     </Pantalla>
@@ -151,9 +157,9 @@ const ESTILO: Record<string, { label: string; bg: string; borde: string; color: 
   sin: { label: 'SIN VOTAR', bg: 'rgba(245,158,11,.10)', borde: '#F59E0B', color: '#FBBF24' },
 }
 
-function Votacion({ m, d, votoDe, conCoef, ocultar, sinVotarPrimero, setOcultar, setSinVotarPrimero, onCerrar }: {
+function Votacion({ m, d, votoDe, conCoef, ocultar, sinVotarPrimero, setOcultar, setSinVotarPrimero, onCerrar, onVotarUnidad }: {
   m: Mocion; d: AsambleaCompleta; votoDe: Map<string, string>; conCoef: boolean; ocultar: boolean; sinVotarPrimero: boolean
-  setOcultar: (v: boolean) => void; setSinVotarPrimero: (v: boolean) => void; onCerrar: () => void
+  setOcultar: (v: boolean) => void; setSinVotarPrimero: (v: boolean) => void; onCerrar: () => void; onVotarUnidad: (u: UnidadAsamblea) => void
 }) {
   const r = calcularResultado(d.asamblea, m, d.unidades, d.votos.filter(v => v.mocion_id === m.id))
   const c = r.usaUnidades ? r.unidades : r.coeficiente
@@ -208,24 +214,111 @@ function Votacion({ m, d, votoDe, conCoef, ocultar, sinVotarPrimero, setOcultar,
         {!ocultar && <span style={{ fontSize: 14, fontWeight: 700, color: r.aprobada ? '#4ADE80' : '#F87171', marginLeft: 'auto' }}>Por ahora: {r.aprobada ? 'se aprueba' : 'no alcanza'}</span>}
       </div>
 
+      <div style={{ fontSize: 14, color: '#B8C5D6' }}>¿Alguien no tiene celular? <strong style={{ color: 'white' }}>Tocá su unidad</strong> y que vote en esta tablet.</div>
+
       {/* Tarjeta por unidad */}
       <div className="sala-grid">
         {unidades.map(u => {
           const v = votoDe.get(u.id)
           const st = !v ? ESTILO.sin : ocultar ? ESTILO.voto : ESTILO[v]
           return (
-            <div key={u.id} className="sala-card" style={{ background: st.bg, borderColor: st.borde }}>
+            <button key={u.id} type="button" className="sala-card" onClick={() => onVotarUnidad(u)} title="Tocá para votar en esta tablet" style={{ background: st.bg, borderColor: st.borde }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
                 <span style={{ fontSize: 24, fontWeight: 800 }}>{u.unidad}</span>
                 {u.por_poder && <FileSignature size={15} color="#E2C47A" />}
               </div>
               <div style={{ fontSize: 12, color: '#B8C5D6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{votante(u)}</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: st.color, letterSpacing: '.04em', marginTop: 4 }}>{st.label}</div>
-            </div>
+            </button>
           )
         })}
       </div>
       {d.unidades.length === 0 && <div style={{ color: '#8A9BB5', textAlign: 'center', padding: 30 }}>No hay unidades registradas.</div>}
+    </div>
+  )
+}
+
+// Votar en la tablet de la sala: se toca la unidad, la persona elige y confirma, y vuelve a la sala.
+// Si esa persona vota también por otras unidades (poderes), las vota juntas.
+function VotarEnSala({ m, d, unidad, votoDe, etiqueta, onCerrar, onListo }: {
+  m: Mocion; d: AsambleaCompleta; unidad: UnidadAsamblea; votoDe: Map<string, string>; etiqueta: string
+  onCerrar: () => void; onListo: () => void
+}) {
+  const supabase = createClient()
+  const clave = claveVotante(unidad)
+  const suyas = d.unidades.filter(u => claveVotante(u) === clave).sort(ordenUnidad)
+  const [eleccion, setEleccion] = useState<Record<string, Voto>>(() => {
+    const x: Record<string, Voto> = {}
+    suyas.forEach(u => { const v = votoDe.get(u.id); if (v) x[u.id] = v as Voto })
+    return x
+  })
+  const [guardando, setGuardando] = useState(false)
+  const [ok, setOk] = useState(false)
+  const yaVoto = suyas.some(u => votoDe.has(u.id))
+
+  async function confirmar() {
+    if (suyas.some(u => !eleccion[u.id])) { showToast('Falta elegir el voto de alguna unidad', 'error'); return }
+    setGuardando(true)
+    const filas = suyas.map(u => ({ mocion_id: m.id, unidad_id: u.id, voto: eleccion[u.id] }))
+    const { error } = await supabase.from('asamblea_votos').upsert(filas, { onConflict: 'mocion_id,unidad_id' })
+    setGuardando(false)
+    if (error) { showToast(`No se pudo guardar el voto: ${error.message}`, 'error'); return }
+    await registrarAudit({ accion: 'crear', tabla: 'asamblea_votos', descripcion: `Votó en la sala ${votante(unidad)} (${suyas.map(u => `${u.unidad}: ${votoLabel(eleccion[u.id])}`).join(', ')}) en "${m.titulo}" — ${etiqueta}`, datosDespues: filas })
+    setOk(true)
+    setTimeout(onListo, 1400)
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 345, background: 'rgba(10,21,38,.96)', display: 'flex', flexDirection: 'column', color: 'white' }}>
+      {ok ? (
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+          <div>
+            <div style={{ width: 120, height: 120, borderRadius: '50%', background: '#16A34A', display: 'grid', placeItems: 'center', margin: '0 auto 20px', animation: 'kzPop .35s ease' }}><Check size={64} strokeWidth={3} /></div>
+            <div style={{ fontSize: 30, fontWeight: 800 }}>¡Voto registrado!</div>
+            <div style={{ fontSize: 18, color: '#B8C5D6', marginTop: 6 }}>{votante(unidad)}</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 20px 30px' }}>
+          <div style={{ maxWidth: 820, margin: '0 auto' }}>
+            <button className="kz-mini" onClick={onCerrar}><X size={15} /> Volver a la sala</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '18px 0 6px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(226,196,122,.15)', display: 'grid', placeItems: 'center' }}><User size={28} color="#E2C47A" /></div>
+              <div>
+                <div style={{ fontSize: 26, fontWeight: 800 }}>{votante(unidad)}</div>
+                <div style={{ fontSize: 15, color: '#B8C5D6' }}>Vota por {suyas.length === 1 ? 'la unidad' : `${suyas.length} unidades`} {suyas.map(u => u.unidad).join(', ')}</div>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: '14px 16px', margin: '14px 0 20px' }}>
+              <div style={{ fontSize: 12, color: '#E2C47A', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>Se vota</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{m.titulo}</div>
+              {m.descripcion && <div style={{ fontSize: 15, color: '#B8C5D6', marginTop: 6, whiteSpace: 'pre-wrap' }}>{m.descripcion}</div>}
+            </div>
+            {yaVoto && <div style={{ fontSize: 14, color: '#FBBF24', marginBottom: 12 }}>Ya había votado: si confirma, el voto se cambia.</div>}
+            {suyas.length > 1 && (
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: '#B8C5D6' }}>Lo mismo por todas sus unidades:</div>
+                <BotonesVoto valor={suyas.every(u => eleccion[u.id] === eleccion[suyas[0].id]) ? eleccion[suyas[0].id] : undefined}
+                  onVoto={v => { const x: Record<string, Voto> = {}; suyas.forEach(u => { x[u.id] = v }); setEleccion(x) }} grande />
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {suyas.map(u => (
+                <div key={u.id} style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 14, padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 20, fontWeight: 800 }}>Unidad {u.unidad}</span>
+                    {u.por_poder && <span className="kz-tag"><FileSignature size={13} /> Por poder</span>}
+                  </div>
+                  <BotonesVoto valor={eleccion[u.id]} onVoto={v => setEleccion(x => ({ ...x, [u.id]: v }))} grande={suyas.length === 1} />
+                </div>
+              ))}
+            </div>
+            <button className="kz-confirmar" onClick={confirmar} disabled={guardando || suyas.some(u => !eleccion[u.id])}>
+              {guardando ? <Loader2 size={24} className="spin" /> : <><Check size={26} strokeWidth={3} /> Confirmar voto</>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
