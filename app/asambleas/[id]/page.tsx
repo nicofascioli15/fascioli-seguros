@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, BookOpen, Copy, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
+import { ArrowLeft, Check, BookOpen, Copy, MonitorPlay, Loader2, Users, UserCheck, FileSignature, Plus, Trash2, Tablet, Lock, Unlock, Printer, ListChecks, CheckCircle2, XCircle, ChevronDown, ChevronUp, Pencil, X, AlertTriangle, Vote } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -114,6 +114,7 @@ export default function AsambleaFichaPage() {
           <div style={{ fontSize: 13, color: '#B8C5D6', marginTop: 6 }}>{formatFechaAsamblea(a.fecha)}{a.lugar ? ` · ${a.lugar}` : ''}{d.direccion ? ` · ${d.direccion}` : ''}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link href={`/asambleas/${a.id}/sala`} className="btn-primary btn-sm" style={{ textDecoration: 'none' }}><MonitorPlay size={13} /> Modo sala</Link>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={imprimir} disabled={imprimiendo}>{imprimiendo ? <Loader2 size={13} className="spin" /> : <Printer size={13} />} Acta PDF</button>
           <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={imprimirLibro} disabled={libro}>{libro ? <Loader2 size={13} className="spin" /> : <BookOpen size={13} />} Libro de asistencia</button>
           {!cerrada && <button className="btn-outline btn-sm" style={{ background: 'rgba(255,255,255,.08)', color: 'white', borderColor: 'rgba(255,255,255,.2)' }} onClick={() => setEditando(true)}><Pencil size={13} /> Datos</button>}
@@ -488,6 +489,13 @@ function Mociones({ d, cerrada, onChange, etiqueta, pedirConfirm, irAAcreditar }
         <button className="btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setAbierto(true)}><Plus size={14} /> Nueva moción</button>
       ))}
 
+      {d.mociones.length > 0 && (
+        <Link href={`/asambleas/${d.asamblea.id}/sala`} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--navy)', color: 'white', borderRadius: 14, padding: '12px 16px', textDecoration: 'none' }}>
+          <MonitorPlay size={22} color="#E2C47A" />
+          <div style={{ flex: 1 }}><div style={{ fontWeight: 800 }}>Modo sala (para la tablet de la administración)</div><div style={{ fontSize: 12.5, color: '#B8C5D6' }}>Abrí y cerrá las votaciones y mostrá en vivo quién votó y quién no, tarjeta por unidad.</div></div>
+          <span style={{ color: '#E2C47A', fontWeight: 800 }}>Abrir →</span>
+        </Link>
+      )}
       {d.mociones.length === 0 && <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 14 }}>Todavía no hay mociones. Agregá cada tema que se vota.</div>}
 
       {d.mociones.map((m, i) => {

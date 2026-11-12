@@ -48,6 +48,7 @@ export default function VotoCelularPage() {
   // Datos de quien está usando el dispositivo (para registrar poderes sin volver a escribir ni firmar)
   const [persona, setPersona] = useState<{ nombre: string; apellido: string; tel: string; firma: string | null } | null>(null)
   const [recien, setRecien] = useState<string | null>(null)   // unidad recién registrada
+  const [cambiando, setCambiando] = useState(false)             // "Cambiar voto" mientras la votación sigue abierta
 
   useEffect(() => { setDisp(dispositivo()) }, [])
 
@@ -61,7 +62,7 @@ export default function VotoCelularPage() {
   useEffect(() => { if (!disp) return; const t = setInterval(() => cargar(disp), 3000); return () => clearInterval(t) }, [disp, codigo])
   // Al cambiar de moción se limpia la elección
   const votandoId = e?.votando?.id
-  useEffect(() => { setEleccion({}) }, [votandoId])
+  useEffect(() => { setEleccion({}); setCambiando(false) }, [votandoId])
 
   async function ingresar() {
     setEntrando(true)
@@ -73,15 +74,23 @@ export default function VotoCelularPage() {
 
   async function votar() {
     if (!e?.votando) return
-    const pend = e.mis_unidades.filter(u => !u.voto)
+    const pend = cambiando ? e.mis_unidades : e.mis_unidades.filter(u => !u.voto)
     const votos = pend.filter(u => eleccion[u.id]).map(u => ({ unidad_id: u.id, voto: eleccion[u.id] }))
     if (votos.length !== pend.length) { showToast('Elegí el voto de todas tus unidades', 'error'); return }
     setGuardando(true)
     const { data, error } = await supabase.rpc('asam_cel_votar', { p_codigo: codigo, p_dispositivo: disp, p_mocion: e.votando.id, p_votos: votos })
     setGuardando(false)
     if (error || data?.error) { showToast(data?.error || error?.message || 'No se pudo votar', 'error'); await cargar(); return }
-    showToast('¡Voto registrado!', 'success')
+    showToast(cambiando ? 'Voto cambiado' : '¡Voto registrado!', 'success')
+    setCambiando(false)
     await cargar()
+  }
+
+  function empezarCambio() {
+    if (!e) return
+    const x: Record<string, Voto> = {}
+    e.mis_unidades.forEach(u => { if (u.voto) x[u.id] = u.voto })
+    setEleccion(x); setCambiando(true)
   }
 
   // Terminar: el dispositivo queda libre para la siguiente persona (tablet que se pasa de mano en mano)
@@ -104,7 +113,7 @@ export default function VotoCelularPage() {
   )
 
   const conCoef = e.asamblea.modo_conteo !== 'unidad'
-  const pendientes = e.mis_unidades.filter(u => !u.voto)
+  const pendientes = cambiando ? e.mis_unidades : e.mis_unidades.filter(u => !u.voto)
   const cerradas = e.resultados.filter(r => r.estado === 'cerrada').sort((a, b) => b.orden - a.orden)
   const proximas = e.resultados.filter(r => r.estado === 'pendiente').sort((a, b) => a.orden - b.orden)
   const nombre = e.mis_unidades.find(u => u.nombre)?.nombre
@@ -199,6 +208,7 @@ export default function VotoCelularPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 800, color: '#4ADE80' }}><Check size={20} strokeWidth={3} /> Ya votaste</div>
                   {e.mis_unidades.map(u => <div key={u.id} style={{ fontSize: 14, color: '#B8C5D6' }}>Unidad {u.unidad}: <strong style={{ color: 'white' }}>{u.voto ? votoLabel(u.voto) : '—'}</strong></div>)}
                   <div style={{ fontSize: 13, color: '#8A9BB5', marginTop: 4 }}>El resultado aparece acá cuando se cierre la votación.</div>
+                  <button className="kz-mini" style={{ alignSelf: 'flex-start', marginTop: 8 }} onClick={empezarCambio}>Cambiar voto</button>
                 </div>
               ) : (
                 <div style={{ marginTop: 16 }}>
@@ -218,9 +228,10 @@ export default function VotoCelularPage() {
                     ))}
                   </div>
                   <button className="kz-confirmar" onClick={votar} disabled={guardando || pendientes.some(u => !eleccion[u.id])}>
-                    {guardando ? <Loader2 size={22} className="spin" /> : <><Check size={24} strokeWidth={3} /> Confirmar voto</>}
+                    {guardando ? <Loader2 size={22} className="spin" /> : <><Check size={24} strokeWidth={3} /> {cambiando ? 'Guardar cambio' : 'Confirmar voto'}</>}
                   </button>
-                  <div style={{ textAlign: 'center', fontSize: 12.5, color: '#8A9BB5', marginTop: 8 }}>Una vez confirmado no se puede cambiar.</div>
+                  {cambiando && <button className="kz-mini" style={{ margin: '10px auto 0', display: 'flex' }} onClick={() => setCambiando(false)}>Cancelar</button>}
+                  <div style={{ textAlign: 'center', fontSize: 12.5, color: '#8A9BB5', marginTop: 8 }}>Mientras la votación esté abierta podés cambiar tu voto.</div>
                 </div>
               ))}
             </div>

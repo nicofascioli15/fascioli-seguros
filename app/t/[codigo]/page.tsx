@@ -371,7 +371,7 @@ function Votacion({ e, codigo, recargar }: { e: Estado; codigo: string; recargar
             <button onClick={confirmar} disabled={guardando || pendientes.some(u => !eleccion[u.id])} className="kz-confirmar">
               {guardando ? <Loader2 size={24} className="spin" /> : <><Check size={26} strokeWidth={3} /> Confirmar voto</>}
             </button>
-            <div style={{ textAlign: 'center', fontSize: 13, color: '#8A9BB5', marginTop: 10 }}>Una vez confirmado no se puede cambiar desde la tablet.</div>
+            <div style={{ textAlign: 'center', fontSize: 13, color: '#8A9BB5', marginTop: 10 }}>Mientras la votación esté abierta se puede cambiar el voto desde el celular o con la administración.</div>
           </>
         )}
       </div>
