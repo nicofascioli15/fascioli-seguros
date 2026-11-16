@@ -5,6 +5,7 @@ import { Download, Loader2, Search, Users, FileSignature, Home } from 'lucide-re
 import { createClient } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { traerContactos, exportarContactosExcel, type Contacto } from '@/lib/contactos'
+import ContactosTabla from '@/components/asambleas/ContactosTabla'
 import { formatFechaAsamblea } from '@/lib/asambleas'
 
 export default function ContactosPage() {
@@ -15,9 +16,8 @@ export default function ContactosPage() {
   const [incluirPoder, setIncluirPoder] = useState(true)
   const [exportando, setExportando] = useState(false)
 
-  useEffect(() => {
-    traerContactos(supabase).then(setFilas).catch(e => { showToast(`No se pudieron cargar los contactos: ${e?.message || e}`, 'error'); setFilas([]) })
-  }, [])
+  function cargar() { traerContactos(supabase).then(setFilas).catch(e => { showToast(`No se pudieron cargar los contactos: ${e?.message || e}`, 'error'); setFilas([]) }) }
+  useEffect(() => { cargar() }, [])
 
   const edificios = useMemo(() => Array.from(new Set((filas || []).map(f => f.edificio))).sort(), [filas])
   const t = q.trim().toLowerCase()
@@ -67,26 +67,7 @@ export default function ContactosPage() {
               {filas.length === 0 ? 'Todavía no hay contactos: se van cargando cuando la gente se registra en las asambleas (tablet, modo sala o QR).' : 'Sin resultados'}
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-                <thead><tr style={{ background: 'var(--bg-card-alt)' }}>
-                  {['Edificio', 'Unidad', 'Nombre', 'Teléfono', 'Carácter', 'Última asamblea'].map(h => <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>{h}</th>)}
-                </tr></thead>
-                <tbody>
-                  {visibles.slice(0, 500).map((f, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--border-soft)' }}>
-                      <td style={{ padding: '8px 12px' }}>{f.edificio}{f.codigo ? <span style={{ color: 'var(--text-muted)' }}> · {f.codigo}</span> : null}</td>
-                      <td style={{ padding: '8px 12px', fontWeight: 800 }}>{f.unidad}</td>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{f.nombre || '—'}</td>
-                      <td style={{ padding: '8px 12px', fontVariantNumeric: 'tabular-nums' }}>{f.telefono || '—'}</td>
-                      <td style={{ padding: '8px 12px' }}>{f.caracter === 'Por poder' ? <span className="badge badge-gold"><FileSignature size={11} /> Por poder</span> : <span className="badge badge-neutral"><Home size={11} /> Propietario</span>}</td>
-                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{formatFechaAsamblea(f.ultima)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {visibles.length > 500 && <div style={{ padding: 10, fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center' }}>Se muestran 500 de {visibles.length}; el Excel incluye todos.</div>}
-            </div>
+            <ContactosTabla lista={visibles} mostrarEdificio onCambio={cargar} />
           )}
       </div>
     </div>

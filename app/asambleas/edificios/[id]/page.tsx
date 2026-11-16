@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Search, Plus, Pencil, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Search, Plus, Pencil, Trash2, X, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -11,6 +11,8 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import EdificioAsambleaModal from '@/components/asambleas/EdificioAsambleaModal'
 import { useRouter } from 'next/navigation'
 import { etiquetaUnidad } from '@/lib/padronImport'
+import { traerContactos, exportarContactosExcel, type Contacto } from '@/lib/contactos'
+import ContactosTabla from '@/components/asambleas/ContactosTabla'
 
 type Unidad = {
   id: string; edificio_id: string; torre: string; unidad: string
@@ -32,6 +34,9 @@ export default function EdificioPadronPage() {
   const router = useRouter()
 
   useEffect(() => { cargar() }, [id])
+  const [contactos, setContactos] = useState<Contacto[] | null>(null)
+  function cargarContactos() { traerContactos(supabase, id).then(setContactos).catch(() => setContactos([])) }
+  useEffect(() => { cargarContactos() }, [id])
   async function cargar() {
     const [{ data: e }, { data: us }, { data: ts }] = await Promise.all([
       supabase.from('asam_edificios').select('nombre, direccion, codigo').eq('id', id).maybeSingle(),
@@ -109,6 +114,17 @@ export default function EdificioPadronPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Contactos registrados en las asambleas de este edificio */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '22px 0 10px', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, flex: 1 }}>Contactos <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>({contactos?.length ?? '…'}) · registrados en las asambleas</span></div>
+        <button className="btn-outline btn-sm" disabled={!contactos?.length} onClick={() => contactos && exportarContactosExcel(contactos, `Contactos - ${ed.nombre}`)}><Download size={13} /> Exportar a Excel</button>
+      </div>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 14, overflow: 'hidden' }}>
+        {contactos === null ? <div style={{ padding: 24, textAlign: 'center' }}><Loader2 size={18} className="spin" /></div>
+          : contactos.length === 0 ? <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Todavía no hay contactos: aparecen cuando la gente se registra en una asamblea de este edificio.</div>
+          : <ContactosTabla lista={contactos} onCambio={cargarContactos} />}
       </div>
 
       {editEd && <EdificioAsambleaModal edificio={{ id, ...ed }} onClose={() => setEditEd(false)} onSaved={() => { setEditEd(false); cargar() }} onDeleted={() => router.push('/asambleas/edificios')} />}
