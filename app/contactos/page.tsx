@@ -5,15 +5,8 @@ import Link from 'next/link'
 import { ArrowLeft, Download, Loader2, Search, Users, FileSignature, Home } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
-import { traerTodo } from '@/lib/traerTodo'
+import { traerContactos, exportarContactosExcel, type Contacto } from '@/lib/contactos'
 import { formatFechaAsamblea } from '@/lib/asambleas'
-
-// Contactos de las personas que se registraron en las asambleas (nombre, teléfono, edificio y apto).
-// Se juntan con cada asamblea: es la base más actualizada. Se exporta a Excel, de todos o por edificio.
-type Contacto = {
-  edificio: string; codigo: string; unidad: string; nombre: string; telefono: string
-  caracter: 'Propietario' | 'Por poder'; ultima: string; asambleas: number
-}
 
 export default function ContactosPage() {
   const supabase = createClient()
@@ -24,25 +17,7 @@ export default function ContactosPage() {
   const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
-    traerTodo<any>(() => supabase.from('asamblea_unidades')
-      .select('unidad, propietario, propietario_tel, apoderado, apoderado_tel, por_poder, asambleas(fecha, asam_edificios(nombre, codigo))').order('id'))
-      .then(rows => {
-        // Un contacto por edificio + apto + persona; se queda con la asamblea más reciente
-        const m = new Map<string, Contacto>()
-        rows.forEach((r: any) => {
-          const nombre = ((r.por_poder ? r.apoderado : r.propietario) || '').trim()
-          const tel = ((r.por_poder ? r.apoderado_tel : r.propietario_tel) || '').trim()
-          if (!nombre && !tel) return
-          const ed = r.asambleas?.asam_edificios
-          const k = `${ed?.codigo || ed?.nombre}|${r.unidad}|${nombre.toLowerCase()}|${tel.replace(/\D/g, '')}`
-          const fecha = r.asambleas?.fecha || ''
-          const prev = m.get(k)
-          if (prev) { prev.asambleas++; if (fecha > prev.ultima) prev.ultima = fecha; return }
-          m.set(k, { edificio: ed?.nombre || '—', codigo: ed?.codigo || '', unidad: r.unidad, nombre, telefono: tel, caracter: r.por_poder ? 'Por poder' : 'Propietario', ultima: fecha, asambleas: 1 })
-        })
-        setFilas(Array.from(m.values()).sort((a, b) => a.edificio.localeCompare(b.edificio) || a.unidad.localeCompare(b.unidad, 'es', { numeric: true })))
-      })
-      .catch(e => { showToast(`No se pudieron cargar los contactos: ${e?.message || e}`, 'error'); setFilas([]) })
+    traerContactos(supabase).then(setFilas).catch(e => { showToast(`No se pudieron cargar los contactos: ${e?.message || e}`, 'error'); setFilas([]) })
   }, [])
 
   const edificios = useMemo(() => Array.from(new Set((filas || []).map(f => f.edificio))).sort(), [filas])
@@ -53,19 +28,8 @@ export default function ContactosPage() {
   async function exportar() {
     if (!visibles.length) return
     setExportando(true)
-    try {
-      const XLSX = await import('xlsx')
-      const datos = visibles.map(f => ({
-        'Edificio': f.edificio, 'Código': f.codigo, 'Unidad': f.unidad, 'Nombre': f.nombre, 'Teléfono': f.telefono,
-        'Carácter': f.caracter, 'Última asamblea': formatFechaAsamblea(f.ultima), 'Asambleas': f.asambleas,
-      }))
-      const ws = XLSX.utils.json_to_sheet(datos)
-      ws['!cols'] = [{ wch: 32 }, { wch: 8 }, { wch: 9 }, { wch: 30 }, { wch: 16 }, { wch: 12 }, { wch: 15 }, { wch: 10 }]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Contactos')
-      const nombre = edificio ? `Contactos - ${edificio.replace(/[\\/:*?"<>|]/g, '')}` : 'Contactos - todos los edificios'
-      XLSX.writeFile(wb, `${nombre}.xlsx`)
-    } catch (e: any) { showToast(`No se pudo exportar: ${e?.message || e}`, 'error') }
+    try { await exportarContactosExcel(visibles, edificio ? `Contactos - ${edificio}` : 'Contactos - todos los edificios') }
+    catch (e: any) { showToast(`No se pudo exportar: ${e?.message || e}`, 'error') }
     setExportando(false)
   }
 

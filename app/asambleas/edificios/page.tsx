@@ -2,11 +2,12 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, Search, Building2, ChevronRight, Users, Plus } from 'lucide-react'
+import { Upload, Loader2, Search, Building2, ChevronRight, Users, Plus, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { traerTodo } from '@/lib/traerTodo'
 import ImportarPadron from '@/components/asambleas/ImportarPadron'
+import { traerContactos, exportarContactosExcel } from '@/lib/contactos'
 import EdificioAsambleaModal from '@/components/asambleas/EdificioAsambleaModal'
 
 type Fila = { id: string; nombre: string; direccion: string | null; codigo: string | null; unidades: number }
@@ -20,6 +21,19 @@ export default function EdificiosPadronPage() {
   const [importando, setImportando] = useState(false)
   const [soloConUnidades, setSoloConUnidades] = useState(false)
   const [nuevo, setNuevo] = useState(false)
+  const [exportando, setExportando] = useState<string | null>(null)
+
+  // Exporta a Excel los contactos registrados en las asambleas de ese edificio, sin entrar a la ficha
+  async function exportarEdificio(ev: React.MouseEvent, f: Fila) {
+    ev.stopPropagation()
+    setExportando(f.id)
+    try {
+      const lista = await traerContactos(supabase, f.id)
+      if (!lista.length) showToast(`Todavía no hay contactos de ${f.nombre}: se cargan cuando la gente se registra en las asambleas`, 'error')
+      else { await exportarContactosExcel(lista, `Contactos - ${f.nombre}`); showToast(`${lista.length} contactos exportados`, 'success') }
+    } catch (e: any) { showToast(`No se pudo exportar: ${e?.message || e}`, 'error') }
+    setExportando(null)
+  }
 
   useEffect(() => { cargar() }, [])
 
@@ -81,6 +95,9 @@ export default function EdificiosPadronPage() {
                     <Users size={12} /> {f.unidades ? <><strong>{f.unidades}</strong> unidades</> : 'Sin unidades cargadas'}
                   </div>
                 </div>
+                <button className="btn-outline btn-sm" title="Exportar contactos a Excel" onClick={ev => exportarEdificio(ev, f)} disabled={exportando === f.id}>
+                  {exportando === f.id ? <Loader2 size={13} className="spin" /> : <Download size={13} />}
+                </button>
                 <ChevronRight size={16} color="var(--text-muted)" />
               </div>
             ))}
