@@ -31,6 +31,7 @@ export default function SalaControlPage() {
   const [seccion, setSeccion] = useState<'registro' | 'votacion'>('registro')
   const [editMocion, setEditMocion] = useState<Mocion | 'nueva' | null>(null)
   const [verQR, setVerQR] = useState(false)
+  const [coefDe, setCoefDe] = useState<UnidadAsamblea | null>(null)   // el administrador carga el coeficiente de una unidad
 
   async function cargar() { setD(await fetchAsamblea(supabase, id)) }
   useEffect(() => { cargar() }, [id])
@@ -62,6 +63,7 @@ export default function SalaControlPage() {
 
   async function abrir(m: Mocion) {
     if (d!.unidades.length === 0) { showToast('Todavía no hay unidades registradas', 'error'); return }
+    if (faltanCoef.length) { showToast(`Antes de votar cargá el coeficiente de: ${faltanCoef.map(u => u.unidad).join(', ')}`, 'error'); setCoefDe(faltanCoef[0]); return }
     const { error } = await supabase.from('asamblea_mociones').update({ estado: 'votando', aprobada: null, resultado: null }).eq('id', m.id)
     if (error) { showToast(error.message, 'error'); return }
     await registrarAudit({ accion: 'editar', tabla: 'asamblea_mociones', registroId: m.id, descripcion: `Votación abierta (modo sala): "${m.titulo}" — ${etiqueta}`, datosAntes: { estado: m.estado }, datosDespues: { estado: 'votando' } })
@@ -83,6 +85,8 @@ export default function SalaControlPage() {
 
   const ejecutar = async () => { if (!confirm) return; setTrabajando(true); try { await confirm.accion() } finally { setTrabajando(false); setConfirm(null) } }
 
+  // Si la asamblea cuenta por coeficiente, el administrador tiene que cargar el de cada unidad presente
+  const faltanCoef = conCoef ? d.unidades.filter(u => u.coeficiente == null || Number(u.coeficiente) <= 0).sort(ordenUnidad) : []
   const ultimaCerrada = [...d.mociones].filter(m => m.estado === 'cerrada').sort((x, y) => y.orden - x.orden)[0]
   const pendientes = d.mociones.filter(m => m.estado === 'pendiente')
 
@@ -115,11 +119,21 @@ export default function SalaControlPage() {
             <Votacion m={votando} d={d} votoDe={votoDe} conCoef={conCoef} ocultar={ocultarVotos} sinVotarPrimero={sinVotarPrimero} onVotarUnidad={u => setVotarPor(u)}
               setOcultar={setOcultarVotos} setSinVotarPrimero={setSinVotarPrimero}
               onCerrar={() => {
+                if (faltanCoef.length) { showToast(`Antes de cerrar cargá el coeficiente de: ${faltanCoef.map(u => u.unidad).join(', ')}`, 'error'); setCoefDe(faltanCoef[0]); return }
                 const faltan = d.unidades.filter(u => !votoDe.has(u.id)).length
                 setConfirm({ titulo: `¿Cerrar la votación de "${votando.titulo}"?`, mensaje: faltan ? `${faltan} unidad${faltan > 1 ? 'es' : ''} todavía no votaron. Se cierra con los votos que hay.` : 'Votaron todas las unidades.', label: 'Cerrar votación', accion: () => cerrar(votando) })
               }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {faltanCoef.length > 0 && (
+                <div style={{ maxWidth: 820, width: '100%', margin: '0 auto', background: 'rgba(245,158,11,.12)', border: '1.5px solid #F59E0B', borderRadius: 16, padding: 16 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#FBBF24' }}>Faltan coeficientes ({faltanCoef.length})</div>
+                  <div style={{ fontSize: 14, color: '#B8C5D6', margin: '4px 0 12px' }}>Esta asamblea cuenta por coeficiente. Tocá cada unidad y cargá su porcentaje (lo hace solo la administración). Queda guardado para las próximas asambleas.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {faltanCoef.map(u => <button key={u.id} className="kz-mini" style={{ fontSize: 16, padding: '10px 16px', borderColor: '#F59E0B', color: '#FBBF24' }} onClick={() => setCoefDe(u)}>{u.unidad}</button>)}
+                  </div>
+                </div>
+              )}
               {ultimaCerrada && (
                 <div style={{ maxWidth: 820, width: '100%', margin: '0 auto' }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#8A9BB5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Último resultado</div>
@@ -160,6 +174,14 @@ export default function SalaControlPage() {
         </div>
       </div>
 
+      {coefDe && <CoefSala d={d} unidad={coefDe} etiqueta={etiqueta}
+        onCerrar={() => setCoefDe(null)}
+        onListo={async () => {
+          await cargar()
+          // Sigue con la próxima que falte, así se cargan todas de corrido
+          const resto = faltanCoef.filter(u => u.id !== coefDe.id)
+          setCoefDe(resto[0] || null)
+        }} />}
       {verQR && a.codigo_sala && <QRGrande codigo={a.codigo_sala} edificio={d.edificio} onCerrar={() => setVerQR(false)} />}
       {editMocion && <MocionSala d={d} mocion={editMocion === 'nueva' ? null : editMocion} etiqueta={etiqueta} onCerrar={() => setEditMocion(null)} onListo={async () => { setEditMocion(null); await cargar() }} />}
 
@@ -259,6 +281,7 @@ function Votacion({ m, d, votoDe, conCoef, ocultar, sinVotarPrimero, setOcultar,
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
                 <span style={{ fontSize: 24, fontWeight: 800 }}>{u.unidad}</span>
                 {u.por_poder && <FileSignature size={15} color="#E2C47A" />}
+                {conCoef && <span style={{ fontSize: 11.5, fontWeight: 700, color: u.coeficiente != null ? '#B8C5D6' : '#FBBF24' }}>{u.coeficiente != null ? `${u.coeficiente}%` : 'sin coef.'}</span>}
               </div>
               <div style={{ fontSize: 12, color: '#B8C5D6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{votante(u)}</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: st.color, letterSpacing: '.04em', marginTop: 4 }}>{st.label}</div>
@@ -588,6 +611,48 @@ function QRGrande({ codigo, edificio, onCerrar }: { codigo: string; edificio: st
       {qr ? <img src={qr} alt="QR" style={{ width: 'min(68vh, 82vw)', height: 'min(68vh, 82vw)', background: 'white', borderRadius: 18, padding: 14 }} /> : <Loader2 size={40} className="spin" />}
       <div style={{ fontSize: 'clamp(15px, 2vw, 20px)', color: '#B8C5D6', textAlign: 'center' }}>Escaneá con la cámara · Asamblea {edificio}</div>
       <div style={{ fontSize: 14, color: '#8A9BB5' }}>Tocá en cualquier lado para volver</div>
+    </div>
+  )
+}
+
+// Carga del coeficiente por la administración (en la asamblea y en el padrón del edificio)
+function CoefSala({ d, unidad, etiqueta, onCerrar, onListo }: { d: AsambleaCompleta; unidad: UnidadAsamblea; etiqueta: string; onCerrar: () => void; onListo: () => void }) {
+  const supabase = createClient()
+  const [valor, setValor] = useState(unidad.coeficiente != null ? String(unidad.coeficiente) : '')
+  const [guardando, setGuardando] = useState(false)
+
+  async function guardar() {
+    const coef = parseFloat(valor.replace(',', '.'))
+    if (isNaN(coef) || coef <= 0 || coef > 100) { showToast('Poné un porcentaje válido (ej: 4,25)', 'error'); return }
+    setGuardando(true)
+    const { error } = await supabase.from('asamblea_unidades').update({ coeficiente: coef }).eq('id', unidad.id)
+    if (error) { setGuardando(false); showToast(error.message, 'error'); return }
+    // También en el padrón del edificio, para no volver a cargarlo en la próxima asamblea
+    try {
+      const p = await traerPadron(supabase, d.asamblea.edificio_id)
+      const u = p.unidades.find(x => x.label.toLowerCase() === unidad.unidad.toLowerCase())
+      if (u && d.asamblea.edificio_id) await supabase.from('asam_unidades').update({ coeficiente: coef }).eq('edificio_id', d.asamblea.edificio_id).eq('torre', u.torre).eq('unidad', u.num)
+    } catch {}
+    await registrarAudit({ accion: 'editar', tabla: 'asamblea_unidades', registroId: unidad.id, descripcion: `Coeficiente de la unidad ${unidad.unidad}: ${coef}% (modo sala) — ${etiqueta}`, datosAntes: { coeficiente: unidad.coeficiente }, datosDespues: { coeficiente: coef } })
+    setGuardando(false)
+    onListo()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 347, background: 'rgba(10,21,38,.97)', color: 'white', display: 'grid', placeItems: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 460 }}>
+        <div style={{ fontSize: 13, color: '#E2C47A', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em' }}>Solo administración</div>
+        <div style={{ fontSize: 28, fontWeight: 800, margin: '4px 0 4px' }}>Coeficiente · unidad {unidad.unidad}</div>
+        <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 16 }}>{votante(unidad)} · porcentaje de propiedad según el reglamento</div>
+        <div style={{ position: 'relative' }}>
+          <input className="kz-input" style={{ fontSize: 34, fontWeight: 800, textAlign: 'center', padding: '18px 44px 18px 16px' }} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" autoFocus onKeyDown={e => { if (e.key === 'Enter') guardar() }} />
+          <span style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', fontSize: 26, fontWeight: 800, color: '#8A9BB5' }}>%</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button className="kz-mini" style={{ flex: 1, justifyContent: 'center', padding: 16, fontSize: 16 }} onClick={onCerrar}>Cancelar</button>
+          <button className="kz-confirmar" style={{ flex: 2, marginTop: 0 }} onClick={guardar} disabled={guardando || !valor.trim()}>{guardando ? <Loader2 size={22} className="spin" /> : <><Check size={22} strokeWidth={3} /> Guardar</>}</button>
+        </div>
+      </div>
     </div>
   )
 }
