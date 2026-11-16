@@ -45,14 +45,17 @@ export default function AsambleasPage() {
   if (tactil) return <AsambleasTactil />
 
   const q = search.trim().toLowerCase()
-  const visibles = filas.filter(f => !q || f.edificio.toLowerCase().includes(q) || (f.lugar || '').toLowerCase().includes(q))
+  // Acá solo las activas; las cerradas viven en el Historial
+  const activas = filas.filter(f => f.estado === 'abierta')
+  const nCerradas = filas.length - activas.length
+  const visibles = activas.filter(f => !q || f.edificio.toLowerCase().includes(q) || (f.lugar || '').toLowerCase().includes(q))
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Asambleas</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Acreditación de unidades, mociones y votación electrónica con tablet</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Asambleas activas</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Las que todavía no se cerraron. Las cerradas están en el <a href="/asambleas/historial" style={{ color: 'var(--gold)', fontWeight: 700 }}>Historial ({nCerradas})</a>.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn-outline" onClick={() => { elegirVista('tactil'); window.location.reload() }} title="Vista para celular / tablet, todo táctil"><Tablet size={15} /> Vista táctil</button>
@@ -69,7 +72,7 @@ export default function AsambleasPage() {
       {loading ? <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)' }}><Loader2 size={22} className="spin" /></div>
         : visibles.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-soft)', fontSize: 13 }}>
-            {filas.length === 0 ? 'Todavía no hay asambleas. Creá una con "Nueva asamblea" antes de ir al edificio.' : 'Sin resultados'}
+            {activas.length === 0 ? <>No hay asambleas activas. Creá una con "Nueva asamblea"{nCerradas ? <> o mirá las pasadas en el <a href="/asambleas/historial" style={{ color: 'var(--gold)', fontWeight: 700 }}>Historial</a></> : null}.</> : 'Sin resultados'}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>

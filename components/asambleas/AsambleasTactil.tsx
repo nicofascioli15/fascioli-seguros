@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Search, ArrowLeft, Check, Monitor, Vote, CalendarDays, Users, ChevronRight, Building2, X } from 'lucide-react'
+import { Loader2, Plus, Search, ArrowLeft, Check, Monitor, Vote, CalendarDays, Users, ChevronRight, Building2, X, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -20,7 +20,6 @@ export default function AsambleasTactil() {
   const router = useRouter()
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [nueva, setNueva] = useState(false)
-  const [verCerradas, setVerCerradas] = useState(false)
 
   useEffect(() => {
     supabase.from('asambleas').select('id, fecha, tipo, estado, asam_edificios(nombre), asamblea_unidades(count), asamblea_mociones(count)')
@@ -56,13 +55,17 @@ export default function AsambleasTactil() {
 
           {filas === null ? <div style={{ textAlign: 'center', padding: 30 }}><Loader2 size={28} className="spin" /></div> : (
             <>
-              {abiertas.length > 0 && <div style={{ fontSize: 13, fontWeight: 800, color: '#8A9BB5', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 8 }}>Abiertas</div>}
+              {abiertas.length > 0 && <div style={{ fontSize: 13, fontWeight: 800, color: '#8A9BB5', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 8 }}>Activas</div>}
               {abiertas.map(f => <TarjetaAsamblea key={f.id} f={f} onClick={() => router.push(`/asambleas/${f.id}/sala`)} />)}
               {abiertas.length === 0 && <div style={{ color: '#8A9BB5', fontSize: 16, textAlign: 'center', padding: 10 }}>No hay asambleas abiertas.</div>}
-              {cerradas.length > 0 && (
-                <button className="kz-mini" style={{ alignSelf: 'center', marginTop: 8 }} onClick={() => setVerCerradas(v => !v)}>{verCerradas ? 'Ocultar' : 'Ver'} asambleas cerradas ({cerradas.length})</button>
-              )}
-              {verCerradas && cerradas.map(f => <TarjetaAsamblea key={f.id} f={f} onClick={() => router.push(`/asambleas/${f.id}/sala`)} />)}
+              <button className="kz-persona" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, marginTop: 10 }} onClick={() => router.push('/asambleas/historial')}>
+                <div style={{ width: 54, height: 54, borderRadius: 14, background: 'rgba(255,255,255,.08)', display: 'grid', placeItems: 'center', flexShrink: 0 }}><History size={26} color="#B8C5D6" /></div>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>Asambleas pasadas</div>
+                  <div style={{ fontSize: 14, color: '#B8C5D6' }}>{cerradas.length} cerradas · resoluciones, asistencia con firmas y actas</div>
+                </div>
+                <ChevronRight size={22} color="#8A9BB5" />
+              </button>
             </>
           )}
         </div>

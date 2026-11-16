@@ -42,6 +42,8 @@ export default function SalaControlPage() {
   useEffect(() => { const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = prev } }, [])
 
   const votando = d?.mociones.find(m => m.estado === 'votando') || null
+  // Asamblea cerrada (historial): se abre directo en Votaciones, con los resultados
+  useEffect(() => { if (d?.asamblea.estado === 'cerrada') setSeccion('votacion') }, [d?.asamblea.estado])
   // Cuando se abre una votación, la sala pasa sola a "Votaciones"
   useEffect(() => { if (votando?.id) setSeccion('votacion') }, [votando?.id])
   const votoDe = useMemo(() => new Map((d?.votos || []).filter(v => v.mocion_id === votando?.id).map(v => [v.unidad_id, v.voto])), [d, votando?.id])
@@ -132,6 +134,13 @@ export default function SalaControlPage() {
               }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {a.estado !== 'abierta' && (
+                <div style={{ maxWidth: 820, width: '100%', margin: '0 auto', background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <Lock size={22} color="#8A9BB5" />
+                  <div style={{ flex: 1, minWidth: 220 }}><div style={{ fontSize: 18, fontWeight: 800 }}>Asamblea cerrada</div><div style={{ fontSize: 14, color: '#B8C5D6' }}>{d.unidades.length} unidades presentes · {d.unidades.filter(u => u.firmo).length} firmas. El acta y el libro de asistencia están en "Más".</div></div>
+                  <button className="kz-mini" onClick={() => setMas(true)}><MoreHorizontal size={16} /> Acta y libro</button>
+                </div>
+              )}
               {faltanCoef.length > 0 && (
                 <div style={{ maxWidth: 820, width: '100%', margin: '0 auto', background: 'rgba(245,158,11,.12)', border: '1.5px solid #F59E0B', borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 17, fontWeight: 800, color: '#FBBF24' }}>Faltan coeficientes ({faltanCoef.length})</div>
