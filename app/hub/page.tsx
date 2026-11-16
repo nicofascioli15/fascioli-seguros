@@ -65,6 +65,13 @@ function IconHardHat() {
     </svg>
   )
 }
+function IconContactos() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  )
+}
 function IconArrow() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -305,6 +312,14 @@ export default function HubPage() {
             <ModuleCard key={mod.id} mod={mod} loading={loading} index={i} onClick={() => { if (mod.ready) router.push(mod.route) }} />
           ))}
         </div>
+        <div className="hub-tools">
+          <span className="hub-tools-lbl">Herramientas</span>
+          <button type="button" className="hub-tool" onClick={() => router.push('/contactos')}>
+            <span className="hub-tool-icon"><IconContactos /></span>
+            <span style={{ flex: 1, textAlign: 'left' }}><span style={{ display: 'block', fontWeight: 800 }}>Exportar contactos</span><span style={{ fontSize: 12.5, color: '#7C8DA6' }}>Nombres y teléfonos de los registrados en asambleas, a Excel</span></span>
+            <IconArrow />
+          </button>
+        </div>
         <div className="hub-foot">
           Fascioli Administraciones · Sistema interno de gestión <span className="hub-foot-keys">Atajos: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd></span>
         </div>
@@ -425,6 +440,11 @@ const HUB_CSS = `
 .hub-arrow { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #F1F4F8; color: #94A3B8; transition: all .22s; }
 .hub-card:hover .hub-arrow { background: var(--accent); color: white; transform: translateX(3px); }
 
+.hub-tools { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+.hub-tools-lbl { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #8A9BB5; }
+.hub-tool { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.92); border: 1px solid #E3E8F0; border-radius: 16px; padding: 14px 18px; color: ${NAVY}; transition: transform .18s, box-shadow .18s, border-color .18s; }
+.hub-tool:hover { transform: translateY(-2px); border-color: ${GOLD}; box-shadow: 0 14px 30px -16px rgba(15,30,53,.3); }
+.hub-tool-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: ${NAVY}; color: ${GOLD}; flex-shrink: 0; }
 .hub-foot { margin-top: 36px; display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #A3B1C6; }
 .hub-foot-keys { display: inline-flex; align-items: center; gap: 4px; }
 .hub-foot kbd { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid #DCE3EC; border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: white; color: #7C8DA6; }
