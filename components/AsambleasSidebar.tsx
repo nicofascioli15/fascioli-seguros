@@ -4,13 +4,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useTheme } from '@/lib/ThemeProvider'
-import { Vote, Building2, History, LogOut, Sun, Moon, LayoutGrid, X } from 'lucide-react'
+import { Vote, Building2, History, Contact, LogOut, Sun, Moon, LayoutGrid, X } from 'lucide-react'
 
 type NavItem = { href: string; icon: any; label: string }
 const navItems: NavItem[] = [
   { href: '/asambleas', icon: Vote, label: 'Asambleas activas' },
   { href: '/asambleas/historial', icon: History, label: 'Historial' },
   { href: '/asambleas/edificios', icon: Building2, label: 'Edificios y unidades' },
+  { href: '/asambleas/contactos', icon: Contact, label: 'Contactos' },
 ]
 const bottomNavItems: NavItem[] = [
   { href: '/hub',       icon: LayoutGrid, label: 'Portal' },
@@ -20,7 +21,7 @@ const bottomNavItems: NavItem[] = [
 ]
 
 function activo(pathname: string, href: string) {
-  if (href === '/asambleas') return pathname.startsWith('/asambleas') && !pathname.startsWith('/asambleas/edificios') && !pathname.startsWith('/asambleas/historial')
+  if (href === '/asambleas') return pathname.startsWith('/asambleas') && !pathname.startsWith('/asambleas/edificios') && !pathname.startsWith('/asambleas/historial') && !pathname.startsWith('/asambleas/contactos')
   return pathname.startsWith(href)
 }
 

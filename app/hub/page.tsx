@@ -312,14 +312,6 @@ export default function HubPage() {
             <ModuleCard key={mod.id} mod={mod} loading={loading} index={i} onClick={() => { if (mod.ready) router.push(mod.route) }} />
           ))}
         </div>
-        <div className="hub-tools">
-          <span className="hub-tools-lbl">Herramientas</span>
-          <button type="button" className="hub-tool" onClick={() => router.push('/contactos')}>
-            <span className="hub-tool-icon"><IconContactos /></span>
-            <span style={{ flex: 1, textAlign: 'left' }}><span style={{ display: 'block', fontWeight: 800 }}>Exportar contactos</span><span style={{ fontSize: 12.5, color: '#7C8DA6' }}>Nombres y teléfonos de los registrados en asambleas, a Excel</span></span>
-            <IconArrow />
-          </button>
-        </div>
         <div className="hub-foot">
           Fascioli Administraciones · Sistema interno de gestión <span className="hub-foot-keys">Atajos: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd></span>
         </div>
