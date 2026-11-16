@@ -9,6 +9,7 @@ import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import SalaQR from '@/components/asambleas/SalaQR'
+import { detectarTactil } from '@/hooks/useVistaTactil'
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
 import { traerPadron } from '@/lib/padronImport'
 import {
@@ -40,6 +41,9 @@ export default function AsambleaFichaPage() {
     const t = setInterval(cargar, 4000)
     return () => clearInterval(t)
   }, [hayVotando, id])
+
+  // En celular / tablet la asamblea se maneja entera desde el modo sala
+  useEffect(() => { if (detectarTactil()) router.replace(`/asambleas/${id}/sala`) }, [id])
 
   if (d === undefined) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}><Loader2 size={24} className="spin" /></div>
   if (d === null) return (

@@ -2,11 +2,13 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2, Search, X, Vote, Building2, CalendarDays, ChevronRight, Users } from 'lucide-react'
+import { Plus, Loader2, Search, X, Vote, Building2, CalendarDays, ChevronRight, Users, Tablet } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
 import DatePicker from '@/components/DatePicker'
+import AsambleasTactil from '@/components/asambleas/AsambleasTactil'
+import { useVistaTactil, elegirVista } from '@/hooks/useVistaTactil'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { traerTodo } from '@/lib/traerTodo'
 import { MODOS_CONTEO, formatFechaAsamblea, type Asamblea, type ModoConteo } from '@/lib/asambleas'
@@ -21,6 +23,7 @@ export default function AsambleasPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [nueva, setNueva] = useState(false)
+  const tactil = useVistaTactil()
 
   useEffect(() => { cargar() }, [])
 
@@ -37,6 +40,10 @@ export default function AsambleasPage() {
     setLoading(false)
   }
 
+  // En celular / tablet: todo Asambleas en modo app táctil
+  if (tactil === undefined) return null
+  if (tactil) return <AsambleasTactil />
+
   const q = search.trim().toLowerCase()
   const visibles = filas.filter(f => !q || f.edificio.toLowerCase().includes(q) || (f.lugar || '').toLowerCase().includes(q))
 
@@ -47,7 +54,10 @@ export default function AsambleasPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-main)' }}>Asambleas</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Acreditación de unidades, mociones y votación electrónica con tablet</p>
         </div>
-        <button className="btn-primary" onClick={() => setNueva(true)}><Plus size={15} /> Nueva asamblea</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-outline" onClick={() => { elegirVista('tactil'); window.location.reload() }} title="Vista para celular / tablet, todo táctil"><Tablet size={15} /> Vista táctil</button>
+          <button className="btn-primary" onClick={() => setNueva(true)}><Plus size={15} /> Nueva asamblea</button>
+        </div>
       </div>
 
       <div style={{ position: 'relative', marginBottom: 16, maxWidth: 320 }}>

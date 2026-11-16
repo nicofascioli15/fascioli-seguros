@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp, Check, X, User, Home, Search, PenLine, UserCheck, Plus, Pencil, Trash2, QrCode, Percent } from 'lucide-react'
+import { Loader2, ArrowLeft, Lock, Unlock, Vote, Eye, EyeOff, Users, FileSignature, Play, CheckCircle2, XCircle, ArrowDownUp, Check, X, User, Home, Search, PenLine, UserCheck, Plus, Pencil, Trash2, QrCode, Percent, MoreHorizontal, Printer, BookOpen, Monitor, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { registrarAudit } from '@/lib/audit'
 import { showToast } from '@/lib/toast'
@@ -11,6 +11,8 @@ import { Pantalla, ResultadoCard, BotonesVoto, type ResultadoMocion } from '@/co
 import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asambleasData'
 import { traerPadron, type UnidadPadron } from '@/lib/padronImport'
 import FirmaPad, { type FirmaPadRef } from '@/components/asambleas/FirmaPad'
+import { detectarTactil, elegirVista } from '@/hooks/useVistaTactil'
+import { MODOS_CONTEO, type ModoConteo } from '@/lib/asambleas'
 import { calcularResultado, votante, claveVotante, votoLabel, mayoriaLabel, ordenUnidad, MAYORIAS, BASES, type Mocion, type Voto, type UnidadAsamblea, type Mayoria, type BaseMayoria } from '@/lib/asambleas'
 
 // ============================================================================
@@ -31,6 +33,7 @@ export default function SalaControlPage() {
   const [seccion, setSeccion] = useState<'registro' | 'coef' | 'votacion'>('registro')
   const [editMocion, setEditMocion] = useState<Mocion | 'nueva' | null>(null)
   const [verQR, setVerQR] = useState(false)
+  const [mas, setMas] = useState(false)
   const [coefDe, setCoefDe] = useState<UnidadAsamblea | null>(null)   // el administrador carga el coeficiente de una unidad
 
   async function cargar() { setD(await fetchAsamblea(supabase, id)) }
@@ -94,7 +97,7 @@ export default function SalaControlPage() {
     <Pantalla>
       {/* Barra superior */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,.1)', background: '#0A1526', flexWrap: 'wrap' }}>
-        <button onClick={() => router.push(`/asambleas/${id}`)} className="kz-mini"><ArrowLeft size={15} /> Volver</button>
+        <button onClick={() => router.push(detectarTactil() ? '/asambleas' : `/asambleas/${id}`)} className="kz-mini"><ArrowLeft size={15} /> Volver</button>
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ fontSize: 12, color: '#E2C47A', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>Modo sala · control</div>
           <div style={{ fontSize: 17, fontWeight: 800 }}>Asamblea {d.edificio}</div>
@@ -102,6 +105,7 @@ export default function SalaControlPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: '#B8C5D6' }}>
           <Users size={17} /> <strong style={{ color: 'white', fontSize: 20 }}>{d.unidades.length}</strong>{a.total_unidades ? ` / ${a.total_unidades}` : ''} unidades presentes
         </div>
+        <button className="kz-mini" onClick={() => setMas(true)}><MoreHorizontal size={16} /> Más</button>
         {a.codigo_sala && a.estado === 'abierta' && <button className="kz-mini" style={{ background: 'rgba(226,196,122,.16)', color: '#E2C47A', borderColor: 'rgba(226,196,122,.45)' }} onClick={() => setVerQR(true)}><QrCode size={16} /> Mostrar QR</button>}
       </div>
 
@@ -185,6 +189,8 @@ export default function SalaControlPage() {
           const resto = faltanCoef.filter(u => u.id !== coefDe.id)
           setCoefDe(resto[0] || null)
         }} />}
+      {mas && <MasSala d={d} etiqueta={etiqueta} onCerrar={() => setMas(false)} recargar={cargar}
+        pedirConfirm={c => { setMas(false); setConfirm(c) }} />}
       {verQR && a.codigo_sala && <QRGrande codigo={a.codigo_sala} edificio={d.edificio} onCerrar={() => setVerQR(false)} />}
       {editMocion && <MocionSala d={d} mocion={editMocion === 'nueva' ? null : editMocion} etiqueta={etiqueta} onCerrar={() => setEditMocion(null)} onListo={async () => { setEditMocion(null); await cargar() }} />}
 
@@ -717,6 +723,106 @@ function CoeficientesSala({ d, etiqueta, onGuardado }: { d: AsambleaCompleta; et
         })}
       </div>
       <button className="kz-confirmar" onClick={guardar} disabled={guardando}>{guardando ? <Loader2 size={24} className="spin" /> : <><Check size={26} strokeWidth={3} /> Guardar coeficientes</>}</button>
+    </div>
+  )
+}
+
+// Menú "Más": todo lo que antes requería la computadora (actas, cerrar la asamblea, datos)
+function MasSala({ d, etiqueta, onCerrar, recargar, pedirConfirm }: {
+  d: AsambleaCompleta; etiqueta: string; onCerrar: () => void; recargar: () => Promise<void>
+  pedirConfirm: (c: { titulo: string; mensaje: string; label: string; accion: () => Promise<void> }) => void
+}) {
+  const supabase = createClient()
+  const router = useRouter()
+  const a = d.asamblea
+  const [cargando, setCargando] = useState<string | null>(null)
+  const [datos, setDatos] = useState(false)
+
+  async function pdf(tipo: 'acta' | 'libro') {
+    setCargando(tipo)
+    try {
+      const fresco = await fetchAsamblea(supabase, a.id)
+      if (fresco) {
+        if (tipo === 'acta') { const { imprimirActaPDF } = await import('@/lib/asambleaPdf'); await imprimirActaPDF(fresco) }
+        else { const { imprimirLibroAsistencia } = await import('@/lib/libroAsistenciaPdf'); await imprimirLibroAsistencia(supabase, fresco) }
+      }
+    } catch (e: any) { showToast(`No se pudo generar el PDF: ${e?.message || e}`, 'error') }
+    setCargando(null)
+  }
+
+  async function estado(nuevo: 'abierta' | 'cerrada') {
+    if (nuevo === 'cerrada' && d.mociones.some(m => m.estado === 'votando')) { showToast('Primero cerrá la votación que está abierta', 'error'); return }
+    const { error } = await supabase.from('asambleas').update({ estado: nuevo }).eq('id', a.id)
+    if (error) { showToast(error.message, 'error'); return }
+    await registrarAudit({ accion: 'editar', tabla: 'asambleas', registroId: a.id, descripcion: `Asamblea ${nuevo === 'cerrada' ? 'cerrada' : 'reabierta'} (modo sala) — ${etiqueta}`, datosAntes: { estado: a.estado }, datosDespues: { estado: nuevo } })
+    await recargar()
+  }
+
+  if (datos) return <DatosSala d={d} etiqueta={etiqueta} onCerrar={() => setDatos(false)} onListo={async () => { setDatos(false); await recargar(); onCerrar() }} />
+
+  const item = (icon: React.ReactNode, label: string, sub: string, onClick: () => void, color?: string, cargandoKey?: string) => (
+    <button className="kz-persona" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, minHeight: 0 }} onClick={onClick} disabled={!!cargando}>
+      <span style={{ color: color || '#E2C47A', display: 'flex' }}>{cargando && cargando === cargandoKey ? <Loader2 size={24} className="spin" /> : icon}</span>
+      <span style={{ flex: 1, textAlign: 'left' }}><span style={{ display: 'block', fontSize: 18, fontWeight: 800, color: color || 'white' }}>{label}</span><span style={{ fontSize: 13.5, color: '#8A9BB5' }}>{sub}</span></span>
+    </button>
+  )
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 345, background: 'rgba(10,21,38,.97)', color: 'white', overflowY: 'auto', padding: '22px 18px 40px' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button className="kz-mini" style={{ alignSelf: 'flex-start' }} onClick={onCerrar}><X size={15} /> Volver a la sala</button>
+        <div style={{ fontSize: 26, fontWeight: 800, margin: '8px 0 6px' }}>Más opciones</div>
+        {item(<Printer size={24} />, 'Acta PDF', 'Asistencia, mociones, resultados y votos de cada unidad', () => pdf('acta'), undefined, 'acta')}
+        {item(<BookOpen size={24} />, 'Libro de asistencia', 'Unidades presentes con nombre, teléfono y firma', () => pdf('libro'), undefined, 'libro')}
+        {item(<Settings size={24} />, 'Datos de la asamblea', 'Tipo, convocatoria, conteo de votos, unidades del edificio', () => setDatos(true))}
+        {a.estado === 'abierta'
+          ? item(<Lock size={24} />, 'Cerrar la asamblea', 'Ya no se puede registrar ni votar; el QR deja de funcionar', () => pedirConfirm({ titulo: '¿Cerrar la asamblea?', mensaje: 'Ya no se va a poder registrar ni votar, y el QR deja de funcionar. Se puede reabrir después.', label: 'Cerrar asamblea', accion: () => estado('cerrada') }), '#F87171')
+          : item(<Unlock size={24} />, 'Reabrir la asamblea', 'Vuelve a permitir registrarse y votar', () => pedirConfirm({ titulo: '¿Reabrir la asamblea?', mensaje: 'Se va a poder volver a registrar y votar.', label: 'Reabrir', accion: () => estado('abierta') }))}
+        {item(<Monitor size={24} />, 'Vista computadora', 'Ver la ficha completa como en la PC', () => { elegirVista('compu'); router.push(`/asambleas/${a.id}`) })}
+      </div>
+    </div>
+  )
+}
+
+function DatosSala({ d, etiqueta, onCerrar, onListo }: { d: AsambleaCompleta; etiqueta: string; onCerrar: () => void; onListo: () => void }) {
+  const supabase = createClient()
+  const a = d.asamblea
+  const [f, setF] = useState({ tipo: a.tipo as string, convocatoria: a.convocatoria as string, modo_conteo: a.modo_conteo as ModoConteo, total_unidades: a.total_unidades != null ? String(a.total_unidades) : '', lugar: a.lugar || '', notas: a.notas || '' })
+  const [guardando, setGuardando] = useState(false)
+  const opcion = (sel: boolean) => `kz-opcion ${sel ? 'sel' : ''}`
+  async function guardar() {
+    setGuardando(true)
+    const payload = { tipo: f.tipo, convocatoria: f.convocatoria, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, lugar: f.lugar.trim() || null, notas: f.notas.trim() || null }
+    const { error } = await supabase.from('asambleas').update(payload).eq('id', a.id)
+    setGuardando(false)
+    if (error) { showToast(error.message, 'error'); return }
+    await registrarAudit({ accion: 'editar', tabla: 'asambleas', registroId: a.id, descripcion: `Datos de la asamblea editados (modo sala) — ${etiqueta}`, datosAntes: a, datosDespues: payload })
+    onListo()
+  }
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 346, background: 'rgba(10,21,38,.98)', color: 'white', overflowY: 'auto', padding: '22px 18px 40px' }}>
+      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+        <button className="kz-mini" onClick={onCerrar}><X size={15} /> Volver</button>
+        <div style={{ fontSize: 26, fontWeight: 800, margin: '16px 0' }}>Datos de la asamblea</div>
+        <label className="kz-label">Tipo</label>
+        <div style={{ display: 'flex', gap: 8 }}>{['Ordinaria', 'Extraordinaria'].map(t => <button key={t} className={opcion(f.tipo === t)} onClick={() => setF(x => ({ ...x, tipo: t }))}>{t}</button>)}</div>
+        <div style={{ height: 14 }} />
+        <label className="kz-label">Convocatoria</label>
+        <div style={{ display: 'flex', gap: 8 }}>{['Primera', 'Segunda'].map(t => <button key={t} className={opcion(f.convocatoria === t)} onClick={() => setF(x => ({ ...x, convocatoria: t }))}>{t}</button>)}</div>
+        <div style={{ height: 14 }} />
+        <label className="kz-label">Conteo de votos</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{MODOS_CONTEO.map(m => <button key={m.value} className={opcion(f.modo_conteo === m.value)} style={{ justifyContent: 'flex-start' }} onClick={() => setF(x => ({ ...x, modo_conteo: m.value }))}>{m.label}</button>)}</div>
+        <div style={{ height: 14 }} />
+        <label className="kz-label">Unidades del edificio</label>
+        <input className="kz-input" inputMode="numeric" value={f.total_unidades} onChange={e => setF(x => ({ ...x, total_unidades: e.target.value.replace(/\D/g, '') }))} />
+        <div style={{ height: 14 }} />
+        <label className="kz-label">Lugar</label>
+        <input className="kz-input" value={f.lugar} onChange={e => setF(x => ({ ...x, lugar: e.target.value }))} />
+        <div style={{ height: 14 }} />
+        <label className="kz-label">Notas (salen en el acta)</label>
+        <textarea className="kz-input" style={{ minHeight: 100 }} value={f.notas} onChange={e => setF(x => ({ ...x, notas: e.target.value }))} />
+        <button className="kz-confirmar" onClick={guardar} disabled={guardando}>{guardando ? <Loader2 size={24} className="spin" /> : <><Check size={26} strokeWidth={3} /> Guardar</>}</button>
+      </div>
     </div>
   )
 }
