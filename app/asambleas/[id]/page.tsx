@@ -223,12 +223,8 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
 
   function cambiarUnidad(v: string) {
     const p = enPadron(v)
-    setF(x => ({
-      ...x, unidad: v,
-      ...(p && !editId ? {
-        coeficiente: x.coeficiente || (p.coeficiente != null ? String(p.coeficiente) : ''),
-      } : {}),
-    }))
+    void p   // el coeficiente no se toma del padrón: lo carga la administración en cada asamblea
+    setF(x => ({ ...x, unidad: v }))
   }
   const conVotos = new Set(d.votos.map(v => v.unidad_id))
 
@@ -241,7 +237,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
     if (f.por_poder && !f.apoderado.trim()) { showToast('Poné quién la representa (el que trae el poder)', 'error'); return }
     if (!f.por_poder && !f.propietario.trim()) { showToast('Poné el nombre del propietario presente', 'error'); return }
     const coef = f.coeficiente.trim() ? parseFloat(f.coeficiente.replace(',', '.')) : null
-    if (usaCoef && (coef == null || isNaN(coef) || coef <= 0)) { showToast('Esta asamblea cuenta por coeficiente: poné el coeficiente de la unidad', 'error'); return }
+    if (coef != null && (isNaN(coef) || coef <= 0 || coef > 100)) { showToast('El coeficiente no es válido', 'error'); return }
     setSaving(true)
     // Por poder solo interesa la unidad y quién firma y vota por ella (no el nombre del propietario).
     const payload = { unidad, propietario: f.por_poder ? null : (f.propietario.trim() || null), coeficiente: coef, por_poder: f.por_poder, apoderado: f.por_poder ? f.apoderado.trim() : null }
@@ -332,7 +328,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
             {!f.por_poder
               ? <div className="fgroup" style={{ margin: 0 }}><label>Propietario presente *</label><input style={inp} value={f.propietario} onChange={e => set({ propietario: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>
               : <div className="fgroup" style={{ margin: 0 }}><label>Firma y vota (trae el poder) *</label><input style={inp} value={f.apoderado} onChange={e => set({ apoderado: e.target.value })} onKeyDown={onEnter} placeholder="Nombre y apellido" list="asam-nombres" /></div>}
-            {usaCoef && <div className="fgroup" style={{ margin: 0 }}><label>Coeficiente % *</label><input style={inp} inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 4,25" /></div>}
+            {usaCoef && <div className="fgroup" style={{ margin: 0 }}><label>Coeficiente % (opcional)</label><input style={inp} inputMode="decimal" value={f.coeficiente} onChange={e => set({ coeficiente: e.target.value })} onKeyDown={onEnter} placeholder="Ej: 4,25" /></div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '8px 12px', borderRadius: 9, border: `1.5px solid ${f.por_poder ? 'var(--gold)' : 'var(--border)'}`, background: f.por_poder ? 'var(--gold-pale)' : 'var(--bg-card)' }}>
@@ -347,7 +343,7 @@ function Acreditacion({ d, cerrada, onChange, etiqueta, pedirConfirm }: { d: Asa
           <datalist id="asam-nombres">{nombres.map(n => <option key={n} value={n} />)}</datalist>
           {f.unidad.trim() && padron.length > 0 && (delPadron || manual) && (
             delPadron
-              ? (delPadron.coeficiente != null ? <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Coeficiente según el padrón: {delPadron.coeficiente}%</div> : null)
+              ? null
               : <div style={{ fontSize: 12, color: '#B45309', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} /> La unidad {f.unidad.trim()} no está en el padrón del edificio. Revisá el número antes de acreditarla.</div>
           )}
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>Tip: Enter acredita y vuelve a "Unidad". Si alguien trae varios poderes, el nombre del apoderado queda cargado para la siguiente.</div>

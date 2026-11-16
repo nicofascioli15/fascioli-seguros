@@ -437,7 +437,7 @@ function SalaRegistro({ d, recargar }: { d: AsambleaCompleta; recargar: () => Pr
     }
     const nombre = completo(yo), poder = modo === 'poder'
     const fila = {
-      asamblea_id: d.asamblea.id, unidad: sel.label, coeficiente: sel.coeficiente, por_poder: poder,
+      asamblea_id: d.asamblea.id, unidad: sel.label, coeficiente: null, por_poder: poder,
       propietario: poder ? null : nombre, propietario_tel: poder ? null : yo.tel.trim(),
       apoderado: poder ? nombre : null, apoderado_tel: poder ? yo.tel.trim() : null,
       firma_data: firma, firmo: true,
@@ -630,12 +630,6 @@ function CoefSala({ d, unidad, etiqueta, onCerrar, onListo }: { d: AsambleaCompl
     setGuardando(true)
     const { error } = await supabase.from('asamblea_unidades').update({ coeficiente: coef }).eq('id', unidad.id)
     if (error) { setGuardando(false); showToast(error.message, 'error'); return }
-    // También en el padrón del edificio, para no volver a cargarlo en la próxima asamblea
-    try {
-      const p = await traerPadron(supabase, d.asamblea.edificio_id)
-      const u = p.unidades.find(x => x.label.toLowerCase() === unidad.unidad.toLowerCase())
-      if (u && d.asamblea.edificio_id) await supabase.from('asam_unidades').update({ coeficiente: coef }).eq('edificio_id', d.asamblea.edificio_id).eq('torre', u.torre).eq('unidad', u.num)
-    } catch {}
     await registrarAudit({ accion: 'editar', tabla: 'asamblea_unidades', registroId: unidad.id, descripcion: `Coeficiente de la unidad ${unidad.unidad}: ${coef}% (modo sala) — ${etiqueta}`, datosAntes: { coeficiente: unidad.coeficiente }, datosDespues: { coeficiente: coef } })
     setGuardando(false)
     onListo()
@@ -677,12 +671,9 @@ function CoeficientesSala({ d, etiqueta, onGuardado }: { d: AsambleaCompleta; et
     if (!cambios.length) { onGuardado(); return }
     setGuardando(true)
     try {
-      const p = await traerPadron(supabase, d.asamblea.edificio_id)
       for (const { u, v } of cambios) {
         const { error } = await supabase.from('asamblea_unidades').update({ coeficiente: v }).eq('id', u.id)
         if (error) throw error
-        const pu = p.unidades.find(x => x.label.toLowerCase() === u.unidad.toLowerCase())
-        if (pu && d.asamblea.edificio_id) await supabase.from('asam_unidades').update({ coeficiente: v }).eq('edificio_id', d.asamblea.edificio_id).eq('torre', pu.torre).eq('unidad', pu.num)
       }
       await registrarAudit({ accion: 'editar', tabla: 'asamblea_unidades', descripcion: `Coeficientes cargados en la sala (${cambios.map(c => `${c.u.unidad}: ${c.v}%`).join(', ')}) — ${etiqueta}` })
       showToast(`Coeficientes guardados (${cambios.length})`, 'success')
@@ -699,7 +690,7 @@ function CoeficientesSala({ d, etiqueta, onGuardado }: { d: AsambleaCompleta; et
     <div style={{ maxWidth: 820, margin: '0 auto' }}>
       <div style={{ fontSize: 13, color: '#E2C47A', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em' }}>Solo administración</div>
       <div style={{ fontSize: 26, fontWeight: 800, margin: '4px 0 4px' }}>Coeficientes de las unidades presentes</div>
-      <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 16 }}>Cargalos una sola vez, después de registrar a todos. Se usan para todas las votaciones de esta asamblea y quedan guardados para las próximas.</div>
+      <div style={{ fontSize: 15, color: '#B8C5D6', marginBottom: 16 }}>Cargalos una sola vez, después de registrar a todos. Se usan para todas las votaciones de esta asamblea (no se guardan en el padrón: en cada asamblea se cargan de nuevo).</div>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14, fontSize: 15 }}>
         <span>Unidades presentes: <strong>{unidades.length}</strong></span>
         <span>Suma: <strong>{suma}%</strong>{d.asamblea.total_coeficiente ? ` de ${d.asamblea.total_coeficiente}%` : ''}</span>
