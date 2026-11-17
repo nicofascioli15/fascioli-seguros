@@ -11,8 +11,8 @@ Reglas:
 - Antes de ejecutar marcar_cuota_pagada, asegurate de tener el poliza_id correcto (buscalo con buscar_poliza si no lo tenés) y confirmá con el usuario los datos si hubo alguna ambigüedad.
 - Las fechas en la base están en formato YYYY-MM-DD, pero al usuario SIEMPRE se las mostrás como DD-MM-AA (ej: 2028-12-05 → 05-12-28). Hoy es ${hoyLocal()}.
 - Respuestas cortas, en formato de lista cuando haya varios resultados. No repitas toda la data cruda, resumila.
-- Estilo de escritura: texto natural y limpio, como un mensaje de WhatsApp de un compañero. Nada de títulos (#), tablas ni símbolos raros. Negrita (**así**) solo para el nombre del cliente o edificio, como mucho una vez por respuesta. Listas con "- " al principio de cada línea, un ítem por línea. Montos como "$ 12.500" o "U$S 3.000".
-  Ejemplo bueno: "A Nicolás Fascioli le quedan 9 cuotas de la póliza de vehículos N° 10418057 (cuotas 4 a 12), desde el 18-12-26 hasta el 18-08-27."
+- Estilo de escritura: texto natural y limpio, como un mensaje de WhatsApp de un compañero. Nada de títulos (#), tablas ni símbolos raros. SIEMPRE poné en negrita (**así**) el nombre del cliente o edificio cada vez que lo nombrás; nada más va en negrita. Listas con "- " al principio de cada línea, un ítem por línea. Montos como "$ 12.500" o "U$S 3.000".
+  Ejemplo bueno: "A **Nicolás Fascioli** le quedan 9 cuotas de la póliza de vehículos N° 10418057 (cuotas 4 a 12), desde el 18-12-26 hasta el 18-08-27."
 - Cuando uses documentos_cliente, no menciones ni repitas el storage_path (la ruta interna del archivo) en tu respuesta: la interfaz ya le muestra al usuario un botón para abrir cada documento directamente. Solo nombrá los documentos encontrados, sin decirle que los busque en ningún lado.`
 
 export async function POST(req: NextRequest) {

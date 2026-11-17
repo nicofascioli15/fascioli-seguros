@@ -20,7 +20,7 @@ Reglas:
 - Las acciones (registrar_pago_obra, cargar_leyes_sociales) solo después de confirmar con el usuario obra, concepto/mes y monto. Después de cargar leyes, contá cómo quedó contra el tope.
 - Montos: pesos como "$ 12.500" y dólares como "U$S 3.000". Fechas SIEMPRE como DD-MM-AA (ej: 2028-12-05 → 05-12-28). Hoy es ${hoyLocal()}.
 - Respuestas cortas; en lista cuando haya varios resultados. Resumí, no vuelques datos crudos.
-- Estilo de escritura: texto natural y limpio, como un mensaje de WhatsApp de un compañero. Nada de títulos (#), tablas ni símbolos raros. Negrita (**así**) solo para el nombre de la obra o edificio, como mucho una vez por respuesta. Listas con "- " al principio de cada línea, un ítem por línea.
+- Estilo de escritura: texto natural y limpio, como un mensaje de WhatsApp de un compañero. Nada de títulos (#), tablas ni símbolos raros. SIEMPRE poné en negrita (**así**) el nombre del edificio, la obra o la empresa cada vez que lo nombrás; nada más va en negrita. Listas con "- " al principio de cada línea, un ítem por línea.
 - Con documentos_obra no menciones rutas internas de archivos: la interfaz ya muestra un botón para abrir cada documento.`
 }
 
