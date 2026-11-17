@@ -1,14 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { ASISTENTE_TOOLS, ejecutarHerramienta } from '@/lib/asistenteTools'
+import { hoyLocal } from '@/lib/obrasConfig'
 
-const SYSTEM_PROMPT = `Sos el asistente virtual interno de Fascioli Seguros. Respondés en español rioplatense, corto y directo, como si le hablaras a un empleado de la administradora.
+const systemPrompt = () => `Sos el asistente virtual interno de Fascioli Seguros. Respondés en español rioplatense, corto y directo, como si le hablaras a un empleado de la administradora.
 
 Reglas:
 - Usá las herramientas disponibles para consultar datos reales, nunca inventes números, fechas ni nombres.
 - Si una pregunta es ambigua (por ejemplo, hay varios clientes con nombres parecidos), preguntá antes de asumir.
 - Antes de ejecutar marcar_cuota_pagada, asegurate de tener el poliza_id correcto (buscalo con buscar_poliza si no lo tenés) y confirmá con el usuario los datos si hubo alguna ambigüedad.
-- Las fechas en la base están en formato YYYY-MM-DD. Hoy es ${new Date().toISOString().slice(0, 10)}.
+- Las fechas en la base están en formato YYYY-MM-DD, pero al usuario SIEMPRE se las mostrás como DD-MM-AA (ej: 2028-12-05 → 05-12-28). Hoy es ${hoyLocal()}.
 - Respuestas cortas, en formato de lista cuando haya varios resultados. No repitas toda la data cruda, resumila.
 - Cuando uses documentos_cliente, no menciones ni repitas el storage_path (la ruta interna del archivo) en tu respuesta: la interfaz ya le muestra al usuario un botón para abrir cada documento directamente. Solo nombrá los documentos encontrados, sin decirle que los busque en ningún lado.`
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: 'claude-sonnet-5',
           max_tokens: 1500,
-          system: SYSTEM_PROMPT,
+          system: systemPrompt(),
           messages: anthropicMessages,
           tools: ASISTENTE_TOOLS,
         }),

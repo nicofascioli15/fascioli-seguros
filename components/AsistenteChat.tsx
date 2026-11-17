@@ -7,6 +7,12 @@ import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles, FileTe
 type DocumentoGrupo = { cliente: string; cliente_id: string; documentos: { id: string; nombre: string; tipo: string | null; storage_path: string }[] }
 type Mensaje = { role: 'user' | 'assistant'; texto: string; documentos?: DocumentoGrupo[] }
 
+// Muestra los **texto** del asistente en negrita en vez de con asteriscos
+function conNegritas(texto: string) {
+  return texto.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    p.startsWith('**') && p.endsWith('**') && p.length > 4 ? <strong key={i}>{p.slice(2, -2)}</strong> : p)
+}
+
 const MAX_CONTEXTO = 12 // cuántos mensajes recientes se le mandan al modelo como contexto (no todo el historial guardado, para no gastar de más)
 
 type Modulo = 'seguros' | 'obras'
@@ -203,7 +209,7 @@ export default function AsistenteChat({ modulo = 'seguros' }: { modulo?: Modulo 
                   color: m.role === 'user' ? 'var(--white)' : 'var(--text-main)',
                   padding: '8px 12px', borderRadius: 10, maxWidth: '85%', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
                 }}>
-                  {m.texto}
+                  {m.role === 'user' ? m.texto : conNegritas(m.texto)}
                 </div>
                 {m.documentos?.map(grupo => (
                   <div key={grupo.cliente_id} style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: '90%' }}>
