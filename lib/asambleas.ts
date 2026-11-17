@@ -8,6 +8,20 @@ export type BaseMayoria = 'presentes' | 'edificio'
 export type Voto = 'si' | 'no' | 'abstencion'
 export type EstadoMocion = 'pendiente' | 'votando' | 'cerrada'
 
+// Lugares habituales (el último abre un campo de texto)
+export const LUGARES = ['Hall del edificio', 'Barbacoa', 'Salón comunal', 'Otro'] as const
+export const HORA_SEGUNDA = '19:00'
+// Separa un lugar guardado en opción + texto libre (para volver a mostrarlo en el formulario)
+export function lugarAOpcion(lugar: string | null | undefined): { opcion: string; otro: string } {
+  if (!lugar) return { opcion: '', otro: '' }
+  return (LUGARES as readonly string[]).includes(lugar) && lugar !== 'Otro' ? { opcion: lugar, otro: '' } : { opcion: 'Otro', otro: lugar }
+}
+export function lugarFinal(opcion: string, otro: string) { return opcion === 'Otro' ? (otro.trim() || null) : (opcion || null) }
+// "Segunda convocatoria · 19:00 hs"
+export function textoConvocatoria(a: { convocatoria: string; hora?: string | null }) {
+  return `${a.convocatoria} convocatoria${a.hora ? ` · ${a.hora} hs` : ''}`
+}
+
 export type Asamblea = {
   id: string
   edificio_id: string | null
@@ -18,6 +32,7 @@ export type Asamblea = {
   total_unidades: number | null
   total_coeficiente: number | null
   lugar: string | null
+  hora?: string | null
   notas: string | null
   estado: 'abierta' | 'cerrada'
   codigo_tablet?: string | null

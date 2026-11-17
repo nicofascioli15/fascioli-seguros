@@ -1,6 +1,6 @@
 // Acta de votaciones de una asamblea en PDF: asistentes (presentes / por poder) y cada moción con su resultado y votos nominales.
 import type { AsambleaCompleta } from '@/lib/asambleasData'
-import { calcularResultado, quorum, votante, votoLabel, mayoriaLabel, baseLabel, formatFechaAsamblea, MODOS_CONTEO } from '@/lib/asambleas'
+import { calcularResultado, quorum, votante, votoLabel, mayoriaLabel, baseLabel, formatFechaAsamblea, MODOS_CONTEO, textoConvocatoria } from '@/lib/asambleas'
 import { hoyLocal } from '@/lib/obrasConfig'
 
 const NAVY: [number, number, number] = [15, 30, 53]
@@ -54,7 +54,7 @@ export async function imprimirActaPDF(d: AsambleaCompleta) {
   doc.text(t(`Asamblea ${a.tipo.toLowerCase()} - ${d.edificio}`), M, y)
   y += 16
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...GOLD)
-  doc.text(t(`${formatFechaAsamblea(a.fecha)} · ${a.convocatoria} convocatoria${a.lugar ? ` · ${a.lugar}` : ''}${d.direccion ? ` · ${d.direccion}` : ''}`), M, y)
+  doc.text(t(`${formatFechaAsamblea(a.fecha)} · ${textoConvocatoria(a)}${a.lugar ? ` · ${a.lugar}` : ''}${d.direccion ? ` · ${d.direccion}` : ''}`), M, y)
   y += 6
 
   const q = quorum(a, d.unidades)

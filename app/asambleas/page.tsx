@@ -11,7 +11,7 @@ import AsambleasTactil from '@/components/asambleas/AsambleasTactil'
 import { useVistaTactil, elegirVista } from '@/hooks/useVistaTactil'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { traerTodo } from '@/lib/traerTodo'
-import { MODOS_CONTEO, formatFechaAsamblea, type Asamblea, type ModoConteo } from '@/lib/asambleas'
+import { MODOS_CONTEO, formatFechaAsamblea, LUGARES, HORA_SEGUNDA, lugarFinal, type Asamblea, type ModoConteo } from '@/lib/asambleas'
 
 type Edificio = { id: string; nombre: string; direccion?: string | null; codigo?: string | null; unidades?: number }
 type Fila = Asamblea & { edificio: string; n_unidades: number; n_mociones: number }
@@ -113,7 +113,7 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
   const [elegido, setElegido] = useState<Edificio | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ fecha: hoyLocal(), tipo: 'Ordinaria', convocatoria: 'Primera', modo_conteo: 'unidad' as ModoConteo, total_unidades: '', total_coeficiente: '100', lugar: '' })
+  const [form, setForm] = useState({ fecha: hoyLocal(), tipo: '', convocatoria: 'Segunda', hora: HORA_SEGUNDA, modo_conteo: 'unidad' as ModoConteo, total_unidades: '', total_coeficiente: '100', lugarOp: '', lugarOtro: '' })
 
   useEffect(() => {
     // Se muestra el código y cuántas unidades tiene cada edificio, para elegir el que tiene el padrón cargado.
@@ -139,12 +139,14 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
 
   async function crear() {
     if (!elegido) return
+    if (!form.tipo) { showToast('Elegí el tipo: Ordinaria o Extraordinaria', 'error'); return }
     setSaving(true)
     const payload = {
       edificio_id: elegido.id, fecha: form.fecha || hoyLocal(), tipo: form.tipo, convocatoria: form.convocatoria, modo_conteo: form.modo_conteo,
+      hora: form.convocatoria === 'Segunda' ? (form.hora || null) : null,
       total_unidades: parseInt(form.total_unidades) || null,
       total_coeficiente: form.modo_conteo === 'unidad' ? 100 : (parseFloat(form.total_coeficiente.replace(',', '.')) || 100),
-      lugar: form.lugar.trim() || null,
+      lugar: lugarFinal(form.lugarOp, form.lugarOtro),
     }
     const { data, error } = await supabase.from('asambleas').insert([payload]).select().single()
     setSaving(false)
@@ -195,11 +197,16 @@ function NuevaAsamblea({ onClose, onCreada }: { onClose: () => void; onCreada: (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
               <div className="fgroup"><label>Fecha</label><DatePicker value={form.fecha} onChange={v => set({ fecha: v })} /></div>
-              <div className="fgroup"><label>Tipo</label>
-                <select value={form.tipo} onChange={e => set({ tipo: e.target.value })}><option>Ordinaria</option><option>Extraordinaria</option></select></div>
+              <div className="fgroup"><label>Tipo *</label>
+                <select value={form.tipo} onChange={e => set({ tipo: e.target.value })} style={!form.tipo ? { color: 'var(--text-muted)' } : undefined}>
+                  <option value="" disabled>Elegí el tipo...</option><option>Ordinaria</option><option>Extraordinaria</option></select></div>
               <div className="fgroup"><label>Convocatoria</label>
-                <select value={form.convocatoria} onChange={e => set({ convocatoria: e.target.value })}><option>Primera</option><option>Segunda</option></select></div>
-              <div className="fgroup"><label>Lugar</label><input value={form.lugar} onChange={e => set({ lugar: e.target.value })} placeholder="Ej: Hall del edificio" /></div>
+                <select value={form.convocatoria} onChange={e => set({ convocatoria: e.target.value, ...(e.target.value === 'Segunda' && !form.hora ? { hora: HORA_SEGUNDA } : {}) })}><option>Primera</option><option>Segunda</option></select></div>
+              {form.convocatoria === 'Segunda' && <div className="fgroup"><label>Horario 2ª convocatoria</label><input type="time" value={form.hora} onChange={e => set({ hora: e.target.value })} /></div>}
+              <div className="fgroup"><label>Lugar</label>
+                <select value={form.lugarOp} onChange={e => set({ lugarOp: e.target.value })}>
+                  <option value="">Sin indicar</option>{LUGARES.map(l => <option key={l}>{l}</option>)}</select></div>
+              {form.lugarOp === 'Otro' && <div className="fgroup"><label>¿Dónde?</label><input value={form.lugarOtro} onChange={e => set({ lugarOtro: e.target.value })} placeholder="Escribí el lugar" autoFocus /></div>}
               <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>¿Cómo se cuentan los votos?</label>
                 <select value={form.modo_conteo} onChange={e => set({ modo_conteo: e.target.value as ModoConteo })}>
                   {MODOS_CONTEO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}

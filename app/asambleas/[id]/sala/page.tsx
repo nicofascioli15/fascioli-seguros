@@ -12,7 +12,7 @@ import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asam
 import { traerPadron, type UnidadPadron } from '@/lib/padronImport'
 import FirmaPad, { type FirmaPadRef } from '@/components/asambleas/FirmaPad'
 import { detectarTactil, elegirVista } from '@/hooks/useVistaTactil'
-import { MODOS_CONTEO, type ModoConteo } from '@/lib/asambleas'
+import { MODOS_CONTEO, LUGARES, HORA_SEGUNDA, lugarAOpcion, lugarFinal, type ModoConteo } from '@/lib/asambleas'
 import { calcularResultado, votante, claveVotante, votoLabel, mayoriaLabel, ordenUnidad, MAYORIAS, BASES, type Mocion, type Voto, type UnidadAsamblea, type Mayoria, type BaseMayoria } from '@/lib/asambleas'
 
 // ============================================================================
@@ -796,12 +796,12 @@ function MasSala({ d, etiqueta, onCerrar, recargar, pedirConfirm }: {
 function DatosSala({ d, etiqueta, onCerrar, onListo }: { d: AsambleaCompleta; etiqueta: string; onCerrar: () => void; onListo: () => void }) {
   const supabase = createClient()
   const a = d.asamblea
-  const [f, setF] = useState({ tipo: a.tipo as string, convocatoria: a.convocatoria as string, modo_conteo: a.modo_conteo as ModoConteo, total_unidades: a.total_unidades != null ? String(a.total_unidades) : '', lugar: a.lugar || '', notas: a.notas || '' })
+  const [f, setF] = useState({ tipo: a.tipo as string, convocatoria: a.convocatoria as string, modo_conteo: a.modo_conteo as ModoConteo, total_unidades: a.total_unidades != null ? String(a.total_unidades) : '', hora: a.hora || '', lugarOp: lugarAOpcion(a.lugar).opcion, lugarOtro: lugarAOpcion(a.lugar).otro, notas: a.notas || '' })
   const [guardando, setGuardando] = useState(false)
   const opcion = (sel: boolean) => `kz-opcion ${sel ? 'sel' : ''}`
   async function guardar() {
     setGuardando(true)
-    const payload = { tipo: f.tipo, convocatoria: f.convocatoria, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, lugar: f.lugar.trim() || null, notas: f.notas.trim() || null }
+    const payload = { tipo: f.tipo, convocatoria: f.convocatoria, hora: f.convocatoria === 'Segunda' ? (f.hora || null) : null, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, lugar: lugarFinal(f.lugarOp, f.lugarOtro), notas: f.notas.trim() || null }
     const { error } = await supabase.from('asambleas').update(payload).eq('id', a.id)
     setGuardando(false)
     if (error) { showToast(error.message, 'error'); return }
@@ -817,7 +817,9 @@ function DatosSala({ d, etiqueta, onCerrar, onListo }: { d: AsambleaCompleta; et
         <div style={{ display: 'flex', gap: 8 }}>{['Ordinaria', 'Extraordinaria'].map(t => <button key={t} className={opcion(f.tipo === t)} onClick={() => setF(x => ({ ...x, tipo: t }))}>{t}</button>)}</div>
         <div style={{ height: 14 }} />
         <label className="kz-label">Convocatoria</label>
-        <div style={{ display: 'flex', gap: 8 }}>{['Primera', 'Segunda'].map(t => <button key={t} className={opcion(f.convocatoria === t)} onClick={() => setF(x => ({ ...x, convocatoria: t }))}>{t}</button>)}</div>
+        <div style={{ display: 'flex', gap: 8 }}>{['Primera', 'Segunda'].map(t => <button key={t} className={opcion(f.convocatoria === t)} onClick={() => setF(x => ({ ...x, convocatoria: t, hora: t === 'Segunda' && !x.hora ? HORA_SEGUNDA : x.hora }))}>{t}</button>)}</div>
+        {f.convocatoria === 'Segunda' && <><div style={{ height: 14 }} /><label className="kz-label">Horario de segunda convocatoria</label>
+          <input className="kz-input" type="time" value={f.hora} onChange={e => setF(x => ({ ...x, hora: e.target.value }))} /></>}
         <div style={{ height: 14 }} />
         <label className="kz-label">Conteo de votos</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{MODOS_CONTEO.map(m => <button key={m.value} className={opcion(f.modo_conteo === m.value)} style={{ justifyContent: 'flex-start' }} onClick={() => setF(x => ({ ...x, modo_conteo: m.value }))}>{m.label}</button>)}</div>
@@ -826,7 +828,10 @@ function DatosSala({ d, etiqueta, onCerrar, onListo }: { d: AsambleaCompleta; et
         <input className="kz-input" inputMode="numeric" value={f.total_unidades} onChange={e => setF(x => ({ ...x, total_unidades: e.target.value.replace(/\D/g, '') }))} />
         <div style={{ height: 14 }} />
         <label className="kz-label">Lugar</label>
-        <input className="kz-input" value={f.lugar} onChange={e => setF(x => ({ ...x, lugar: e.target.value }))} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+          {LUGARES.map(l => <button key={l} className={opcion(f.lugarOp === l)} onClick={() => setF(x => ({ ...x, lugarOp: x.lugarOp === l ? '' : l }))}>{l}</button>)}
+        </div>
+        {f.lugarOp === 'Otro' && <input className="kz-input" style={{ marginTop: 8 }} value={f.lugarOtro} onChange={e => setF(x => ({ ...x, lugarOtro: e.target.value }))} placeholder="Escribí el lugar" />}
         <div style={{ height: 14 }} />
         <label className="kz-label">Notas (salen en el acta)</label>
         <textarea className="kz-input" style={{ minHeight: 100 }} value={f.notas} onChange={e => setF(x => ({ ...x, notas: e.target.value }))} />

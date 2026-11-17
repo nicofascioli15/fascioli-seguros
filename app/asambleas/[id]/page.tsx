@@ -14,6 +14,7 @@ import { fetchAsamblea, cerrarVotacion, type AsambleaCompleta } from '@/lib/asam
 import { traerPadron } from '@/lib/padronImport'
 import {
   MAYORIAS, BASES, MODOS_CONTEO, VOTOS, calcularResultado, quorum, votante, mayoriaLabel, baseLabel, formatFechaAsamblea,
+  LUGARES, HORA_SEGUNDA, lugarAOpcion, lugarFinal, textoConvocatoria,
   type Mayoria, type BaseMayoria, type Mocion, type UnidadAsamblea, type ModoConteo,
 } from '@/lib/asambleas'
 
@@ -111,7 +112,7 @@ export default function AsambleaFichaPage() {
         <div style={{ flex: 1, minWidth: 240 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
             <span className={`badge ${cerrada ? 'badge-success' : 'badge-gold'}`}>{cerrada ? 'Cerrada' : 'Abierta'}</span>
-            <span className="badge badge-neutral">{a.tipo} · {a.convocatoria} convocatoria</span>
+            <span className="badge badge-neutral">{a.tipo} · {textoConvocatoria(a)}</span>
             <span className="badge badge-neutral">{MODOS_CONTEO.find(m => m.value === a.modo_conteo)?.label}</span>
           </div>
           <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.2 }}>Asamblea {d.edificio}</div>
@@ -592,11 +593,11 @@ function BarraVotos({ si, no, abst, resto }: { si: number; no: number; abst: num
 function EditarDatos({ d, onClose, onSaved }: { d: AsambleaCompleta; onClose: () => void; onSaved: () => void }) {
   const supabase = createClient()
   const a = d.asamblea
-  const [f, setF] = useState({ tipo: a.tipo, convocatoria: a.convocatoria, modo_conteo: a.modo_conteo, total_unidades: a.total_unidades != null ? String(a.total_unidades) : '', total_coeficiente: String(a.total_coeficiente ?? 100), lugar: a.lugar || '', notas: a.notas || '' })
+  const [f, setF] = useState({ tipo: a.tipo, convocatoria: a.convocatoria, modo_conteo: a.modo_conteo, total_unidades: a.total_unidades != null ? String(a.total_unidades) : '', total_coeficiente: String(a.total_coeficiente ?? 100), hora: a.hora || '', lugarOp: lugarAOpcion(a.lugar).opcion, lugarOtro: lugarAOpcion(a.lugar).otro, notas: a.notas || '' })
   const [saving, setSaving] = useState(false)
   async function guardar() {
     setSaving(true)
-    const payload = { tipo: f.tipo, convocatoria: f.convocatoria, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, total_coeficiente: parseFloat(f.total_coeficiente.replace(',', '.')) || 100, lugar: f.lugar.trim() || null, notas: f.notas.trim() || null }
+    const payload = { tipo: f.tipo, convocatoria: f.convocatoria, hora: f.convocatoria === 'Segunda' ? (f.hora || null) : null, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, total_coeficiente: parseFloat(f.total_coeficiente.replace(',', '.')) || 100, lugar: lugarFinal(f.lugarOp, f.lugarOtro), notas: f.notas.trim() || null }
     const { error } = await supabase.from('asambleas').update(payload).eq('id', a.id)
     setSaving(false)
     if (error) { showToast(error.message, 'error'); return }
@@ -612,12 +613,14 @@ function EditarDatos({ d, onClose, onSaved }: { d: AsambleaCompleta; onClose: ()
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px' }}>
           <div className="fgroup"><label>Tipo</label><select value={f.tipo} onChange={e => setF(x => ({ ...x, tipo: e.target.value as any }))}><option>Ordinaria</option><option>Extraordinaria</option></select></div>
-          <div className="fgroup"><label>Convocatoria</label><select value={f.convocatoria} onChange={e => setF(x => ({ ...x, convocatoria: e.target.value as any }))}><option>Primera</option><option>Segunda</option></select></div>
+          <div className="fgroup"><label>Convocatoria</label><select value={f.convocatoria} onChange={e => { const v = e.target.value as any; setF(x => ({ ...x, convocatoria: v, hora: v === 'Segunda' && !x.hora ? HORA_SEGUNDA : x.hora })) }}><option>Primera</option><option>Segunda</option></select></div>
+          {f.convocatoria === 'Segunda' && <div className="fgroup"><label>Horario 2ª convocatoria</label><input type="time" value={f.hora} onChange={e => setF(x => ({ ...x, hora: e.target.value }))} /></div>}
+          <div className="fgroup"><label>Lugar</label><select value={f.lugarOp} onChange={e => setF(x => ({ ...x, lugarOp: e.target.value }))}><option value="">Sin indicar</option>{LUGARES.map(l => <option key={l}>{l}</option>)}</select></div>
+          {f.lugarOp === 'Otro' && <div className="fgroup"><label>¿Dónde?</label><input value={f.lugarOtro} onChange={e => setF(x => ({ ...x, lugarOtro: e.target.value }))} /></div>}
           <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Conteo de votos</label>
             <select value={f.modo_conteo} onChange={e => setF(x => ({ ...x, modo_conteo: e.target.value as ModoConteo }))}>{MODOS_CONTEO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
           <div className="fgroup"><label>Unidades del edificio</label><input inputMode="numeric" value={f.total_unidades} onChange={e => setF(x => ({ ...x, total_unidades: e.target.value.replace(/\D/g, '') }))} /></div>
           <div className="fgroup"><label>Coeficiente total</label><input inputMode="decimal" value={f.total_coeficiente} onChange={e => setF(x => ({ ...x, total_coeficiente: e.target.value }))} /></div>
-          <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Lugar</label><input value={f.lugar} onChange={e => setF(x => ({ ...x, lugar: e.target.value }))} /></div>
           <div className="fgroup" style={{ gridColumn: 'span 2' }}><label>Notas (salen en el acta)</label><textarea rows={3} value={f.notas} onChange={e => setF(x => ({ ...x, notas: e.target.value }))}
             style={{ width: '100%', padding: '10px 13px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', color: 'var(--navy)', background: 'var(--bg-card)', resize: 'vertical', boxSizing: 'border-box' }} /></div>
         </div>

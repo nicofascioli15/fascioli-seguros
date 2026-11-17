@@ -9,7 +9,7 @@ import { traerTodo } from '@/lib/traerTodo'
 import { hoyLocal } from '@/lib/obrasConfig'
 import { Pantalla } from '@/components/asambleas/Kiosco'
 import { elegirVista } from '@/hooks/useVistaTactil'
-import { MODOS_CONTEO, formatFechaAsamblea, type ModoConteo } from '@/lib/asambleas'
+import { MODOS_CONTEO, formatFechaAsamblea, LUGARES, HORA_SEGUNDA, lugarFinal, type ModoConteo } from '@/lib/asambleas'
 
 type Fila = { id: string; fecha: string; tipo: string; estado: string; edificio: string; n_unidades: number; n_mociones: number }
 type Edificio = { id: string; nombre: string; direccion: string | null; codigo: string | null; unidades: number }
@@ -99,7 +99,7 @@ function NuevaAsambleaTactil({ onCerrar, onCreada }: { onCerrar: () => void; onC
   const [edificios, setEdificios] = useState<Edificio[] | null>(null)
   const [buscar, setBuscar] = useState('')
   const [ed, setEd] = useState<Edificio | null>(null)
-  const [f, setF] = useState({ fecha: hoyLocal(), tipo: 'Ordinaria', convocatoria: 'Primera', modo_conteo: 'unidad' as ModoConteo, total_unidades: '', lugar: '' })
+  const [f, setF] = useState({ fecha: hoyLocal(), tipo: '', convocatoria: 'Segunda', hora: HORA_SEGUNDA, modo_conteo: 'unidad' as ModoConteo, total_unidades: '', lugarOp: '', lugarOtro: '' })
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
@@ -118,7 +118,7 @@ function NuevaAsambleaTactil({ onCerrar, onCreada }: { onCerrar: () => void; onC
   async function crear() {
     if (!ed) return
     setGuardando(true)
-    const payload = { edificio_id: ed.id, fecha: f.fecha || hoyLocal(), tipo: f.tipo, convocatoria: f.convocatoria, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, total_coeficiente: 100, lugar: f.lugar.trim() || null }
+    const payload = { edificio_id: ed.id, fecha: f.fecha || hoyLocal(), tipo: f.tipo, convocatoria: f.convocatoria, hora: f.convocatoria === 'Segunda' ? (f.hora || null) : null, modo_conteo: f.modo_conteo, total_unidades: parseInt(f.total_unidades) || null, total_coeficiente: 100, lugar: lugarFinal(f.lugarOp, f.lugarOtro) }
     const { data, error } = await supabase.from('asambleas').insert([payload]).select().single()
     setGuardando(false)
     if (error || !data) { showToast(`No se pudo crear: ${error?.message || ''}`, 'error'); return }
@@ -173,19 +173,29 @@ function NuevaAsambleaTactil({ onCerrar, onCreada }: { onCerrar: () => void; onC
               <label className="kz-label">Fecha</label>
               <input className="kz-input" type="date" value={f.fecha} onChange={e => setF(x => ({ ...x, fecha: e.target.value }))} />
               <div style={{ height: 16 }} />
-              <label className="kz-label">Tipo</label>
+              <label className="kz-label">Tipo (obligatorio)</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {['Ordinaria', 'Extraordinaria'].map(t => <button key={t} className={opcion(f.tipo === t)} onClick={() => setF(x => ({ ...x, tipo: t }))}>{t}</button>)}
               </div>
               <div style={{ height: 16 }} />
               <label className="kz-label">Convocatoria</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                {['Primera', 'Segunda'].map(t => <button key={t} className={opcion(f.convocatoria === t)} onClick={() => setF(x => ({ ...x, convocatoria: t }))}>{t}</button>)}
+                {['Primera', 'Segunda'].map(t => <button key={t} className={opcion(f.convocatoria === t)} onClick={() => setF(x => ({ ...x, convocatoria: t, hora: t === 'Segunda' && !x.hora ? HORA_SEGUNDA : x.hora }))}>{t}</button>)}
               </div>
+              {f.convocatoria === 'Segunda' && (
+                <>
+                  <div style={{ height: 16 }} />
+                  <label className="kz-label">Horario de segunda convocatoria</label>
+                  <input className="kz-input" type="time" value={f.hora} onChange={e => setF(x => ({ ...x, hora: e.target.value }))} />
+                </>
+              )}
               <div style={{ height: 16 }} />
               <label className="kz-label">Lugar (opcional)</label>
-              <input className="kz-input" value={f.lugar} onChange={e => setF(x => ({ ...x, lugar: e.target.value }))} placeholder="Ej: Hall del edificio" />
-              <button className="kz-confirmar" onClick={() => setPaso(3)}>Siguiente <ChevronRight size={24} /></button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+                {LUGARES.map(l => <button key={l} className={opcion(f.lugarOp === l)} onClick={() => setF(x => ({ ...x, lugarOp: x.lugarOp === l ? '' : l }))}>{l}</button>)}
+              </div>
+              {f.lugarOp === 'Otro' && <input className="kz-input" style={{ marginTop: 8 }} value={f.lugarOtro} onChange={e => setF(x => ({ ...x, lugarOtro: e.target.value }))} placeholder="Escribí el lugar" autoFocus />}
+              <button className="kz-confirmar" onClick={() => { if (!f.tipo) { showToast('Elegí el tipo: Ordinaria o Extraordinaria', 'error'); return } setPaso(3) }}>Siguiente <ChevronRight size={24} /></button>
             </>
           )}
 
