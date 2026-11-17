@@ -7,10 +7,32 @@ import { MessageCircle, X, Send, Loader2, Maximize2, Minimize2, Sparkles, FileTe
 type DocumentoGrupo = { cliente: string; cliente_id: string; documentos: { id: string; nombre: string; tipo: string | null; storage_path: string }[] }
 type Mensaje = { role: 'user' | 'assistant'; texto: string; documentos?: DocumentoGrupo[] }
 
-// Muestra los **texto** del asistente en negrita en vez de con asteriscos
+// Negritas sin asteriscos (y limpia asteriscos sueltos)
+function negritas(linea: string) {
+  return linea.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    p.startsWith('**') && p.endsWith('**') && p.length > 4
+      ? <strong key={i} style={{ fontWeight: 700 }}>{p.slice(2, -2)}</strong>
+      : p.replace(/\*+/g, '').replace(/^#+\s*/, ''))
+}
+
+// Arma la respuesta del asistente: párrafos y listas con viñetas prolijas
 function conNegritas(texto: string) {
-  return texto.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    p.startsWith('**') && p.endsWith('**') && p.length > 4 ? <strong key={i}>{p.slice(2, -2)}</strong> : p)
+  const lineas = texto.replace(/\n{3,}/g, '\n\n').trim().split('\n')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'normal' }}>
+      {lineas.map((l, i) => {
+        const item = l.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/)
+        if (item) return (
+          <div key={i} style={{ display: 'flex', gap: 7, paddingLeft: 2 }}>
+            <span style={{ color: 'var(--gold)', fontWeight: 800, flexShrink: 0 }}>•</span>
+            <span>{negritas(item[1])}</span>
+          </div>
+        )
+        if (!l.trim()) return <div key={i} style={{ height: 4 }} />
+        return <div key={i}>{negritas(l)}</div>
+      })}
+    </div>
+  )
 }
 
 const MAX_CONTEXTO = 12 // cuántos mensajes recientes se le mandan al modelo como contexto (no todo el historial guardado, para no gastar de más)
