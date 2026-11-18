@@ -26,6 +26,8 @@ export default async function proxy(request: NextRequest) {
   // en esa asamblea, a través de funciones de la base que controlan el código.
   // Lo mismo para el QR de la sala (/v/CODIGO): votación desde el celular de cada propietario.
   if (request.nextUrl.pathname.startsWith('/t/') || request.nextUrl.pathname.startsWith('/v/')) return response
+  // El login del servidor (formulario sin JavaScript) tiene que poder entrar sin sesión
+  if (request.nextUrl.pathname === '/api/login') return response
 
   // Redirect to login if not authenticated (except login page)
   if (!user && !request.nextUrl.pathname.startsWith('/login')) {

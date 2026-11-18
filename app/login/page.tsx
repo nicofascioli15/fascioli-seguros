@@ -66,7 +66,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <form onSubmit={handleLogin} style={{
+        <form onSubmit={handleLogin} method="post" action="/api/login" style={{
           background: 'white',
           borderRadius: 20,
           padding: '36px 32px',
