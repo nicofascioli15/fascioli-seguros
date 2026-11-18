@@ -400,16 +400,14 @@ const HUB_CSS = `
   box-shadow: 0 1px 2px rgba(15,30,53,.04), 0 12px 32px -12px rgba(15,30,53,.14);
   transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, border-color .22s; animation: hubIn .5s cubic-bezier(.2,.8,.2,1) backwards; }
 .hub-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent 80%); opacity: .9; }
-.hub-card:hover, .hub-card:focus-visible { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 55%, #E3E8F0); box-shadow: 0 2px 4px rgba(15,30,53,.05), 0 24px 48px -16px color-mix(in srgb, var(--accent) 45%, rgba(15,30,53,.25)); }
+.hub-card:focus-visible { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 55%, #E3E8F0); box-shadow: 0 2px 4px rgba(15,30,53,.05), 0 24px 48px -16px color-mix(in srgb, var(--accent) 45%, rgba(15,30,53,.25)); }
 .hub-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .hub-card[disabled] { opacity: .55; cursor: default; }
 .hub-card-shine { position: absolute; width: 260px; height: 260px; border-radius: 50%; right: -120px; top: -140px; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%); pointer-events: none; transition: transform .4s; }
-.hub-card:hover .hub-card-shine { transform: scale(1.25); }
 
 .hub-card-head { display: flex; align-items: center; gap: 16px; position: relative; }
 .hub-icon { width: 54px; height: 54px; border-radius: 16px; flex-shrink: 0; display: grid; place-items: center; color: var(--accent);
   background: linear-gradient(145deg, #1B3155, ${NAVY}); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 18px -8px rgba(15,30,53,.6); transition: transform .22s; }
-.hub-card:hover .hub-icon { transform: rotate(-6deg) scale(1.05); }
 .hub-card-title { flex: 1; min-width: 0; }
 .hub-card-label { font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: ${NAVY}; }
 .hub-card-desc { font-size: 13px; color: #7C8DA6; margin-top: 3px; line-height: 1.45; }
@@ -428,18 +426,26 @@ const HUB_CSS = `
 .hub-skel { display: inline-block; width: 38px; height: 20px; border-radius: 6px; background: linear-gradient(90deg, #E8EDF3, #F4F7FA, #E8EDF3); background-size: 200% 100%; animation: hubShimmer 1.2s infinite; vertical-align: middle; }
 
 .hub-cta { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: #94A3B8; transition: color .2s; position: relative; }
-.hub-card:hover .hub-cta { color: ${NAVY}; }
 .hub-arrow { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #F1F4F8; color: #94A3B8; transition: all .22s; }
-.hub-card:hover .hub-arrow { background: var(--accent); color: white; transform: translateX(3px); }
 
 .hub-tools { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
 .hub-tools-lbl { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #8A9BB5; }
 .hub-tool { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.92); border: 1px solid #E3E8F0; border-radius: 16px; padding: 14px 18px; color: ${NAVY}; transition: transform .18s, box-shadow .18s, border-color .18s; }
-.hub-tool:hover { transform: translateY(-2px); border-color: ${GOLD}; box-shadow: 0 14px 30px -16px rgba(15,30,53,.3); }
 .hub-tool-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: ${NAVY}; color: ${GOLD}; flex-shrink: 0; }
 .hub-foot { margin-top: 36px; display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #A3B1C6; }
 .hub-foot-keys { display: inline-flex; align-items: center; gap: 4px; }
 .hub-foot kbd { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid #DCE3EC; border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: white; color: #7C8DA6; }
+/* En iPad/celular no hay hover: así el primer toque ya entra (sin "primer toque = hover") */
+@media (hover: hover) {
+.hub-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 55%, #E3E8F0); box-shadow: 0 2px 4px rgba(15,30,53,.05), 0 24px 48px -16px color-mix(in srgb, var(--accent) 45%, rgba(15,30,53,.25)); }
+.hub-card:hover .hub-card-shine { transform: scale(1.25); }
+.hub-card:hover .hub-icon { transform: rotate(-6deg) scale(1.05); }
+.hub-card:hover .hub-cta { color: ${NAVY}; }
+.hub-card:hover .hub-arrow { background: var(--accent); color: white; transform: translateX(3px); }
+.hub-tool:hover { transform: translateY(-2px); border-color: ${GOLD}; box-shadow: 0 14px 30px -16px rgba(15,30,53,.3); }
+}
+.hub-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.hub-card:active { transform: scale(.985); }
 @media (hover: none) { .hub-kbd, .hub-foot-keys { display: none; } }
 
 @keyframes hubIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

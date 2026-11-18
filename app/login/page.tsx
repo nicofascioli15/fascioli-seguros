@@ -14,11 +14,17 @@ export default function LoginPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  async function handleLogin() {
-    if (!email || !password) return
+  // En iPad/iPhone el autocompletado (llavero) llena los campos sin avisarle a la página:
+  // por eso se leen directo del formulario al tocar Ingresar.
+  async function handleLogin(ev?: React.FormEvent<HTMLFormElement>) {
+    ev?.preventDefault()
+    const form = ev?.currentTarget
+    const em = ((form?.elements.namedItem('email') as HTMLInputElement | null)?.value || email).trim()
+    const pw = (form?.elements.namedItem('password') as HTMLInputElement | null)?.value || password
+    if (!em || !pw) { setError('Completá el email y la contraseña.'); return }
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email: em, password: pw })
     if (error) {
       setError('Email o contraseña incorrectos.')
       setLoading(false)
@@ -60,7 +66,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div style={{
+        <form onSubmit={handleLogin} style={{
           background: 'white',
           borderRadius: 20,
           padding: '36px 32px',
@@ -76,10 +82,13 @@ export default function LoginPage() {
               <Mail size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
               <input
                 type="email"
+                name="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
                 placeholder="usuario@fascioli.com.uy"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 autoFocus
                 style={{
                   width: '100%', padding: '12px 14px 12px 42px',
@@ -103,10 +112,11 @@ export default function LoginPage() {
               <Lock size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate)', pointerEvents: 'none' }} />
               <input
                 type={showPass ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 style={{
                   width: '100%', padding: '12px 44px 12px 42px',
                   border: '1.5px solid var(--border)', borderRadius: 10,
@@ -118,6 +128,7 @@ export default function LoginPage() {
                 onBlur={e => (e.target.style.borderColor = 'var(--border)')}
               />
               <button
+                type="button"
                 onClick={() => setShowPass(!showPass)}
                 style={{
                   position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
@@ -144,20 +155,20 @@ export default function LoginPage() {
 
           {/* Botón */}
           <button
-            onClick={handleLogin}
-            disabled={loading || !email || !password}
+            type="submit"
+            disabled={loading}
             style={{
-              width: '100%', padding: '13px',
-              background: loading || !email || !password ? '#D4A83A' : 'var(--gold)',
+              width: '100%', padding: '13px', touchAction: 'manipulation',
+              background: 'var(--gold)',
               color: 'var(--navy)', fontWeight: 800, fontSize: 15,
               border: 'none', borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all .15s', fontFamily: 'inherit',
-              opacity: loading || !email || !password ? 0.7 : 1
+              opacity: loading ? 0.7 : 1
             }}
           >
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
-        </div>
+        </form>
 
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,.3)' }}>
           Fascioli Administraciones © {new Date().getFullYear()}
